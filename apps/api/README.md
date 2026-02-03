@@ -74,11 +74,10 @@ uvicorn app.main:app --reload
 ### Environment Variables
 
 ```bash
-SUPABASE_URL=https://vwayvxcvkozxumezwqio.supabase.co
+SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_KEY=your_service_key
 SUPABASE_ANON_KEY=your_anon_key
 DEBUG=true
-PORT=8000
 ```
 
 ### Testing
@@ -113,7 +112,7 @@ The API is configured for deployment on Koyeb:
 ```bash
 # Using Koyeb CLI
 koyeb app create yieldops-api \
-  --git github.com/AngelP17/YieldOps \
+  --git github.com:AngelP17/YieldOps.git \
   --git-branch main \
   --git-build-command "pip install -r requirements.txt" \
   --git-run-command "uvicorn app.main:app --host 0.0.0.0 --port 8000" \
