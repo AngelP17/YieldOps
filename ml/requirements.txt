@@ -1,0 +1,14 @@
+# ML Core
+scikit-learn==1.4.0
+numpy==1.26.3
+pandas==2.2.0
+scipy==1.12.0
+
+# Jupyter & Visualization
+jupyter==1.0.0
+matplotlib==3.8.2
+seaborn==0.13.1
+
+# Data
+supabase==2.3.0
+python-dotenv==1.0.0

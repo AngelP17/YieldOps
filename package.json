@@ -1,0 +1,19 @@
+{
+  "name": "yieldops",
+  "version": "1.0.0",
+  "description": "Smart Fab - Intelligent Manufacturing Monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:dashboard": "cd apps/dashboard && npm run dev",
+    "dev:api": "cd apps/api && uvicorn app.main:app --reload",
+    "build": "cd apps/dashboard && npm run build",
+    "lint": "cd apps/dashboard && npm run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
