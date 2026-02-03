@@ -4,10 +4,32 @@ import { Machine } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
 import { Activity, Cpu, Settings, Zap, Package, AlertCircle, Clock } from 'lucide-react';
 
+// Mock data for demo when Supabase is not configured
+const MOCK_MACHINES: Machine[] = [
+  { machine_id: '1', name: 'Litho-01', type: 'lithography', status: 'RUNNING', efficiency_rating: 0.95, location_zone: 'Zone A', max_temperature: 80, max_vibration: 5, current_wafer_count: 12, total_wafers_processed: 15000, last_maintenance: '2024-01-01', created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { machine_id: '2', name: 'Litho-02', type: 'lithography', status: 'IDLE', efficiency_rating: 0.88, location_zone: 'Zone A', max_temperature: 80, max_vibration: 5, current_wafer_count: 0, total_wafers_processed: 12000, last_maintenance: '2024-01-15', created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { machine_id: '3', name: 'Etch-01', type: 'etching', status: 'RUNNING', efficiency_rating: 0.92, location_zone: 'Zone B', max_temperature: 100, max_vibration: 8, current_wafer_count: 8, total_wafers_processed: 18000, last_maintenance: '2024-01-10', created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { machine_id: '4', name: 'Etch-02', type: 'etching', status: 'DOWN', efficiency_rating: 0.65, location_zone: 'Zone B', max_temperature: 100, max_vibration: 8, current_wafer_count: 0, total_wafers_processed: 9000, last_maintenance: '2024-02-01', created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { machine_id: '5', name: 'Dep-01', type: 'deposition', status: 'RUNNING', efficiency_rating: 0.90, location_zone: 'Zone C', max_temperature: 120, max_vibration: 3, current_wafer_count: 15, total_wafers_processed: 20000, last_maintenance: '2024-01-20', created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { machine_id: '6', name: 'Insp-01', type: 'inspection', status: 'MAINTENANCE', efficiency_rating: 0.75, location_zone: 'Zone D', max_temperature: 40, max_vibration: 2, current_wafer_count: 0, total_wafers_processed: 5000, last_maintenance: '2024-02-10', created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { machine_id: '7', name: 'Clean-01', type: 'cleaning', status: 'RUNNING', efficiency_rating: 0.93, location_zone: 'Zone E', max_temperature: 60, max_vibration: 4, current_wafer_count: 20, total_wafers_processed: 25000, last_maintenance: '2024-01-05', created_at: '2024-01-01', updated_at: '2024-01-01' },
+];
+
+const MOCK_JOBS = [
+  { job_id: '1', job_name: 'Wafer-Batch-001', wafer_count: 25, priority_level: 3, status: 'RUNNING', recipe_type: 'standard', assigned_machine_id: '1', estimated_duration_minutes: 120, actual_start_time: '2024-01-01', actual_end_time: null, deadline: '2024-01-02', customer_tag: 'Apple', is_hot_lot: true, created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { job_id: '2', job_name: 'Wafer-Batch-002', wafer_count: 50, priority_level: 2, status: 'PENDING', recipe_type: 'standard', assigned_machine_id: null, estimated_duration_minutes: 180, actual_start_time: null, actual_end_time: null, deadline: '2024-01-03', customer_tag: 'Samsung', is_hot_lot: false, created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { job_id: '3', job_name: 'Wafer-Batch-003', wafer_count: 30, priority_level: 1, status: 'PENDING', recipe_type: 'express', assigned_machine_id: null, estimated_duration_minutes: 90, actual_start_time: null, actual_end_time: null, deadline: '2024-01-02', customer_tag: 'NVIDIA', is_hot_lot: true, created_at: '2024-01-01', updated_at: '2024-01-01' },
+];
+
 function App() {
-  const { machines, isConnected } = useRealtimeMachines();
+  const { machines: realtimeMachines, isConnected } = useRealtimeMachines();
   const { sensorData } = useLatestSensorData();
-  const { jobs } = useRealtimeJobs();
+  const { jobs: realtimeJobs } = useRealtimeJobs();
+  
+  // Use mock data if Supabase is not configured
+  const hasSupabase = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'your_supabase_url';
+  const machines = hasSupabase ? realtimeMachines : MOCK_MACHINES;
+  const jobs = hasSupabase ? realtimeJobs : MOCK_JOBS;
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
 
   // Merge machines with latest sensor data

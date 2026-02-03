@@ -1,8 +1,0 @@
-{
-  "buildCommand": "cd apps/dashboard && npm install && npm run build",
-  "outputDirectory": "apps/dashboard/dist",
-  "framework": "vite",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/apps/dashboard/dist/index.html" }
-  ]
-}
