@@ -7,11 +7,14 @@ service:
   routes:
     - path: /
   command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+  root_directory: apps/api
   env:
     - name: SUPABASE_URL
       value: "https://vwayvxcvkozxumezwqio.supabase.co"
+    - name: SUPABASE_ANON_KEY
+      value: "sb_publishable_bATl6MEumny_GL_qPtlI4Q_ubu3L0r1"
     - name: SUPABASE_SERVICE_KEY
-      value: "YOUR_SUPABASE_SERVICE_KEY"
+      value: "SET_IN_KOYEB_DASHBOARD"
     - name: PORT
       value: "8000"
     - name: AUTO_INIT_MODEL
