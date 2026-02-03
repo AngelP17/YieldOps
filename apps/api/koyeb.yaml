@@ -6,6 +6,7 @@ service:
       protocol: http
   routes:
     - path: /
+  command: uvicorn app.main:app --host 0.0.0.0 --port 8000
   env:
     - name: SUPABASE_URL
       value: "https://vwayvxcvkozxumezwqio.supabase.co"
