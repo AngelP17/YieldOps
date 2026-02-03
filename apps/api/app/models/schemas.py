@@ -109,6 +109,104 @@ class DispatchDecision(BaseModel):
     dispatched_at: datetime
 
 
+class MachineUpdate(BaseModel):
+    """Machine update model."""
+    status: Optional[MachineStatus] = None
+    efficiency_rating: Optional[float] = Field(None, ge=0.0, le=1.0)
+
+
+class MachineStats(BaseModel):
+    """Machine statistics model."""
+    machine_id: str
+    name: str
+    status: str
+    efficiency_rating: float
+    utilization_24h: float
+    avg_temperature_24h: Optional[float] = None
+    avg_vibration_24h: Optional[float] = None
+    anomaly_count_24h: int
+    recent_readings: List[dict] = []
+
+
+class DispatchRequest(BaseModel):
+    """Dispatch request model."""
+    max_dispatches: int = Field(default=10, ge=1, le=100)
+    priority_filter: Optional[int] = Field(None, ge=1, le=5)
+
+
+class DispatchDecisionResponse(BaseModel):
+    """Dispatch decision response model."""
+    decision_id: str
+    job_id: str
+    machine_id: str
+    machine_name: str
+    reason: str
+    dispatched_at: datetime
+
+
+class DispatchBatchResponse(BaseModel):
+    """Dispatch batch response model."""
+    decisions: List[DispatchDecisionResponse]
+    total_dispatched: int
+    algorithm_version: str
+
+
+# Alias for compatibility
+ProductionJobResponse = JobResponse
+ProductionJobCreate = JobCreate
+
+
+class ProductionJobUpdate(BaseModel):
+    """Production job update model."""
+    status: Optional[JobStatus] = None
+    assigned_machine_id: Optional[str] = None
+
+
+class JobQueueItem(BaseModel):
+    """Job queue item model."""
+    job_id: str
+    job_name: str
+    priority_level: int
+    is_hot_lot: bool
+    status: str
+    created_at: datetime
+
+
+class SensorReadingResponse(BaseModel):
+    """Sensor reading response model."""
+    reading_id: str
+    machine_id: str
+    temperature: float
+    vibration: float
+    pressure: Optional[float] = None
+    is_anomaly: bool
+    recorded_at: datetime
+
+
+class ChaosInjectRequest(BaseModel):
+    """Chaos injection request model."""
+    failure_type: str
+    machine_id: Optional[str] = None
+    duration_seconds: int = Field(default=300, ge=30, le=3600)
+    severity: str = Field(default="medium", pattern="^(low|medium|high)$")
+
+
+class MonteCarloRequest(BaseModel):
+    """Monte Carlo simulation request model."""
+    n_simulations: int = Field(default=1000, ge=100, le=50000)
+    time_horizon_days: int = Field(default=30, ge=1, le=365)
+    base_throughput: float = Field(default=100.0, ge=1.0)
+    efficiency_mean: float = Field(default=0.90, ge=0.0, le=1.0)
+    efficiency_std: float = Field(default=0.05, ge=0.0, le=0.5)
+    downtime_prob: float = Field(default=0.05, ge=0.0, le=1.0)
+
+
+class MonteCarloResponse(BaseModel):
+    """Monte Carlo simulation response model."""
+    simulation_config: dict
+    results: dict
+
+
 class HealthResponse(BaseModel):
     """Health check response."""
     status: str
