@@ -1,0 +1,12 @@
+[package]
+name = "yieldops_scheduler"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+name = "yieldops_scheduler"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3.workspace = true

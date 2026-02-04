@@ -29,6 +29,12 @@ Thumbs.db
 *.pkl
 *.h5
 
+# Rust
+rust/target/
+rust/.venv/
+*.so
+*.dylib
+
 # Data
 data/*.csv
 !data/.gitkeep

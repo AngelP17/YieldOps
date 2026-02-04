@@ -3,6 +3,7 @@
 from app.core.anomaly_detector import AnomalyDetector, anomaly_detector
 from app.core.monte_carlo import MonteCarloSimulator, mc_simulator
 from app.core.toc_engine import TheoryOfConstraintsEngine, toc_engine
+from app.core.scheduler_optimizer import SchedulerOptimizer, scheduler_optimizer
 
 __all__ = [
     "AnomalyDetector",
@@ -10,5 +11,7 @@ __all__ = [
     "MonteCarloSimulator",
     "mc_simulator",
     "TheoryOfConstraintsEngine",
-    "toc_engine"
+    "toc_engine",
+    "SchedulerOptimizer",
+    "scheduler_optimizer"
 ]

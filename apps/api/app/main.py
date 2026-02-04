@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import routers
-from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm
+from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm, scheduler
 
 
 @asynccontextmanager
@@ -77,6 +77,7 @@ app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
 app.include_router(chaos.router, prefix="/api/v1/chaos", tags=["chaos"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(vm.router, prefix="/api/v1/vm", tags=["virtual-metrology"])
+app.include_router(scheduler.router, prefix="/api/v1", tags=["scheduler"])
 
 
 @app.get("/health")
@@ -103,7 +104,8 @@ async def root():
             "jobs": "/api/v1/jobs",
             "chaos": "/api/v1/chaos",
             "analytics": "/api/v1/analytics",
-            "vm": "/api/v1/vm"
+            "vm": "/api/v1/vm",
+            "scheduler": "/api/v1/scheduler"
         }
     }
 

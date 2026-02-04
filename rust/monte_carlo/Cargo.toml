@@ -1,0 +1,15 @@
+[package]
+name = "yieldops_monte_carlo"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+name = "yieldops_monte_carlo"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3.workspace = true
+rayon.workspace = true
+rand.workspace = true
+rand_distr.workspace = true

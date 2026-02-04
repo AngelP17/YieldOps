@@ -11,9 +11,12 @@ class SupabaseService:
         )
     
     # Machine operations
-    async def get_machines(self) -> List[Dict]:
-        """Get all machines."""
-        response = self.client.table("machines").select("*").order("name").execute()
+    async def get_machines(self, status: Optional[str] = None) -> List[Dict]:
+        """Get all machines, optionally filtered by status."""
+        query = self.client.table("machines").select("*")
+        if status:
+            query = query.eq("status", status)
+        response = query.order("name").execute()
         return response.data or []
     
     async def get_machine(self, machine_id: str) -> Optional[Dict]:
