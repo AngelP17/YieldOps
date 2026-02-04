@@ -99,9 +99,22 @@ function App() {
     if (hasSupabase) {
       setDisplayMachines(realtimeMachines);
     } else {
+      // In demo mode, always use localMachines (which starts with MOCK_MACHINES)
       setDisplayMachines(localMachines);
     }
   }, [hasSupabase, realtimeMachines, localMachines]);
+
+  // Ensure mock data is loaded on initial mount in demo mode
+  useEffect(() => {
+    if (!hasSupabase && displayMachines.length === 0) {
+      setDisplayMachines(MOCK_MACHINES);
+      setLocalMachines(MOCK_MACHINES);
+    }
+    if (!hasSupabase && displayJobs.length === 0) {
+      setDisplayJobs(MOCK_JOBS);
+      setLocalJobs(MOCK_JOBS);
+    }
+  }, [hasSupabase]);
 
   useEffect(() => {
     if (hasSupabase) {
