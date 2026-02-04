@@ -149,6 +149,9 @@ interface AppConfigContextType {
   addJob: (job: ProductionJob) => void;
   updateJob: (jobId: string, updates: Partial<ProductionJob>) => void;
   refreshData: () => void;
+  recoverAllMachines: () => number;
+  simulationEnabled: boolean;
+  setSimulationEnabled: (enabled: boolean) => void;
 }
 
 const AppConfigContext = createContext<AppConfigContextType>({
@@ -161,6 +164,9 @@ const AppConfigContext = createContext<AppConfigContextType>({
   addJob: () => {},
   updateJob: () => {},
   refreshData: () => {},
+  recoverAllMachines: () => 0,
+  simulationEnabled: true,
+  setSimulationEnabled: () => {},
 });
 
 export const useAppConfig = () => useContext(AppConfigContext);
@@ -286,17 +292,26 @@ function App() {
     // For demo mode, just keep current state
   }, [hasSupabase, refreshMachines, refreshJobs]);
 
-  // Autonomous simulation toggle
+  // Autonomous simulation toggle - works in both demo and Supabase modes
   const [simulationEnabled, setSimulationEnabled] = useState(true);
   
-  // Start autonomous simulation in demo mode
+  // Start autonomous simulation
   useAutonomousSimulation({
-    enabled: simulationEnabled && isUsingMockData,
+    enabled: simulationEnabled,
     jobProgressionInterval: 5000,
     machineEventInterval: 8000,
     newJobInterval: 15000,
     sensorDataInterval: 3000,
   });
+
+  // Recover all broken machines at once
+  const recoverAllMachines = useCallback(() => {
+    const brokenMachines = displayMachines.filter(m => m.status === 'DOWN' || m.status === 'MAINTENANCE');
+    brokenMachines.forEach(machine => {
+      updateMachine(machine.machine_id, { status: 'IDLE', efficiency_rating: 0.90 });
+    });
+    return brokenMachines.length;
+  }, [displayMachines, updateMachine]);
 
   const appConfigValue: AppConfigContextType = {
     isUsingMockData,
@@ -308,6 +323,9 @@ function App() {
     addJob,
     updateJob,
     refreshData,
+    recoverAllMachines,
+    simulationEnabled,
+    setSimulationEnabled,
   };
 
   return (
@@ -349,27 +367,27 @@ function App() {
 
               <div className="flex items-center gap-3">
                 {/* Mock Data Badge */}
+                {/* Demo Mode Badge */}
                 {isUsingMockData && (
-                  <>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span className="text-xs font-medium">Demo Mode</span>
-                    </div>
-                    {/* Simulation Toggle */}
-                    <button
-                      onClick={() => setSimulationEnabled(!simulationEnabled)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                        simulationEnabled 
-                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                      title="Toggle autonomous simulation"
-                    >
-                      {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                      {simulationEnabled ? 'Simulating' : 'Paused'}
-                    </button>
-                  </>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">Demo Mode</span>
+                  </div>
                 )}
+                
+                {/* Simulation Toggle - Always visible */}
+                <button
+                  onClick={() => setSimulationEnabled(!simulationEnabled)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    simulationEnabled 
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  title="Toggle autonomous simulation"
+                >
+                  {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                  {simulationEnabled ? 'Simulating' : 'Paused'}
+                </button>
                 
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
                   {isSupabaseConnected ? (

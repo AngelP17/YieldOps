@@ -99,7 +99,7 @@ function runToCDispatch(
 
 export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
-  const { isUsingMockData, updateMachine, updateJob } = useAppConfig();
+  const { isUsingMockData, updateMachine, updateJob, recoverAllMachines } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
   const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
@@ -278,6 +278,15 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
       toast(`${machineName} recovered`, 'success');
     } catch (err: any) {
       toast(err.message || 'Recovery failed', 'error');
+    }
+  };
+
+  const handleRecoverAll = async () => {
+    const count = recoverAllMachines();
+    if (count > 0) {
+      toast(`${count} machines recovered to IDLE status`, 'success');
+    } else {
+      toast('No broken machines to recover', 'info');
     }
   };
 
@@ -486,9 +495,20 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
           {/* Troubled Machines */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                <h3 className="text-sm font-semibold text-slate-900">Needs Attention</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                  <h3 className="text-sm font-semibold text-slate-900">Needs Attention</h3>
+                </div>
+                {troubledMachines.length > 1 && (
+                  <button
+                    onClick={handleRecoverAll}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                  >
+                    <Wrench className="w-3 h-3" />
+                    Recover All ({troubledMachines.length})
+                  </button>
+                )}
               </div>
             </div>
             <div className="divide-y divide-slate-100">
