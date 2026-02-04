@@ -88,8 +88,8 @@ function App() {
   const isUsingMockData = !hasSupabase;
 
   // Local state for mock data (allows modifications in demo mode)
-  const [localMachines, setLocalMachines] = useState<Machine[]>(MOCK_MACHINES);
-  const [localJobs, setLocalJobs] = useState<ProductionJob[]>(MOCK_JOBS);
+  const [, setLocalMachines] = useState<Machine[]>(MOCK_MACHINES);
+  const [, setLocalJobs] = useState<ProductionJob[]>(MOCK_JOBS);
 
   // Use realtime data if available, otherwise use local mock data
   // When Supabase is connected, we use realtime data but still allow local modifications
@@ -102,30 +102,38 @@ function App() {
     if (hasSupabase) {
       setDisplayMachines(realtimeMachines);
     } else {
-      // In demo mode, always use localMachines (which starts with MOCK_MACHINES)
-      setDisplayMachines(localMachines);
-    }
-  }, [hasSupabase, realtimeMachines, localMachines]);
-
-  // Ensure mock data is loaded on initial mount in demo mode
-  useEffect(() => {
-    if (!hasSupabase && displayMachines.length === 0) {
+      // In demo mode, ALWAYS use MOCK_MACHINES directly to prevent any data contamination
       setDisplayMachines(MOCK_MACHINES);
       setLocalMachines(MOCK_MACHINES);
     }
-    if (!hasSupabase && displayJobs.length === 0) {
-      setDisplayJobs(MOCK_JOBS);
-      setLocalJobs(MOCK_JOBS);
+  }, [hasSupabase, realtimeMachines]);
+
+  // Ensure mock data is loaded on initial mount in demo mode
+  useEffect(() => {
+    if (!hasSupabase) {
+      // Force reset to mock data on every render in demo mode
+      if (displayMachines.length !== MOCK_MACHINES.length || 
+          displayMachines[0]?.name !== MOCK_MACHINES[0]?.name) {
+        setDisplayMachines(MOCK_MACHINES);
+        setLocalMachines(MOCK_MACHINES);
+      }
+      if (displayJobs.length !== MOCK_JOBS.length || 
+          displayJobs[0]?.job_name !== MOCK_JOBS[0]?.job_name) {
+        setDisplayJobs(MOCK_JOBS);
+        setLocalJobs(MOCK_JOBS);
+      }
     }
-  }, [hasSupabase]);
+  }, [hasSupabase, displayMachines.length, displayJobs.length]);
 
   useEffect(() => {
     if (hasSupabase) {
       setDisplayJobs(realtimeJobs);
     } else {
-      setDisplayJobs(localJobs);
+      // In demo mode, ALWAYS use MOCK_JOBS directly
+      setDisplayJobs(MOCK_JOBS);
+      setLocalJobs(MOCK_JOBS);
     }
-  }, [hasSupabase, realtimeJobs, localJobs]);
+  }, [hasSupabase, realtimeJobs]);
 
   const machinesWithSensorData = useMemo(() => {
     return displayMachines.map((m) => ({

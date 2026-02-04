@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { BarChart3, TrendingUp, Activity, Layers, Clock, FileSpreadsheet } from 'lucide-react';
-import { Modal } from './ui/Modal';
+import { X, FileSpreadsheet, BarChart3, TrendingUp, Activity, Layers, Clock } from 'lucide-react';
 import type { Machine, ProductionJob } from '../types';
 
 interface SystemAnalyticsModalProps {
@@ -15,7 +14,6 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
 
   // System-wide analytics calculations
   const analytics = useMemo(() => {
-    // Machine stats
     const totalMachines = machines.length;
     const runningMachines = machines.filter(m => m.status === 'RUNNING');
     const idleMachines = machines.filter(m => m.status === 'IDLE');
@@ -33,7 +31,6 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
     const totalWafers = machines.reduce((acc, m) => acc + m.current_wafer_count, 0);
     const totalProcessed = machines.reduce((acc, m) => acc + m.total_wafers_processed, 0);
     
-    // Job stats
     const totalJobs = jobs.length;
     const pendingJobs = jobs.filter(j => j.status === 'PENDING');
     const queuedJobs = jobs.filter(j => j.status === 'QUEUED');
@@ -47,12 +44,10 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
     
     const totalWafersInJobs = jobs.reduce((acc, j) => acc + j.wafer_count, 0);
     
-    // Utilization
     const utilizationRate = totalMachines > 0 
       ? (runningMachines.length / totalMachines) * 100 
       : 0;
     
-    // Throughput estimate (wafers per day based on efficiency)
     const estimatedThroughput = runningMachines.reduce((acc, m) => {
       return acc + (m.current_wafer_count * m.efficiency_rating * 24);
     }, 0);
@@ -91,10 +86,8 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
   const handleExportExcel = async () => {
     setExporting(true);
     
-    // Generate CSV content
     const timestamp = new Date().toISOString().split('T')[0];
     
-    // Machine Status Sheet
     const machineHeaders = ['Machine ID', 'Name', 'Type', 'Status', 'Efficiency %', 'Location', 'Current Wafers', 'Total Processed'];
     const machineRows = machines.map(m => [
       m.machine_id,
@@ -107,7 +100,6 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
       m.total_wafers_processed,
     ]);
     
-    // Job Status Sheet
     const jobHeaders = ['Job ID', 'Name', 'Status', 'Priority', 'Hot Lot', 'Customer', 'Recipe', 'Wafers', 'Assigned Machine'];
     const jobRows = jobs.map(j => [
       j.job_id,
@@ -121,7 +113,6 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
       j.assigned_machine_id ? machines.find(m => m.machine_id === j.assigned_machine_id)?.name || 'Unknown' : 'Unassigned',
     ]);
     
-    // Summary Sheet
     const summaryData = [
       ['YieldOps System Analytics Report'],
       ['Generated:', new Date().toLocaleString()],
@@ -152,9 +143,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
       ['Completion Rate %', analytics.performance.completedRate.toFixed(1)],
     ];
     
-    // Combine all sheets
     const csvContent = [
-      // Summary
       ...summaryData.map(row => row.join(',')),
       [''],
       ['MACHINE DETAILS'],
@@ -166,7 +155,6 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
       ...jobRows.map(row => row.join(',')),
     ].join('\n');
     
-    // Download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -178,135 +166,152 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines, jobs }: System
     setExporting(false);
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="System Analytics & Export">
-      <div className="space-y-6 max-w-4xl">
-        {/* Export Button */}
-        <div className="flex justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900">System Analytics & Export</h3>
           <button
-            onClick={handleExportExcel}
-            disabled={exporting}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            {exporting ? 'Exporting...' : 'Export to CSV'}
+            <X className="w-5 h-5" />
           </button>
         </div>
+        
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Export Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {exporting ? 'Exporting...' : 'Export to CSV'}
+            </button>
+          </div>
 
-        {/* KPI Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Activity className="w-4 h-4 text-blue-600" />
-              <span className="text-xs font-medium text-blue-600">Utilization</span>
+          {/* KPI Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-blue-50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-medium text-blue-600">Utilization</span>
+              </div>
+              <p className="text-2xl font-bold text-blue-900">{analytics.performance.utilizationRate.toFixed(1)}%</p>
+              <p className="text-xs text-blue-600">{analytics.machines.running} of {analytics.machines.total} machines</p>
             </div>
-            <p className="text-2xl font-bold text-blue-900">{analytics.performance.utilizationRate.toFixed(1)}%</p>
-            <p className="text-xs text-blue-600">{analytics.machines.running} of {analytics.machines.total} machines</p>
-          </div>
-          
-          <div className="bg-emerald-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-medium text-emerald-600">Avg Efficiency</span>
+            
+            <div className="bg-emerald-50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-medium text-emerald-600">Avg Efficiency</span>
+              </div>
+              <p className="text-2xl font-bold text-emerald-900">{(analytics.machines.avgEfficiency * 100).toFixed(1)}%</p>
+              <p className="text-xs text-emerald-600">Running: {(analytics.machines.avgRunningEfficiency * 100).toFixed(1)}%</p>
             </div>
-            <p className="text-2xl font-bold text-emerald-900">{(analytics.machines.avgEfficiency * 100).toFixed(1)}%</p>
-            <p className="text-xs text-emerald-600">Running: {(analytics.machines.avgRunningEfficiency * 100).toFixed(1)}%</p>
-          </div>
-          
-          <div className="bg-purple-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Layers className="w-4 h-4 text-purple-600" />
-              <span className="text-xs font-medium text-purple-600">Wafers</span>
+            
+            <div className="bg-purple-50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Layers className="w-4 h-4 text-purple-600" />
+                <span className="text-xs font-medium text-purple-600">Wafers</span>
+              </div>
+              <p className="text-2xl font-bold text-purple-900">{analytics.machines.totalWafers}</p>
+              <p className="text-xs text-purple-600">{analytics.machines.totalProcessed.toLocaleString()} total processed</p>
             </div>
-            <p className="text-2xl font-bold text-purple-900">{analytics.machines.totalWafers}</p>
-            <p className="text-xs text-purple-600">{analytics.machines.totalProcessed.toLocaleString()} total processed</p>
-          </div>
-          
-          <div className="bg-amber-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-amber-600" />
-              <span className="text-xs font-medium text-amber-600">Throughput</span>
+            
+            <div className="bg-amber-50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-medium text-amber-600">Throughput</span>
+              </div>
+              <p className="text-2xl font-bold text-amber-900">{analytics.performance.estimatedThroughput}</p>
+              <p className="text-xs text-amber-600">Estimated wafers/day</p>
             </div>
-            <p className="text-2xl font-bold text-amber-900">{analytics.performance.estimatedThroughput}</p>
-            <p className="text-xs text-amber-600">Estimated wafers/day</p>
           </div>
-        </div>
 
-        {/* Machine Status */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Machine Status Distribution
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: 'Running', count: analytics.machines.running, color: 'bg-emerald-500', total: analytics.machines.total },
-              { label: 'Idle', count: analytics.machines.idle, color: 'bg-amber-500', total: analytics.machines.total },
-              { label: 'Down', count: analytics.machines.down, color: 'bg-rose-500', total: analytics.machines.total },
-              { label: 'Maintenance', count: analytics.machines.maintenance, color: 'bg-slate-400', total: analytics.machines.total },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-3">
-                <span className="w-20 text-sm text-slate-600">{item.label}</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full ${item.color} transition-all duration-500`}
-                    style={{ width: `${item.total > 0 ? (item.count / item.total) * 100 : 0}%` }}
-                  />
+          {/* Machine Status */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Machine Status Distribution
+            </h3>
+            <div className="space-y-3">
+              {[
+                { label: 'Running', count: analytics.machines.running, color: 'bg-emerald-500', total: analytics.machines.total },
+                { label: 'Idle', count: analytics.machines.idle, color: 'bg-amber-500', total: analytics.machines.total },
+                { label: 'Down', count: analytics.machines.down, color: 'bg-rose-500', total: analytics.machines.total },
+                { label: 'Maintenance', count: analytics.machines.maintenance, color: 'bg-slate-400', total: analytics.machines.total },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-3">
+                  <span className="w-24 text-sm text-slate-600">{item.label}</span>
+                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${item.color} transition-all duration-500`}
+                      style={{ width: `${item.total > 0 ? (item.count / item.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span className="w-12 text-sm font-medium text-slate-900 text-right">{item.count}</span>
                 </div>
-                <span className="w-12 text-sm font-medium text-slate-900 text-right">{item.count}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Job Status */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <Layers className="w-4 h-4" />
-            Job Queue Status
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { label: 'Total', value: analytics.jobs.total, color: 'text-slate-900' },
-              { label: 'Pending', value: analytics.jobs.pending, color: 'text-yellow-600' },
-              { label: 'Queued', value: analytics.jobs.queued, color: 'text-blue-600' },
-              { label: 'Running', value: analytics.jobs.running, color: 'text-emerald-600' },
-              { label: 'Completed', value: analytics.jobs.completed, color: 'text-slate-500' },
-            ].map((item) => (
-              <div key={item.label} className="text-center p-3 bg-slate-50 rounded-lg">
-                <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
-                <p className="text-xs text-slate-500">{item.label}</p>
+          {/* Job Status */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              Job Queue Status
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {[
+                { label: 'Total', value: analytics.jobs.total, color: 'text-slate-900' },
+                { label: 'Pending', value: analytics.jobs.pending, color: 'text-yellow-600' },
+                { label: 'Queued', value: analytics.jobs.queued, color: 'text-blue-600' },
+                { label: 'Running', value: analytics.jobs.running, color: 'text-emerald-600' },
+                { label: 'Completed', value: analytics.jobs.completed, color: 'text-slate-500' },
+              ].map((item) => (
+                <div key={item.label} className="text-center p-3 bg-slate-50 rounded-lg">
+                  <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
+                  <p className="text-xs text-slate-500">{item.label}</p>
+                </div>
+              ))}
+            </div>
+            {analytics.jobs.hotLots > 0 && (
+              <div className="mt-4 p-3 bg-rose-50 rounded-lg flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs font-semibold rounded">HOT</span>
+                <span className="text-sm text-rose-700">{analytics.jobs.hotLots} hot lots requiring priority processing</span>
               </div>
-            ))}
+            )}
           </div>
-          {analytics.jobs.hotLots > 0 && (
-            <div className="mt-4 p-3 bg-rose-50 rounded-lg flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs font-semibold rounded">HOT</span>
-              <span className="text-sm text-rose-700">{analytics.jobs.hotLots} hot lots requiring priority processing</span>
-            </div>
-          )}
-        </div>
 
-        {/* Performance Summary */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-4 text-white">
-          <h3 className="text-sm font-semibold mb-4">Performance Summary</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-2xl font-bold">{analytics.performance.utilizationRate.toFixed(1)}%</p>
-              <p className="text-xs text-slate-400">Machine Utilization</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{analytics.performance.completedRate.toFixed(1)}%</p>
-              <p className="text-xs text-slate-400">Job Completion Rate</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{analytics.performance.estimatedThroughput}</p>
-              <p className="text-xs text-slate-400">Est. Daily Throughput</p>
+          {/* Performance Summary */}
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-4 text-white">
+            <h3 className="text-sm font-semibold mb-4">Performance Summary</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-2xl font-bold">{analytics.performance.utilizationRate.toFixed(1)}%</p>
+                <p className="text-xs text-slate-400">Machine Utilization</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{analytics.performance.completedRate.toFixed(1)}%</p>
+                <p className="text-xs text-slate-400">Job Completion Rate</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{analytics.performance.estimatedThroughput}</p>
+                <p className="text-xs text-slate-400">Est. Daily Throughput</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 
