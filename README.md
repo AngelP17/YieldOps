@@ -2,7 +2,7 @@
 
 Intelligent Manufacturing & IIoT Portfolio Project
 
-**Live Demo:** [View on Vercel](https://yieldops.vercel.app) *(Frontend)*  
+**Live Demo:** [https://yield-ops-dashboard.vercel.app/](https://yield-ops-dashboard.vercel.app/) *(Frontend)*  
 **API Endpoint:** https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app/ *(Backend)*
 
 ---
