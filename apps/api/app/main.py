@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import routers
-from app.api.v1 import dispatch, machines, jobs, chaos, analytics
+from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm
 
 
 @asynccontextmanager
@@ -32,7 +32,15 @@ async def lifespan(app: FastAPI):
         logger.info("Anomaly detection model initialized")
     except Exception as e:
         logger.warning(f"Could not initialize anomaly model: {e}")
-    
+
+    # Initialize VM model
+    try:
+        from app.core.vm_engine import vm_engine
+        vm_engine.load_model()
+        logger.info("VM model loaded (if available)")
+    except Exception as e:
+        logger.warning(f"Could not initialize VM model: {e}")
+
     yield
     
     logger.info("Shutting down YieldOps API...")
@@ -66,6 +74,7 @@ app.include_router(machines.router, prefix="/api/v1/machines", tags=["machines"]
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
 app.include_router(chaos.router, prefix="/api/v1/chaos", tags=["chaos"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(vm.router, prefix="/api/v1/vm", tags=["virtual-metrology"])
 
 
 @app.get("/health")
@@ -91,7 +100,8 @@ async def root():
             "machines": "/api/v1/machines",
             "jobs": "/api/v1/jobs",
             "chaos": "/api/v1/chaos",
-            "analytics": "/api/v1/analytics"
+            "analytics": "/api/v1/analytics",
+            "vm": "/api/v1/vm"
         }
     }
 

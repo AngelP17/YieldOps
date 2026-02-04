@@ -6,7 +6,7 @@ import {
 import { KpiCard } from '../ui/KpiCard';
 import { StatusBadge, JobStatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
-import { api, DispatchQueueResponse } from '../../services/apiClient';
+import { api, DispatchQueueResponse, isApiConfigured } from '../../services/apiClient';
 import type { Machine, ProductionJob } from '../../types';
 
 interface OverviewTabProps {
@@ -14,12 +14,30 @@ interface OverviewTabProps {
   jobs: ProductionJob[];
 }
 
+// Mock dispatch data for demo mode
+const MOCK_DISPATCH_QUEUE: DispatchQueueResponse = {
+  pending_jobs: 3,
+  available_machines: 2,
+  queued_jobs: 5,
+  next_dispatch: [
+    { job_id: '3', job_name: 'WF-2024-0849', priority_level: 1, is_hot_lot: true },
+    { job_id: '4', job_name: 'WF-2024-0850', priority_level: 3, is_hot_lot: false },
+    { job_id: '5', job_name: 'WF-2024-0851', priority_level: 2, is_hot_lot: false },
+  ]
+};
+
+const MOCK_DISPATCH_HISTORY = [
+  { decision_id: '1', job_id: '1', production_jobs: { job_name: 'WF-2024-0847' }, machines: { name: 'Litho-A1' }, dispatched_at: new Date().toISOString() },
+  { decision_id: '2', job_id: '2', production_jobs: { job_name: 'WF-2024-0848' }, machines: { name: 'Etch-C1' }, dispatched_at: new Date(Date.now() - 3600000).toISOString() },
+];
+
 export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
   const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<Array<Record<string, any>>>([]);
+  const apiAvailable = isApiConfigured();
 
   // Stats
   const stats = useMemo(() => {
@@ -45,13 +63,37 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
 
   // Fetch dispatch data
   useEffect(() => {
-    api.getDispatchQueue().then(setDispatchQueue).catch(() => {});
-    api.getDispatchHistory(10).then((data: any) => {
-      setDispatchHistory(Array.isArray(data) ? data : data?.data || []);
-    }).catch(() => {});
-  }, []);
+    if (!apiAvailable) {
+      // Use mock data in demo mode
+      setDispatchQueue(MOCK_DISPATCH_QUEUE);
+      setDispatchHistory(MOCK_DISPATCH_HISTORY);
+      return;
+    }
+
+    api.getDispatchQueue()
+      .then(setDispatchQueue)
+      .catch((err) => {
+        console.error('Failed to fetch dispatch queue:', err);
+        toast('Using offline data - API unavailable', 'info');
+        setDispatchQueue(MOCK_DISPATCH_QUEUE);
+      });
+    
+    api.getDispatchHistory(10)
+      .then((data: any) => {
+        setDispatchHistory(Array.isArray(data) ? data : data?.data || []);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch dispatch history:', err);
+        setDispatchHistory(MOCK_DISPATCH_HISTORY);
+      });
+  }, [apiAvailable, toast]);
 
   const handleRunDispatch = async () => {
+    if (!apiAvailable) {
+      toast('Dispatch simulation complete (Demo Mode)', 'success');
+      return;
+    }
+
     setDispatching(true);
     try {
       const result = await api.runDispatch({ max_dispatches: 10 });
@@ -69,6 +111,11 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   };
 
   const handleInjectChaos = async (type: 'machine_down' | 'sensor_spike' | 'efficiency_drop') => {
+    if (!apiAvailable) {
+      toast(`Chaos injected: ${type} (Demo Mode - no actual changes)`, 'info');
+      return;
+    }
+
     setChaosLoading(true);
     try {
       const result: any = await api.injectChaos({ failure_type: type, severity: 'medium' });
@@ -81,6 +128,11 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   };
 
   const handleRecover = async (machineId: string, machineName: string) => {
+    if (!apiAvailable) {
+      toast(`${machineName} recovered (Demo Mode)`, 'success');
+      return;
+    }
+
     try {
       await api.recoverMachine(machineId);
       toast(`${machineName} recovered`, 'success');

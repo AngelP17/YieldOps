@@ -204,6 +204,57 @@ class SupabaseService:
             "anomalies_detected": anomalies,
             "anomaly_rate": round(anomalies / total, 4) if total > 0 else 0
         }
+    
+    # Virtual Metrology operations
+    async def get_sensor_readings(self, machine_id: str, hours: int = 24, include_predictions: bool = False) -> List[Dict]:
+        """Get sensor readings for a machine within time window."""
+        from datetime import datetime, timedelta
+        
+        cutoff_time = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
+        
+        query = self.client.table("sensor_readings") \
+            .select("*") \
+            .eq("machine_id", machine_id) \
+            .gte("recorded_at", cutoff_time) \
+            .order("recorded_at", desc=True)
+        
+        response = query.execute()
+        return response.data or []
+    
+    async def get_latest_sensor_reading(self, machine_id: str) -> Optional[Dict]:
+        """Get the most recent sensor reading for a machine."""
+        response = self.client.table("sensor_readings") \
+            .select("*") \
+            .eq("machine_id", machine_id) \
+            .order("recorded_at", desc=True) \
+            .limit(1) \
+            .execute()
+        
+        return response.data[0] if response.data else None
+    
+    async def get_training_data(self) -> List[Dict]:
+        """Get joined sensor readings and metrology results for VM training."""
+        # This query joins sensor_readings with metrology_results on machine_id and time window
+        # For now, return sensor readings with all available features
+        response = self.client.table("sensor_readings") \
+            .select("temperature, pressure, power_consumption, machine_id, recorded_at") \
+            .not_.is_("temperature", "null") \
+            .not_.is_("pressure", "null") \
+            .not_.is_("power_consumption", "null") \
+            .limit(1000) \
+            .execute()
+        
+        # Add mock thickness values for training if no metrology_results table exists
+        data = response.data or []
+        for item in data:
+            # Mock thickness calculation for demo purposes
+            # In production, this would come from actual metrology_results
+            temp_factor = item.get("temperature", 65) / 65.0
+            pressure_factor = item.get("pressure", 10) / 10.0
+            power_factor = item.get("power_consumption", 1000) / 1000.0
+            item["thickness_nm"] = 500 * temp_factor * 0.3 + 500 * pressure_factor * 0.2 + 500 * power_factor * 0.5
+        
+        return data
 
 
 # Singleton instance

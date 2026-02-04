@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, createContext, useContext } from 'react';
 import { Machine } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
+import { isApiConfigured, isSupabaseConfigured } from './services/apiClient';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { MachinesTab } from './components/tabs/MachinesTab';
 import { JobsTab } from './components/tabs/JobsTab';
@@ -11,7 +12,8 @@ import {
   Layers,
   Wifi,
   WifiOff,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 
 // Mock data for demo when Supabase is not configured
@@ -38,13 +40,31 @@ const MOCK_JOBS: any[] = [
   { job_id: '5', job_name: 'WF-2024-0851', wafer_count: 20, priority_level: 2, status: 'PENDING', recipe_type: 'N3-EXP', assigned_machine_id: null, estimated_duration_minutes: 200, actual_start_time: null, actual_end_time: null, deadline: '2024-01-03', customer_tag: 'Qualcomm', is_hot_lot: false, created_at: '2024-01-01', updated_at: '2024-01-01' },
 ];
 
+// Context for app configuration
+interface AppConfigContextType {
+  isUsingMockData: boolean;
+  isSupabaseConnected: boolean;
+  isApiConfigured: boolean;
+}
+
+const AppConfigContext = createContext<AppConfigContextType>({
+  isUsingMockData: true,
+  isSupabaseConnected: false,
+  isApiConfigured: false,
+});
+
+export const useAppConfig = () => useContext(AppConfigContext);
+
 function App() {
-  const { machines: realtimeMachines, isConnected } = useRealtimeMachines();
+  const { machines: realtimeMachines, isConnected: isSupabaseConnected } = useRealtimeMachines();
   const { sensorData } = useLatestSensorData();
   const { jobs: realtimeJobs } = useRealtimeJobs();
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs'>('overview');
 
-  const hasSupabase = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'your_supabase_url';
+  const hasSupabase = isSupabaseConfigured();
+  const hasApi = isApiConfigured();
+  const isUsingMockData = !hasSupabase;
+
   const machines = hasSupabase ? realtimeMachines : MOCK_MACHINES;
   const jobs = hasSupabase ? realtimeJobs : MOCK_JOBS;
 
@@ -56,76 +76,92 @@ function App() {
     }));
   }, [machines, sensorData]);
 
+  const appConfigValue: AppConfigContextType = {
+    isUsingMockData,
+    isSupabaseConnected,
+    isApiConfigured: hasApi,
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg shadow-blue-200">
-                <Factory className="w-5 h-5 text-white" />
+    <AppConfigContext.Provider value={appConfigValue}>
+      <div className="min-h-screen bg-slate-50">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+          <div className="px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg shadow-blue-200">
+                  <Factory className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-slate-900 tracking-tight">YieldOps</h1>
+                  <p className="text-xs text-slate-500 font-medium">Smart Manufacturing Platform</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900 tracking-tight">YieldOps</h1>
-                <p className="text-xs text-slate-500 font-medium">Smart Manufacturing Platform</p>
-              </div>
-            </div>
 
-            <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl">
-              {[
-                { id: 'overview', label: 'Overview', icon: BarChart3 },
-                { id: 'machines', label: 'Machines', icon: Cpu },
-                { id: 'jobs', label: 'Jobs', icon: Layers },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+              <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl">
+                {[
+                  { id: 'overview', label: 'Overview', icon: BarChart3 },
+                  { id: 'machines', label: 'Machines', icon: Cpu },
+                  { id: 'jobs', label: 'Jobs', icon: Layers },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      activeTab === tab.id
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
-                {isConnected ? (
-                  <>
-                    <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-xs font-medium text-slate-600">Live</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs font-medium text-slate-500">Offline</span>
-                  </>
+              <div className="flex items-center gap-3">
+                {/* Mock Data Badge */}
+                {isUsingMockData && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">Demo Mode</span>
+                  </div>
                 )}
+                
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
+                  {isSupabaseConnected ? (
+                    <>
+                      <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-xs font-medium text-slate-600">Live</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-xs font-medium text-slate-500">Offline</span>
+                    </>
+                  )}
+                </div>
+                <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
               </div>
-              <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                <RefreshCw className="w-4 h-4" />
-              </button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="px-6 lg:px-8 py-8">
-        {activeTab === 'overview' && (
-          <OverviewTab machines={machinesWithSensorData} jobs={jobs} />
-        )}
-        {activeTab === 'machines' && (
-          <MachinesTab machines={machinesWithSensorData} />
-        )}
-        {activeTab === 'jobs' && (
-          <JobsTab jobs={jobs} machines={machines} />
-        )}
-      </main>
-    </div>
+        <main className="px-6 lg:px-8 py-8">
+          {activeTab === 'overview' && (
+            <OverviewTab machines={machinesWithSensorData} jobs={jobs} />
+          )}
+          {activeTab === 'machines' && (
+            <MachinesTab machines={machinesWithSensorData} />
+          )}
+          {activeTab === 'jobs' && (
+            <JobsTab jobs={jobs} machines={machines} />
+          )}
+        </main>
+      </div>
+    </AppConfigContext.Provider>
   );
 }
 

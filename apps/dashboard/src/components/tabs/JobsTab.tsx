@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Clock, Layers, X, Flame } from 'lucide-react';
+import { Plus, Search, Clock, Layers, X, Flame, AlertTriangle } from 'lucide-react';
 import { JobStatusBadge } from '../ui/StatusBadge';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
-import { api, CreateJobPayload } from '../../services/apiClient';
+import { api, CreateJobPayload, isApiConfigured } from '../../services/apiClient';
 import type { Machine, ProductionJob, JobStatus } from '../../types';
 
 interface JobsTabProps {
@@ -21,6 +21,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
   const [sortBy, setSortBy] = useState<'priority' | 'created' | 'deadline'>('priority');
   const [showCreate, setShowCreate] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const apiAvailable = isApiConfigured();
 
   // Form state
   const [form, setForm] = useState<CreateJobPayload>({
@@ -81,6 +82,21 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       toast('Please fill in required fields', 'error');
       return;
     }
+
+    if (!apiAvailable) {
+      toast(`Job "${form.job_name}" created (Demo Mode - not persisted)`, 'success');
+      setShowCreate(false);
+      setForm({
+        job_name: '',
+        wafer_count: 25,
+        priority_level: 3,
+        recipe_type: 'STANDARD_LOGIC',
+        is_hot_lot: false,
+        customer_tag: '',
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       await api.createJob(form);
@@ -102,6 +118,11 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
   };
 
   const handleCancelJob = async (jobId: string, jobName: string) => {
+    if (!apiAvailable) {
+      toast(`Job "${jobName}" cancelled (Demo Mode)`, 'success');
+      return;
+    }
+
     setCancellingId(jobId);
     try {
       await api.cancelJob(jobId);
@@ -115,6 +136,17 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Demo Mode Banner */}
+      {!apiAvailable && (
+        <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-amber-500" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Demo Mode Active</p>
+            <p className="text-xs text-amber-700">Actions will not be persisted. Configure VITE_API_URL to enable full functionality.</p>
+          </div>
+        </div>
+      )}
+
       {/* Stats Bar */}
       <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
         {[
@@ -258,6 +290,13 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       {/* Create Job Modal */}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Production Job">
         <div className="space-y-4">
+          {!apiAvailable && (
+            <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              <span className="text-xs text-amber-700">Demo Mode - Job will not be saved to database</span>
+            </div>
+          )}
+
           <div>
             <label className="text-sm font-medium text-slate-700 mb-1 block">Job Name *</label>
             <input

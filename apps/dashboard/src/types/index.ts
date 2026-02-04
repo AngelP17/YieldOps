@@ -63,3 +63,86 @@ export interface DispatchDecision {
   estimated_completion?: string;
   dispatched_at: string;
 }
+
+// =====================================================
+// Virtual Metrology Types
+// =====================================================
+
+export interface VMPredictionRequest {
+  tool_id: string;
+  lot_id: string;
+  temperature: number;
+  pressure?: number;
+  power_consumption?: number;
+}
+
+export interface VMPredictionResponse {
+  lot_id: string;
+  tool_id: string;
+  predicted_thickness_nm: number;
+  confidence_score: number;
+  r2r_correction: number;
+  prediction_id: string;
+}
+
+export interface VMFeedbackRequest {
+  prediction_id: string;
+  actual_thickness_nm: number;
+}
+
+export interface VMFeedbackResponse {
+  prediction_id: string;
+  prediction_error: number;
+  ewma_error: number;
+  recipe_adjustment?: {
+    parameter_name: string;
+    adjustment_value: number;
+    reason: string;
+  } | null;
+}
+
+export interface VMTrainRequest {
+  min_samples?: number;
+}
+
+export interface VMTrainResponse {
+  trained: boolean;
+  samples: number;
+  features: string[];
+  r2_mean: number;
+  r2_std: number;
+  coefficients?: Record<string, number>;
+}
+
+export interface VMModelInfo {
+  is_trained: boolean;
+  features: string[];
+  ewma_tracked_tools: number;
+  model_path: string;
+}
+
+export interface VMPredictionRecord {
+  prediction_id: string;
+  lot_id: string;
+  tool_id: string;
+  predicted_thickness_nm: number;
+  confidence_score: number;
+  model_version: string;
+  features_used?: Record<string, number>;
+  actual_thickness_nm?: number;
+  prediction_error?: number;
+  created_at: string;
+}
+
+export interface RecipeAdjustment {
+  adjustment_id: string;
+  tool_id: string;
+  lot_id?: string;
+  parameter_name: string;
+  current_value: number;
+  adjustment_value: number;
+  new_value: number;
+  reason?: string;
+  applied: boolean;
+  created_at: string;
+}

@@ -1,11 +1,17 @@
 import React from 'react';
-import { Activity, AlertTriangle, CheckCircle, Pause, Thermometer, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle, Pause, Thermometer, Zap, Microscope } from 'lucide-react';
 import type { Machine, MachineStatus } from '../types';
 
 interface MachineNodeProps {
   machine: Machine;
   onClick?: (machine: Machine) => void;
   isSelected?: boolean;
+  vmStatus?: {
+    has_prediction: boolean;
+    predicted_thickness_nm?: number;
+    confidence_score?: number;
+    needs_correction?: boolean;
+  };
 }
 
 const statusConfig: Record<MachineStatus, { 
@@ -50,10 +56,11 @@ const statusConfig: Record<MachineStatus, {
   }
 };
 
-export const MachineNode: React.FC<MachineNodeProps> = ({ 
-  machine, 
+export const MachineNode: React.FC<MachineNodeProps> = ({
+  machine,
   onClick,
-  isSelected = false 
+  isSelected = false,
+  vmStatus
 }) => {
   const config = statusConfig[machine.status];
   const StatusIcon = config.icon;
@@ -128,6 +135,24 @@ export const MachineNode: React.FC<MachineNodeProps> = ({
             {(machine.efficiency_rating * 100).toFixed(0)}%
           </div>
         </div>
+        
+        {/* VM Status Badge */}
+        {vmStatus?.has_prediction && (
+          <div className="mb-3">
+            <div className={`
+              inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium
+              ${vmStatus.needs_correction 
+                ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}
+            `}>
+              <Microscope className="w-3 h-3" />
+              <span>VM: {vmStatus.predicted_thickness_nm?.toFixed(1)}nm</span>
+              {vmStatus.needs_correction && (
+                <span className="ml-1 text-amber-600">⚠ R2R</span>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Efficiency Progress Bar */}
         <div className="mb-4">

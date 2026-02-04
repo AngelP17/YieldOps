@@ -3,7 +3,8 @@ import { Search, Wrench, Zap, Activity, TrendingUp, Layers, AlertTriangle } from
 import { MachineNode } from '../MachineNode';
 import { StatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
-import { api } from '../../services/apiClient';
+import { api, isApiConfigured } from '../../services/apiClient';
+import { useVirtualMetrologyBatch } from '../../hooks/useVirtualMetrology';
 import type { Machine, MachineStatus, MachineType } from '../../types';
 
 interface MachinesTabProps {
@@ -17,6 +18,13 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   const [typeFilter, setTypeFilter] = useState<MachineType | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState('');
+  const apiAvailable = isApiConfigured();
+
+  // VM polling for all machines
+  const { statuses: vmStatuses } = useVirtualMetrologyBatch(
+    machines.map(m => m.machine_id),
+    { pollingInterval: 30000, enabled: apiAvailable }
+  );
 
   const filtered = machines.filter((m) => {
     if (statusFilter !== 'ALL' && m.status !== statusFilter) return false;
@@ -26,6 +34,14 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   });
 
   const handleStatusChange = async (machineId: string, status: MachineStatus) => {
+    if (!apiAvailable) {
+      toast(`Status updated to ${status} (Demo Mode)`, 'success');
+      if (selectedMachine?.machine_id === machineId) {
+        setSelectedMachine({ ...selectedMachine, status });
+      }
+      return;
+    }
+
     setActionLoading('status');
     try {
       await api.updateMachine(machineId, { status });
@@ -41,10 +57,21 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   };
 
   const handleRecover = async (machineId: string, name: string) => {
+    if (!apiAvailable) {
+      toast(`${name} recovered (Demo Mode)`, 'success');
+      if (selectedMachine?.machine_id === machineId) {
+        setSelectedMachine({ ...selectedMachine, status: 'IDLE' });
+      }
+      return;
+    }
+
     setActionLoading('recover');
     try {
       await api.recoverMachine(machineId);
       toast(`${name} recovered`, 'success');
+      if (selectedMachine?.machine_id === machineId) {
+        setSelectedMachine({ ...selectedMachine, status: 'IDLE' });
+      }
     } catch (err: any) {
       toast(err.message || 'Recovery failed', 'error');
     } finally {
@@ -53,6 +80,16 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   };
 
   const handleChaos = async (machineId: string, type: 'machine_down' | 'sensor_spike' | 'efficiency_drop') => {
+    if (!apiAvailable) {
+      toast(`Chaos injected: ${type} (Demo Mode)`, 'info');
+      if (selectedMachine?.machine_id === machineId) {
+        const newStatus = type === 'machine_down' ? 'DOWN' : selectedMachine.status;
+        const newEfficiency = type === 'efficiency_drop' ? 0.5 : selectedMachine.efficiency_rating;
+        setSelectedMachine({ ...selectedMachine, status: newStatus as MachineStatus, efficiency_rating: newEfficiency });
+      }
+      return;
+    }
+
     setActionLoading('chaos');
     try {
       const result: any = await api.injectChaos({ failure_type: type, machine_id: machineId, severity: 'medium' });
@@ -122,6 +159,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                 machine={machine}
                 onClick={setSelectedMachine}
                 isSelected={selectedMachine?.machine_id === machine.machine_id}
+                vmStatus={vmStatuses[machine.machine_id]}
               />
             ))}
             {filtered.length === 0 && (
@@ -264,6 +302,12 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                       {selectedMachine.last_maintenance ? new Date(selectedMachine.last_maintenance).toLocaleDateString() : '—'}
                     </span>
                   </div>
+                  {!apiAvailable && (
+                    <div className="flex items-center gap-2 p-2 bg-amber-50 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs text-amber-700">Demo Mode - Changes are local only</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -212,3 +212,54 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     version: str
+
+
+# =====================================================
+# Virtual Metrology Schemas
+# =====================================================
+
+class VMPredictionRequest(BaseModel):
+    """VM prediction request."""
+    tool_id: str
+    lot_id: str
+    temperature: float
+    pressure: float = 0.0
+    power_consumption: float = Field(default=0.0, description="Power consumption (proxy for RF power)")
+
+
+class VMPredictionResponse(BaseModel):
+    """VM prediction response."""
+    lot_id: str
+    tool_id: str
+    predicted_thickness_nm: float
+    confidence_score: float
+    r2r_correction: float
+    prediction_id: Optional[str] = None
+
+
+class VMFeedbackRequest(BaseModel):
+    """Feedback with actual metrology result for R2R update."""
+    prediction_id: str
+    actual_thickness_nm: float
+
+
+class VMFeedbackResponse(BaseModel):
+    """Response from feedback endpoint."""
+    prediction_error: float
+    ewma_error: float
+    recipe_adjustment: Optional[dict] = None
+
+
+class VMTrainRequest(BaseModel):
+    """Request to train/retrain VM model."""
+    min_samples: int = Field(default=50, ge=20)
+
+
+class VMTrainResponse(BaseModel):
+    """Training result."""
+    trained: bool
+    samples: int
+    features: List[str]
+    r2_mean: float
+    r2_std: float
+    coefficients: Optional[dict] = None

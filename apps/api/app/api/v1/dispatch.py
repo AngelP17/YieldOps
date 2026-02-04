@@ -24,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 def dict_to_job(job_dict: dict) -> Job:
     """Convert database dict to Job dataclass."""
+    created_at = datetime.utcnow()
+    if job_dict.get("created_at"):
+        try:
+            created_at_str = job_dict["created_at"].replace('Z', '+00:00')
+            created_at = datetime.fromisoformat(created_at_str)
+        except (ValueError, AttributeError):
+            created_at = datetime.utcnow()
+    
     return Job(
         job_id=job_dict["job_id"],
         job_name=job_dict.get("job_name", "Unknown"),
@@ -31,7 +39,7 @@ def dict_to_job(job_dict: dict) -> Job:
         wafer_count=job_dict.get("wafer_count", 0),
         is_hot_lot=job_dict.get("is_hot_lot", False),
         recipe_type=job_dict.get("recipe_type", "unknown"),
-        created_at=datetime.fromisoformat(job_dict["created_at"].replace('Z', '+00:00')) if job_dict.get("created_at") else datetime.utcnow(),
+        created_at=created_at,
         status=job_dict.get("status", "PENDING")
     )
 
@@ -121,8 +129,8 @@ async def run_dispatch(request: DispatchRequest):
         )
         
     except Exception as e:
-        logger.error(f"Dispatch error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Dispatch error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Dispatch failed: {str(e)}")
 
 
 @router.get("/queue")

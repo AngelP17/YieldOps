@@ -78,26 +78,25 @@ export function useRealtimeMachines() {
     event: '*',
   });
 
-  useEffect(() => {
-    // Initial fetch
-    const fetchMachines = async () => {
-      const { data: machines, error } = await supabase
-        .from('machines')
-        .select('*')
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching machines:', error);
-        return;
-      }
-      
-      setData(machines || []);
-    };
-
-    fetchMachines();
+  const refresh = useCallback(async () => {
+    const { data: machines, error } = await supabase
+      .from('machines')
+      .select('*')
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching machines:', error);
+      return;
+    }
+    
+    setData(machines || []);
   }, [setData]);
 
-  return { machines: data, isConnected, error };
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { machines: data, isConnected, error, refresh };
 }
 
 // Specialized hook for sensor readings
@@ -155,32 +154,31 @@ export function useRealtimeJobs(status?: string) {
 
   const { data, isConnected, error, setData } = useRealtime<DatabaseProductionJob>(config);
 
-  useEffect(() => {
-    // Initial fetch
-    const fetchJobs = async () => {
-      let query = supabase
-        .from('production_jobs')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (status) {
-        query = query.eq('status', status);
-      }
-      
-      const { data: jobs, error } = await query;
-      
-      if (error) {
-        console.error('Error fetching jobs:', error);
-        return;
-      }
-      
-      setData(jobs || []);
-    };
-
-    fetchJobs();
+  const refresh = useCallback(async () => {
+    let query = supabase
+      .from('production_jobs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    const { data: jobs, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching jobs:', error);
+      return;
+    }
+    
+    setData(jobs || []);
   }, [status, setData]);
 
-  return { jobs: data, isConnected, error };
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { jobs: data, isConnected, error, refresh };
 }
 
 // Hook for fetching latest sensor data for all machines
@@ -250,5 +248,34 @@ export function useLatestSensorData() {
     };
   }, []);
 
-  return { sensorData, isLoading };
+  const refresh = useCallback(async () => {
+    setIsLoading(true);
+    
+    const { data: readings, error } = await supabase
+      .from('sensor_readings')
+      .select('machine_id, temperature, vibration, recorded_at')
+      .order('recorded_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching sensor data:', error);
+      setIsLoading(false);
+      return;
+    }
+
+    const latestByMachine: Record<string, { temperature?: number; vibration?: number }> = {};
+    
+    readings?.forEach((reading) => {
+      if (!latestByMachine[reading.machine_id]) {
+        latestByMachine[reading.machine_id] = {
+          temperature: reading.temperature,
+          vibration: reading.vibration,
+        };
+      }
+    });
+
+    setSensorData(latestByMachine);
+    setIsLoading(false);
+  }, []);
+
+  return { sensorData, isLoading, refresh };
 }

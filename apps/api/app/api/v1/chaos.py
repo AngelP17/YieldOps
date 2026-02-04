@@ -19,10 +19,10 @@ class FailureType(str, Enum):
 
 
 class ChaosRequest(BaseModel):
-    failure_type: FailureType
+    failure_type: str  # Accept string, validate manually
     machine_id: Optional[str] = None
     duration_seconds: int = Field(default=300, ge=30, le=3600)
-    severity: str = Field(default="medium", pattern="^(low|medium|high)$")
+    severity: str = "medium"
 
 
 @router.post("/inject")
@@ -48,7 +48,9 @@ async def inject_failure(request: ChaosRequest):
                 raise HTTPException(status_code=400, detail="No machines available")
             machine = random.choice(machines)
         
-        if request.failure_type == FailureType.MACHINE_DOWN:
+        failure_type = request.failure_type.lower().replace('-', '_')
+        
+        if failure_type == "machine_down":
             await supabase_service.update_machine_status(
                 machine_id=machine["machine_id"],
                 status="DOWN"
@@ -71,7 +73,7 @@ async def inject_failure(request: ChaosRequest):
                 "message": f"Machine {machine['name']} is now DOWN. Jobs will be rerouted."
             }
         
-        elif request.failure_type == FailureType.SENSOR_SPIKE:
+        elif failure_type == "sensor_spike":
             # Generate anomalous readings
             readings = []
             for _ in range(10):
@@ -93,7 +95,7 @@ async def inject_failure(request: ChaosRequest):
                 "message": "Anomalous sensor readings injected. ML model should detect."
             }
         
-        elif request.failure_type == FailureType.EFFICIENCY_DROP:
+        elif failure_type == "efficiency_drop":
             new_efficiency = random.uniform(0.4, 0.6)
             await supabase_service.update_machine_efficiency(
                 machine_id=machine["machine_id"],
@@ -116,8 +118,8 @@ async def inject_failure(request: ChaosRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Chaos injection failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Chaos injection failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Chaos injection failed: {str(e)}")
 
 
 @router.post("/recover/{machine_id}")

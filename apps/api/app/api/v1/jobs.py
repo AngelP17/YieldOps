@@ -75,22 +75,12 @@ async def get_job_queue():
 async def get_job(job_id: str):
     """Get a specific job by ID."""
     try:
-        # Would query database for specific job
-        # For now, return mock data
-        return {
-            "job_id": job_id,
-            "job_name": f"JOB-{job_id[:8]}",
-            "wafer_count": 25,
-            "priority_level": 2,
-            "recipe_type": "STANDARD_LOGIC",
-            "status": "PENDING",
-            "is_hot_lot": False,
-            "assigned_machine_id": None,
-            "actual_start_time": None,
-            "actual_end_time": None,
-            "created_at": "2024-01-01T00:00:00Z",
-            "updated_at": "2024-01-01T00:00:00Z"
-        }
+        job = await supabase_service.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return job
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting job: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -100,19 +90,19 @@ async def get_job(job_id: str):
 async def create_job(job: ProductionJobCreate):
     """Create a new production job."""
     try:
-        # Would insert into database
         logger.info(f"Creating job: {job.job_name}")
         
-        return {
-            "job_id": "new-job-id",
-            **job.model_dump(),
+        # Insert into database
+        job_data = {
+            **job.model_dump(exclude_unset=True),
             "status": "PENDING",
             "assigned_machine_id": None,
             "actual_start_time": None,
             "actual_end_time": None,
-            "created_at": "2024-01-01T00:00:00Z",
-            "updated_at": "2024-01-01T00:00:00Z"
         }
+        
+        created_job = await supabase_service.create_job(job_data)
+        return created_job
     except Exception as e:
         logger.error(f"Error creating job: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -138,7 +128,25 @@ async def cancel_job(job_id: str):
     """Cancel a pending job."""
     try:
         logger.info(f"Cancelling job {job_id}")
+        
+        # First check if job exists and can be cancelled
+        job = await supabase_service.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Only allow cancelling PENDING or QUEUED jobs
+        if job.get("status") not in ["PENDING", "QUEUED"]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot cancel job with status '{job.get('status')}'. Only PENDING or QUEUED jobs can be cancelled."
+            )
+        
+        # Update job status to CANCELLED
+        await supabase_service.update_job_status(job_id, "CANCELLED")
+        
         return {"message": "Job cancelled", "job_id": job_id}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error cancelling job: {e}")
         raise HTTPException(status_code=500, detail=str(e))

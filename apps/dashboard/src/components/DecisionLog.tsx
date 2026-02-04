@@ -16,6 +16,7 @@ import {
   Sparkles,
   Download
 } from 'lucide-react';
+import { useToast } from './ui/Toast';
 
 interface Decision {
   id: string;
@@ -231,10 +232,51 @@ const DECISION_TYPES = {
 export const DecisionLog: React.FC = () => {
   const [expandedDecision, setExpandedDecision] = useState<string | null>('DEC-2024-0892');
   const [filter, setFilter] = useState<'all' | 'executed' | 'approved' | 'rejected'>('all');
+  const [decisions, setDecisions] = useState<Decision[]>(MOCK_DECISIONS);
+  const { toast } = useToast();
 
-  const filteredDecisions = MOCK_DECISIONS.filter(d => 
+  const filteredDecisions = decisions.filter(d => 
     filter === 'all' ? true : d.status === filter
   );
+
+  const handleApprove = (decisionId: string) => {
+    setDecisions(prev => prev.map(d => 
+      d.id === decisionId ? { ...d, status: 'approved' as const } : d
+    ));
+    toast(`Decision ${decisionId} approved`, 'success');
+  };
+
+  const handleReject = (decisionId: string) => {
+    setDecisions(prev => prev.map(d => 
+      d.id === decisionId ? { ...d, status: 'rejected' as const } : d
+    ));
+    toast(`Decision ${decisionId} rejected`, 'info');
+  };
+
+  const handleExport = () => {
+    const csvContent = [
+      ['Decision ID', 'Title', 'Type', 'Status', 'Confidence', 'Timestamp'].join(','),
+      ...decisions.map(d => [
+        d.id,
+        `"${d.title}"`,
+        d.type,
+        d.status,
+        `${(d.confidence * 100).toFixed(0)}%`,
+        d.timestamp.toISOString()
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `decisions_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    toast('Decision log exported', 'success');
+  };
 
   const getStatusIcon = (status: Decision['status']) => {
     switch (status) {
@@ -313,7 +355,11 @@ export const DecisionLog: React.FC = () => {
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
-            <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+            <button 
+              onClick={handleExport}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Export to CSV"
+            >
               <Download className="w-4 h-4" />
             </button>
           </div>
@@ -538,10 +584,16 @@ export const DecisionLog: React.FC = () => {
                         {/* Action Buttons */}
                         {decision.status === 'pending' && (
                           <div className="flex gap-3">
-                            <button className="flex-1 py-2.5 px-4 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors">
+                            <button 
+                              onClick={() => handleApprove(decision.id)}
+                              className="flex-1 py-2.5 px-4 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors"
+                            >
                               Approve
                             </button>
-                            <button className="flex-1 py-2.5 px-4 bg-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-300 transition-colors">
+                            <button 
+                              onClick={() => handleReject(decision.id)}
+                              className="flex-1 py-2.5 px-4 bg-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-300 transition-colors"
+                            >
                               Reject
                             </button>
                           </div>
