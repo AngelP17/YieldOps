@@ -10,9 +10,9 @@ service:
   root_directory: apps/api
   env:
     - name: SUPABASE_URL
-      value: "https://vwayvxcvkozxumezwqio.supabase.co"
+      value: "SET_IN_KOYEB_DASHBOARD"
     - name: SUPABASE_ANON_KEY
-      value: "sb_publishable_bATl6MEumny_GL_qPtlI4Q_ubu3L0r1"
+      value: "SET_IN_KOYEB_DASHBOARD"
     - name: SUPABASE_SERVICE_KEY
       value: "SET_IN_KOYEB_DASHBOARD"
     - name: PORT
