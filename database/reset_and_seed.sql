@@ -138,18 +138,19 @@ SELECT
     m.machine_id,
     -- Normal readings (95% of data)
     CASE WHEN random() < 0.95 
-        THEN m.max_temperature * (0.7 + random() * 0.2)
-        ELSE m.max_temperature * (0.95 + random() * 0.1)  -- Anomalous
+        THEN ROUND((m.max_temperature * (0.7 + random() * 0.2))::numeric, 2)
+        ELSE ROUND((m.max_temperature * (0.95 + random() * 0.1))::numeric, 2)  -- Anomalous
     END as temperature,
     CASE WHEN random() < 0.95 
-        THEN m.max_vibration * (0.4 + random() * 0.3)
-        ELSE m.max_vibration * (0.85 + random() * 0.2)  -- Anomalous
+        THEN ROUND((m.max_vibration * (0.4 + random() * 0.3))::numeric, 3)
+        ELSE ROUND((m.max_vibration * (0.85 + random() * 0.2))::numeric, 3)  -- Anomalous
     END as vibration,
-    100 + random() * 50 as pressure,
-    500 + random() * 300 as power_consumption,
+    ROUND((100 + random() * 50)::numeric, 2) as pressure,
+    ROUND((500 + random() * 300)::numeric, 2) as power_consumption,
     random() < 0.05 as is_anomaly,
-    CASE WHEN random() < 0.05 THEN 0.7 + random() * 0.25 ELSE NULL END as anomaly_score,
-    NOW() - (random() * 7 || ' days')::INTERVAL - (random() * 24 || ' hours')::INTERVAL as recorded_at
+    CASE WHEN random() < 0.05 THEN ROUND((0.7 + random() * 0.25)::numeric, 4) ELSE NULL END as anomaly_score,
+    -- Fix: Use proper interval calculation
+    NOW() - (INTERVAL '1 day' * FLOOR(random() * 7)) - (INTERVAL '1 hour' * FLOOR(random() * 24)) as recorded_at
 FROM machines m
 CROSS JOIN generate_series(1, 100) as s;
 
