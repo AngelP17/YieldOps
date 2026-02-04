@@ -32,13 +32,77 @@ const MOCK_DISPATCH_HISTORY = [
   { decision_id: '2', job_id: '2', production_jobs: { job_name: 'WF-2024-0848' }, machines: { name: 'Etch-C1' }, dispatched_at: new Date(Date.now() - 3600000).toISOString() },
 ];
 
+// ToC Dispatch Algorithm for Demo Mode
+interface DispatchDecision {
+  job_id: string;
+  job_name: string;
+  machine_id: string;
+  machine_name: string;
+  reason: string;
+}
+
+function runToCDispatch(
+  pendingJobs: ProductionJob[],
+  availableMachines: Machine[],
+  maxDispatches: number = 5
+): DispatchDecision[] {
+  const decisions: DispatchDecision[] = [];
+  
+  // Sort jobs by ToC priority: hot lots first, then priority level, then FIFO
+  const sortedJobs = [...pendingJobs].sort((a, b) => {
+    if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+    if (a.priority_level !== b.priority_level) return a.priority_level - b.priority_level;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+  
+  // Track assigned machines
+  const assignedMachines = new Set<string>();
+  
+  for (const job of sortedJobs) {
+    if (decisions.length >= maxDispatches) break;
+    
+    // Find best available machine (IDLE status preferred, highest efficiency)
+    const eligibleMachines = availableMachines.filter(m => 
+      !assignedMachines.has(m.machine_id) && 
+      m.status !== 'DOWN' && 
+      m.status !== 'MAINTENANCE'
+    );
+    
+    if (eligibleMachines.length === 0) continue;
+    
+    // Score machines: IDLE gets bonus, then by efficiency
+    const scoredMachines = eligibleMachines.map(m => {
+      let score = m.efficiency_rating;
+      if (m.status === 'IDLE') score += 0.5;
+      if (m.status === 'RUNNING') score += 0.2;
+      return { machine: m, score };
+    });
+    
+    scoredMachines.sort((a, b) => b.score - a.score);
+    const bestMachine = scoredMachines[0].machine;
+    
+    decisions.push({
+      job_id: job.job_id,
+      job_name: job.job_name,
+      machine_id: bestMachine.machine_id,
+      machine_name: bestMachine.name,
+      reason: `ToC Dispatch | Job: ${job.job_name} (P${job.priority_level})${job.is_hot_lot ? ' | HOT LOT' : ''} | Machine: ${bestMachine.name} | Efficiency: ${(bestMachine.efficiency_rating * 100).toFixed(0)}%`
+    });
+    
+    assignedMachines.add(bestMachine.machine_id);
+  }
+  
+  return decisions;
+}
+
 export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
-  const { isUsingMockData, updateMachine } = useAppConfig();
+  const { isUsingMockData, updateMachine, updateJob } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
   const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<Array<Record<string, any>>>([]);
+  const [, setLocalDecisions] = useState<DispatchDecision[]>([]);
   const apiAvailable = isApiConfigured();
 
   // Stats
@@ -91,13 +155,61 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   }, [apiAvailable, toast]);
 
   const handleRunDispatch = async () => {
-    if (!apiAvailable) {
-      toast('Dispatch simulation complete - 2 jobs assigned (Demo Mode)', 'success');
-      return;
-    }
-
     setDispatching(true);
+    
     try {
+      if (!apiAvailable || isUsingMockData) {
+        // Run ToC dispatch algorithm locally
+        const pendingJobs = jobs.filter(j => j.status === 'PENDING');
+        const availableMachines = machines.filter(m => m.status === 'IDLE' || m.status === 'RUNNING');
+        
+        if (pendingJobs.length === 0) {
+          toast('No pending jobs to dispatch', 'warning');
+          setDispatching(false);
+          return;
+        }
+        
+        if (availableMachines.length === 0) {
+          toast('No available machines for dispatch', 'warning');
+          setDispatching(false);
+          return;
+        }
+        
+        const decisions = runToCDispatch(pendingJobs, availableMachines, 5);
+        
+        // Apply decisions - update jobs and machines
+        decisions.forEach(decision => {
+          // Update job to QUEUED status and assign machine
+          updateJob(decision.job_id, { 
+            status: 'QUEUED', 
+            assigned_machine_id: decision.machine_id 
+          });
+          
+          // Update machine status to RUNNING if it was IDLE
+          const machine = machines.find(m => m.machine_id === decision.machine_id);
+          if (machine && machine.status === 'IDLE') {
+            updateMachine(decision.machine_id, { status: 'RUNNING' });
+          }
+        });
+        
+        // Add to local dispatch history
+        const newDecisions = decisions.map((d, i) => ({
+          decision_id: `local-${Date.now()}-${i}`,
+          job_id: d.job_id,
+          production_jobs: { job_name: d.job_name },
+          machines: { name: d.machine_name },
+          dispatched_at: new Date().toISOString()
+        }));
+        
+        setLocalDecisions(prev => [...decisions, ...prev]);
+        setDispatchHistory(prev => [...newDecisions, ...prev]);
+        
+        toast(`ToC Dispatch complete: ${decisions.length} jobs assigned (Demo Mode)`, 'success');
+        setDispatching(false);
+        return;
+      }
+      
+      // API mode
       const result = await api.runDispatch({ max_dispatches: 10 });
       toast(`Dispatch complete: ${result.total_dispatched} jobs assigned`, 'success');
       // Refresh dispatch data
@@ -233,25 +345,32 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100">
                 <h3 className="text-sm font-semibold text-slate-900">Dispatch Queue</h3>
-                <p className="text-xs text-slate-500">{dispatchQueue.pending_jobs} pending jobs, {dispatchQueue.available_machines} available machines</p>
+                <p className="text-xs text-slate-500">{stats.pendingJobs} pending jobs, {machines.filter(m => m.status === 'IDLE').length} available machines</p>
               </div>
               <div className="divide-y divide-slate-100">
-                {dispatchQueue.next_dispatch?.map((job, i) => (
-                  <div key={job.job_id || i} className="px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-slate-400">#{i + 1}</span>
-                      <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
-                      {job.is_hot_lot && (
-                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
-                      )}
+                {jobs
+                  .filter(j => j.status === 'PENDING')
+                  .sort((a, b) => {
+                    if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+                    return a.priority_level - b.priority_level;
+                  })
+                  .slice(0, 5)
+                  .map((job, i) => (
+                    <div key={job.job_id} className="px-6 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono text-slate-400">#{i + 1}</span>
+                        <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
+                        {job.is_hot_lot && (
+                          <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
+                        )}
+                      </div>
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <Clock className="w-3 h-3" />
+                        P{job.priority_level}
+                      </span>
                     </div>
-                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                      <Clock className="w-3 h-3" />
-                      P{job.priority_level}
-                    </span>
-                  </div>
-                ))}
-                {(!dispatchQueue.next_dispatch || dispatchQueue.next_dispatch.length === 0) && (
+                  ))}
+                {jobs.filter(j => j.status === 'PENDING').length === 0 && (
                   <div className="px-6 py-6 text-center text-sm text-slate-400">No pending jobs in queue</div>
                 )}
               </div>
@@ -310,6 +429,9 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                   <div className="flex items-center gap-4 text-xs text-slate-500">
                     <span className="flex items-center gap-1"><Layers className="w-3 h-3" />{job.wafer_count} wafers</span>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />P{job.priority_level}</span>
+                    {job.assigned_machine_id && (
+                      <span className="text-blue-600">{machines.find(m => m.machine_id === job.assigned_machine_id)?.name || 'Assigned'}</span>
+                    )}
                   </div>
                 </div>
               ))}

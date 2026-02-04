@@ -430,6 +430,62 @@ flowchart LR
 
 ---
 
+## Frontend State Management
+
+### Dual-State Pattern for Immediate UI Updates
+
+The frontend uses a dual-state pattern to provide immediate UI feedback while maintaining data consistency:
+
+```mermaid
+flowchart TD
+    A[User Action] --> B{Demo Mode?}
+    B -->|Yes| C[Update Local State]
+    B -->|No| D[Update Local State + API Call]
+    C --> E[Immediate UI Re-render]
+    D --> E
+    E --> F[Supabase Realtime Sync]
+    F --> G[Background Data Refresh]
+```
+
+**Key Features:**
+- `updateMachine()` - Updates machine status/efficiency immediately
+- `updateJob()` - Updates job status and assignments immediately  
+- `addJob()` - Adds new jobs to the list immediately
+- All state changes propagate across tabs without refresh
+- Toast notifications confirm actions
+
+### ToC Dispatch Algorithm (Frontend)
+
+When running in demo mode, the frontend implements Goldratt's Theory of Constraints algorithm:
+
+```mermaid
+flowchart TD
+    A[Run Dispatch] --> B[Get Pending Jobs]
+    B --> C[Get Available Machines]
+    C --> D{Has Jobs & Machines?}
+    D -->|No| E[Show Warning]
+    D -->|Yes| F[Sort Jobs by Priority]
+    F --> G[Hot Lots First]
+    G --> H[Then Priority Level]
+    H --> I[Then FIFO]
+    I --> J[Score Machines]
+    J --> K[IDLE Bonus +0.5]
+    K --> L[RUNNING Bonus +0.2]
+    L --> M[+ Efficiency Rating]
+    M --> N[Assign Top Job to Best Machine]
+    N --> O[Update Job Status to QUEUED]
+    O --> P[Update Machine to RUNNING]
+    P --> Q[Add to Dispatch History]
+    Q --> R[Toast Success]
+```
+
+**Algorithm Rules:**
+1. Hot lots always processed first
+2. Priority level (1=highest, 5=lowest)
+3. FIFO within same priority
+4. Machine scoring: Efficiency + Status Bonus
+5. IDLE machines preferred (can take new jobs)
+
 ## Frontend Tab Structure
 
 ```mermaid
@@ -448,6 +504,7 @@ flowchart TB
     
     subgraph OverviewFeatures["Overview Features"]
         KPI["KPI Cards"]
+        ToCDispatch["ToC Dispatch Algorithm"]
         Dispatch["Dispatch Queue"]
         History["Dispatch History"]
         Chaos["Chaos Injection"]
@@ -455,13 +512,15 @@ flowchart TB
     
     subgraph MachinesFeatures["Machines Features"]
         Grid["Machine Grid"]
-        Filter["Filters"]
+        Filter["Filters & Sorting"]
         Detail["Detail Panel"]
         VM["Virtual Metrology"]
+        Analytics["Analytics & Export"]
     end
     
     subgraph JobsFeatures["Jobs Features"]
         List["Job List"]
+        Sorting["Sorting (Priority/Deadline/Created)"]
         Create["Create Job"]
         Cancel["Cancel Job"]
         Stats["Job Stats"]
@@ -595,8 +654,12 @@ flowchart TD
 ```
 
 **Features in Demo Mode:**
-- All tabs display mock data
+- All tabs display mock data (16 machines, 8 jobs)
+- **Working ToC Dispatch** - Frontend algorithm actually assigns jobs to machines
+- **Immediate UI Updates** - Dual-state pattern for instant feedback
 - Actions trigger toast notifications
+- Sorting on all tabs (priority, deadline, status, efficiency, type)
+- Analytics modal with Excel export
 - Visual indicators show "Demo Mode" status
 - No "Failed to fetch" errors
 - Full UI interactivity

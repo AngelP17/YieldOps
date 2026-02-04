@@ -198,12 +198,14 @@ flowchart TD
 
 **Demo Mode Features:**
 - ✅ All three tabs functional (Overview, Machines, Jobs)
-- ✅ Mock machine data with realistic statuses
-- ✅ Mock job queue with hot lots and priorities
-- ✅ Dispatch queue visualization
-- ✅ Machine detail panel with controls
-- ✅ Job creation and cancellation forms
-- ✅ Chaos injection actions (visual feedback)
+- ✅ Mock machine data with realistic statuses (16 machines)
+- ✅ Mock job queue with hot lots and priorities (8 jobs)
+- ✅ **Working ToC Dispatch** - Actually assigns jobs to machines using Goldratt's algorithm
+- ✅ **Immediate UI Updates** - All actions update state without page refresh
+- ✅ Machine detail panel with status controls, chaos injection, recovery
+- ✅ Job creation and cancellation with instant list updates
+- ✅ Sorting on all tabs (priority, deadline, status, efficiency, type)
+- ✅ Analytics modal with export to Excel functionality
 - ✅ Toast notifications for all actions
 - ❌ No persistent data storage
 - ❌ No real-time updates
@@ -214,30 +216,34 @@ flowchart TD
 
 ### Overview Tab
 - KPI Cards (Machines, Efficiency, Wafers, Jobs, Alerts)
-- Dispatch Queue with prioritized jobs
-- Recent Dispatch Decisions
-- Production Queue preview
-- Chaos Injection controls
-- Machine Status Summary
-- Troubled Machines list
+- **ToC Dispatch** - Run Theory of Constraints dispatch algorithm
+- Dispatch Queue with prioritized jobs (hot lots first)
+- Recent Dispatch Decisions with timestamps
+- Production Queue preview with assigned machines
+- Chaos Injection controls (machine down, sensor spike, efficiency drop)
+- Machine Status Summary with visual progress bar
+- Troubled Machines list with recover actions
 
 ### Machines Tab
-- Machine Grid with filterable cards
-- Real-time status indicators
-- Virtual Metrology predictions
+- Machine Grid with filterable/sortable cards (by name, status, efficiency, type)
+- Real-time status indicators with VM predictions
+- **Sorting** - Name, Status, Efficiency, Type
 - Machine Detail Panel:
-  - Status controls
+  - Status controls (IDLE, RUNNING, MAINTENANCE, DOWN)
   - Metrics (Efficiency, Wafers, Temperature, Vibration)
-  - Recover action
-  - Chaos injection
+  - **Analytics & Export** - View detailed analytics and export to Excel
+  - Recover action for troubled machines
+  - Chaos injection (machine down, sensor spike, efficiency drop)
 
 ### Jobs Tab
-- Job Statistics (Total, Pending, Queued, Running, etc.)
-- Filterable Job List
-- Create Job Modal
-- Cancel Job action
-- Hot Lot indicators
-- Priority badges
+- Job Statistics (Total, Pending, Queued, Running, Completed, Failed, Hot Lots)
+- **Enhanced Sorting** - Priority (hot lots first), Deadline, Created
+- Filterable Job List by status and search
+- Hot Lot filter toggle
+- Create Job Modal with full form
+- Cancel Job action with immediate UI update
+- Hot Lot indicators and Priority badges
+- Assigned machine display
 
 ---
 
