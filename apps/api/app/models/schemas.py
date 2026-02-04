@@ -149,6 +149,7 @@ class DispatchBatchResponse(BaseModel):
     decisions: List[DispatchDecisionResponse]
     total_dispatched: int
     algorithm_version: str
+    backend: Optional[str] = None
 
 
 # Alias for compatibility
