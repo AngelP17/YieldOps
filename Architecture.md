@@ -8,15 +8,17 @@ Intelligent Manufacturing & IIoT Portfolio Project
 
 ## Executive Summary
 
-**Smart Fab** is a full-stack Industrial IoT (IIoT) portfolio project demonstrating intelligent semiconductor manufacturing capabilities. The system simulates a fabrication plant with real-time machine monitoring, automated job dispatching using Theory of Constraints (ToC) algorithms, and predictive maintenance through machine learning.
+**Smart Fab** is a full-stack Industrial IoT (IIoT) portfolio project demonstrating intelligent semiconductor manufacturing capabilities. The system simulates a fabrication plant with real-time machine monitoring, automated job dispatching using Theory of Constraints (ToC) algorithms, predictive maintenance through machine learning, and Virtual Metrology for process control.
 
 ### Key Capabilities
 
-- **Real-time Monitoring**: Live machine status via WebSockets
-- **Intelligent Dispatching**: Automated job routing based on efficiency and priority
+- **Real-time Monitoring**: Live machine status via WebSockets/Supabase Realtime
+- **Intelligent Dispatching**: Automated job routing based on efficiency and priority (ToC)
 - **Predictive Maintenance**: Anomaly detection using Isolation Forest
+- **Virtual Metrology**: Predict film thickness and enable Run-to-Run control
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
 - **Chaos Engineering**: Controlled failure injection for resilience testing
+- **Demo Mode**: Full functionality without backend configuration
 
 ---
 
@@ -25,39 +27,86 @@ Intelligent Manufacturing & IIoT Portfolio Project
 ```mermaid
 flowchart TB
     subgraph Frontend["Frontend - Vercel"]
+        direction TB
         React["React 18 + Vite + TypeScript"]
-        Tailwind["Tailwind CSS"]
-        Charts["Recharts"]
+        Tailwind["Tailwind CSS 3.4"]
+        Recharts["Recharts"]
+        Lucide["Lucide Icons"]
+        
+        subgraph Components["UI Components"]
+            OverviewTab["Overview Tab"]
+            MachinesTab["Machines Tab"]
+            JobsTab["Jobs Tab"]
+            MachineNode["Machine Node Cards"]
+            KpiCard["KPI Cards"]
+            Modals["Modals & Forms"]
+        end
+        
+        subgraph Hooks["Custom Hooks"]
+            useRealtime["useRealtime"]
+            useVirtualMetrology["useVirtualMetrology"]
+            usePolling["usePolling"]
+        end
+        
+        subgraph Services["Services"]
+            apiClient["API Client"]
+            supabaseClient["Supabase Client"]
+        end
+        
         React --> Tailwind
-        React --> Charts
+        React --> Recharts
+        React --> Lucide
+        Components --> Hooks
+        Hooks --> Services
     end
 
     subgraph Backend["Backend - Koyeb"]
+        direction TB
         FastAPI["FastAPI Controller"]
-        ToC["Theory of Constraints Engine"]
-        ML["ML Models"]
-        Chaos["Chaos Engineering API"]
-        FastAPI --> ToC
-        FastAPI --> ML
-        FastAPI --> Chaos
+        
+        subgraph APIRoutes["API Routes"]
+            MachinesAPI["/machines"]
+            JobsAPI["/jobs"]
+            DispatchAPI["/dispatch"]
+            ChaosAPI["/chaos"]
+            AnalyticsAPI["/analytics"]
+            VMAPI["/vm"]
+        end
+        
+        subgraph CoreEngines["Core Engines"]
+            ToC["Theory of Constraints Engine"]
+            AnomalyDetector["Anomaly Detector (Isolation Forest)"]
+            MonteCarlo["Monte Carlo Simulator"]
+            VMEngine["Virtual Metrology Engine"]
+        end
+        
+        subgraph ServicesBE["Services"]
+            SupabaseService["Supabase Service"]
+        end
+        
+        FastAPI --> APIRoutes
+        APIRoutes --> CoreEngines
+        APIRoutes --> ServicesBE
     end
 
     subgraph Database["Database - Supabase"]
-        PostgreSQL["PostgreSQL 15"]
-        Realtime["Realtime WebSockets"]
-        Machines[(Machines)]
-        SensorData[(Sensor Readings)]
-        Jobs[(Production Jobs)]
-        Decisions[(Dispatch Decisions)]
-        PostgreSQL --> Machines
-        PostgreSQL --> SensorData
-        PostgreSQL --> Jobs
-        PostgreSQL --> Decisions
+        direction TB
+        PostgreSQL[("PostgreSQL 15")]
+        Realtime[("Supabase Realtime")]
+        
+        subgraph Tables["Core Tables"]
+            Machines[(machines)]
+            SensorReadings[(sensor_readings)]
+            ProductionJobs[(production_jobs)]
+            DispatchDecisions[(dispatch_decisions)]
+        end
+        
+        PostgreSQL --> Tables
         PostgreSQL --> Realtime
     end
 
-    Frontend <-->|HTTP/WebSocket| Backend
-    Backend <-->|REST API| Database
+    Frontend <-->|HTTP REST API| Backend
+    Backend <-->|PostgreSQL Driver| Database
     Frontend <-.->|Supabase Realtime| Database
 ```
 
@@ -70,10 +119,11 @@ flowchart TB
 | **Frontend** | React 18 + Vite + TypeScript | UI Framework | Vercel |
 | **Styling** | Tailwind CSS 3.4 | Utility-first CSS | - |
 | **Charts** | Recharts | Data Visualization | - |
+| **Icons** | Lucide React | Icon Library | - |
 | **Backend** | FastAPI (Python 3.11) | API & ML Services | Koyeb |
 | **Database** | PostgreSQL 15 | Primary Data Store | Supabase |
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
-| **ML** | Scikit-Learn | Anomaly Detection | - |
+| **ML** | Scikit-Learn | Anomaly Detection & VM | - |
 
 ### Why This Stack?
 
@@ -98,7 +148,11 @@ erDiagram
         varchar status
         decimal efficiency_rating
         varchar location_zone
+        int current_wafer_count
+        int total_wafers_processed
+        timestamp last_maintenance
         timestamp created_at
+        timestamp updated_at
     }
     
     sensor_readings {
@@ -107,7 +161,9 @@ erDiagram
         decimal temperature
         decimal vibration
         decimal pressure
+        decimal power_consumption
         boolean is_anomaly
+        decimal anomaly_score
         timestamp recorded_at
     }
     
@@ -117,10 +173,15 @@ erDiagram
         int wafer_count
         int priority_level
         varchar status
+        varchar recipe_type
         uuid assigned_machine_id FK
         boolean is_hot_lot
+        varchar customer_tag
         timestamp deadline
+        timestamp actual_start_time
+        timestamp actual_end_time
         timestamp created_at
+        timestamp updated_at
     }
     
     dispatch_decisions {
@@ -128,6 +189,9 @@ erDiagram
         uuid job_id FK
         uuid machine_id FK
         text decision_reason
+        varchar algorithm_version
+        decimal efficiency_at_dispatch
+        int queue_depth_at_dispatch
         timestamp dispatched_at
     }
     
@@ -163,6 +227,7 @@ CREATE TABLE sensor_readings (
     temperature DECIMAL(6,2) NOT NULL,
     vibration DECIMAL(6,3) NOT NULL,
     pressure DECIMAL(8,2),
+    power_consumption DECIMAL(10,2),
     is_anomaly BOOLEAN DEFAULT FALSE,
     anomaly_score DECIMAL(5,4),
     recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -180,6 +245,7 @@ CREATE TABLE production_jobs (
     recipe_type VARCHAR(50) NOT NULL,
     assigned_machine_id UUID REFERENCES machines(machine_id),
     is_hot_lot BOOLEAN DEFAULT FALSE,
+    customer_tag VARCHAR(50),
     deadline TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -212,21 +278,41 @@ YieldOps/
 │   ├── dashboard/          # React Frontend (Vercel)
 │   │   ├── src/
 │   │   │   ├── components/    # React components
+│   │   │   │   ├── tabs/         # Overview, Machines, Jobs tabs
+│   │   │   │   ├── ui/           # Reusable UI components
+│   │   │   │   ├── MachineNode.tsx
+│   │   │   │   ├── SPCControlChart.tsx
+│   │   │   │   └── SPCViolationBadges.tsx
 │   │   │   ├── hooks/         # Custom hooks
+│   │   │   │   ├── useRealtime.ts
+│   │   │   │   ├── useVirtualMetrology.ts
+│   │   │   │   └── usePolling.ts
 │   │   │   ├── services/      # API clients
+│   │   │   │   ├── apiClient.ts
+│   │   │   │   └── supabaseClient.ts
+│   │   │   ├── lib/           # Utility libraries
+│   │   │   │   └── spcEngine.ts
 │   │   │   └── types/         # TypeScript types
 │   │   ├── .env               # Environment variables (not in git)
-│   │   ├── .env.example       # Example env file
 │   │   └── vercel.json        # Vercel config
 │   │
 │   └── api/                # FastAPI Backend (Koyeb)
 │       ├── app/
 │       │   ├── api/v1/        # API endpoints
+│       │   │   ├── machines.py
+│       │   │   ├── jobs.py
+│       │   │   ├── dispatch.py
+│       │   │   ├── chaos.py
+│       │   │   ├── analytics.py
+│       │   │   └── vm.py
 │       │   ├── core/          # ML & algorithms
+│       │   │   ├── toc_engine.py
+│       │   │   ├── anomaly_detector.py
+│       │   │   ├── monte_carlo.py
+│       │   │   └── vm_engine.py
 │       │   ├── models/        # Pydantic schemas
 │       │   └── services/      # Database service
 │       ├── .env               # Environment variables (not in git)
-│       ├── .env.example       # Example env file
 │       ├── requirements.txt
 │       └── koyeb.yaml         # Koyeb config
 │
@@ -236,7 +322,8 @@ YieldOps/
 ├── ml/                     # ML notebooks & scripts
 ├── database/               # Schema & seed files
 │   ├── schema.sql
-│   └── seed.sql
+│   ├── seed.sql
+│   └── migrations/
 │
 ├── README.md               # Project overview
 └── Architecture.md         # This file
@@ -271,19 +358,67 @@ flowchart TD
 
 ### 2. Anomaly Detection (ML)
 
+```mermaid
+flowchart LR
+    A[Sensor Data] --> B[Isolation Forest]
+    B --> C{Anomaly?}
+    C -->|Yes| D[Alert + Log]
+    C -->|No| E[Normal Operation]
+    D --> F[Dashboard Notification]
+```
+
 - **Algorithm**: Isolation Forest
 - **Features**: Temperature, Vibration, Pressure
 - **Output**: Anomaly score (0-1) + Confidence level
 - **Training**: Auto-initializes with synthetic data
 
-### 3. Monte Carlo Simulation
+### 3. Virtual Metrology (VM)
+
+```mermaid
+flowchart TD
+    A[Process Parameters] --> B[VM Engine]
+    B --> C[Predict Thickness]
+    C --> D{EWMA Drift?}
+    D -->|Yes| E[Generate R2R Correction]
+    D -->|No| F[Continue Monitoring]
+    E --> G[Recipe Adjustment]
+    G --> H[Apply to Next Lot]
+```
+
+- **Purpose**: Predict film thickness without physical measurement
+- **Algorithm**: Ridge Regression with EWMA correction
+- **Features**: Temperature, Pressure, Power Consumption
+- **R2R**: Run-to-Run control for process drift correction
+
+### 4. Monte Carlo Simulation
+
+```mermaid
+flowchart TD
+    A[Machine Config] --> B[Run 10k Simulations]
+    B --> C[Calculate Statistics]
+    C --> D[P5, P50, P95, P99]
+    D --> E[Identify Bottlenecks]
+    E --> F[Capacity Report]
+```
 
 - **Purpose**: Capacity planning & throughput forecasting
 - **Iterations**: 10,000+ simulations
 - **Output**: P5, P50, P95, P99 confidence intervals
 - **Use Case**: "Can we meet 1000 wafers/day target?"
 
-### 4. Chaos Engineering API
+### 5. Chaos Engineering API
+
+```mermaid
+flowchart LR
+    A[Chaos Request] --> B{Failure Type}
+    B -->|machine_down| C[Set Machine DOWN]
+    B -->|sensor_spike| D[Inject Anomalous Data]
+    B -->|efficiency_drop| E[Reduce Efficiency]
+    C --> F[Trigger Alerts]
+    D --> F
+    E --> F
+    F --> G[Test Resilience]
+```
 
 **Scenarios:**
 - `machine_down`: Force machine failure
@@ -291,6 +426,51 @@ flowchart TD
 - `efficiency_drop`: Reduce machine efficiency
 
 **Purpose**: Test system resilience under failures
+
+---
+
+## Frontend Tab Structure
+
+```mermaid
+flowchart TB
+    subgraph App["App.tsx"]
+        Config["AppConfigContext"]
+        MockData["Mock Data Mode"]
+        Realtime["Supabase Realtime"]
+    end
+    
+    subgraph Tabs["Tab Components"]
+        Overview["OverviewTab"]
+        Machines["MachinesTab"]
+        Jobs["JobsTab"]
+    end
+    
+    subgraph OverviewFeatures["Overview Features"]
+        KPI["KPI Cards"]
+        Dispatch["Dispatch Queue"]
+        History["Dispatch History"]
+        Chaos["Chaos Injection"]
+    end
+    
+    subgraph MachinesFeatures["Machines Features"]
+        Grid["Machine Grid"]
+        Filter["Filters"]
+        Detail["Detail Panel"]
+        VM["Virtual Metrology"]
+    end
+    
+    subgraph JobsFeatures["Jobs Features"]
+        List["Job List"]
+        Create["Create Job"]
+        Cancel["Cancel Job"]
+        Stats["Job Stats"]
+    end
+    
+    Config --> Tabs
+    Overview --> OverviewFeatures
+    Machines --> MachinesFeatures
+    Jobs --> JobsFeatures
+```
 
 ---
 
@@ -311,14 +491,21 @@ Local: http://localhost:8000
 | `/api/v1/machines/{id}` | GET | Get machine details |
 | `/api/v1/machines/{id}/stats` | GET | Get machine statistics |
 | `/api/v1/jobs` | GET | List all jobs |
+| `/api/v1/jobs` | POST | Create new job |
+| `/api/v1/jobs/{id}/cancel` | POST | Cancel a job |
 | `/api/v1/jobs/queue` | GET | Get job queue |
 | `/api/v1/dispatch/run` | POST | Execute ToC dispatch |
 | `/api/v1/dispatch/queue` | GET | View dispatch queue |
+| `/api/v1/dispatch/history` | GET | Get dispatch history |
 | `/api/v1/analytics/monte-carlo` | POST | Run simulation |
-| `/api/v1/analytics/bottlenecks` | GET | Identify bottlenecks |
+| `/api/v1/analytics/anomalies` | GET | Get anomaly stats |
 | `/api/v1/chaos/inject` | POST | Inject failure |
 | `/api/v1/chaos/recover/{id}` | POST | Recover machine |
 | `/api/v1/chaos/scenarios` | GET | List chaos scenarios |
+| `/api/v1/vm/status/{id}` | GET | Get VM status |
+| `/api/v1/vm/history/{id}` | GET | Get VM history |
+| `/api/v1/vm/predict` | POST | Request prediction |
+| `/api/v1/vm/model/info` | GET | Get VM model info |
 
 See `apps/api/README.md` for detailed API documentation.
 
@@ -391,6 +578,30 @@ npm run dev:api        # Terminal 2
 
 ---
 
+## Demo Mode
+
+The application includes a **Demo Mode** that provides full functionality without requiring backend configuration:
+
+```mermaid
+flowchart TD
+    A[App Start] --> B{Creds Configured?}
+    B -->|Yes| C[Connect to Supabase/API]
+    B -->|No| D[Enable Demo Mode]
+    D --> E[Load Mock Data]
+    E --> F[Show Demo Badge]
+    F --> G[Actions Show Toast]
+    G --> H[No Backend Calls]
+```
+
+**Features in Demo Mode:**
+- All tabs display mock data
+- Actions trigger toast notifications
+- Visual indicators show "Demo Mode" status
+- No "Failed to fetch" errors
+- Full UI interactivity
+
+---
+
 ## Testing
 
 ```bash
@@ -406,6 +617,9 @@ curl -X POST http://localhost:8000/api/v1/chaos/inject \
 curl -X POST http://localhost:8000/api/v1/analytics/monte-carlo \
   -H "Content-Type: application/json" \
   -d '{"time_horizon_days": 30, "n_simulations": 1000}'
+
+# Get VM status
+curl http://localhost:8000/api/v1/vm/status/{machine_id}
 ```
 
 ---

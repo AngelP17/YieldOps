@@ -8,15 +8,17 @@ Intelligent Manufacturing & IIoT Portfolio Project
 
 ## Overview
 
-**Smart Fab** is a full-stack Industrial IoT (IIoT) portfolio project demonstrating intelligent semiconductor manufacturing capabilities. The system simulates a fabrication plant with real-time machine monitoring, automated job dispatching using Theory of Constraints (ToC) algorithms, and predictive maintenance through machine learning.
+**Smart Fab** is a full-stack Industrial IoT (IIoT) portfolio project demonstrating intelligent semiconductor manufacturing capabilities. The system simulates a fabrication plant with real-time machine monitoring, automated job dispatching using Theory of Constraints (ToC) algorithms, predictive maintenance through machine learning, and Virtual Metrology for advanced process control.
 
 ### Key Capabilities
 
-- **Real-time Monitoring**: Live machine status via WebSockets
+- **Real-time Monitoring**: Live machine status via WebSockets/Supabase Realtime
 - **Intelligent Dispatching**: Automated job routing based on efficiency and priority
 - **Predictive Maintenance**: Anomaly detection using Isolation Forest
+- **Virtual Metrology**: Predict film thickness and enable Run-to-Run (R2R) control
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
 - **Chaos Engineering**: Controlled failure injection for resilience testing
+- **Demo Mode**: Full functionality without backend configuration
 
 ---
 
@@ -25,17 +27,32 @@ Intelligent Manufacturing & IIoT Portfolio Project
 ```mermaid
 flowchart TB
     subgraph Frontend["Frontend - Vercel"]
-        React["React + Vite + Tailwind"]
-        Dashboard[Dashboard]
-        LiveCharts[Live Charts]
-        JobQueue[Job Queue]
+        React["React 18 + Vite + TypeScript"]
+        Tailwind["Tailwind CSS"]
+        Charts["Recharts"]
+        
+        subgraph Tabs["Dashboard Tabs"]
+            Overview["Overview Tab"]
+            Machines["Machines Tab"]
+            Jobs["Jobs Tab"]
+        end
+        
+        React --> Tailwind
+        React --> Charts
+        React --> Tabs
     end
 
     subgraph Backend["Backend - Koyeb"]
         FastAPI["FastAPI Controller"]
-        ToC[ToC Dispatch]
-        ML[ML Models]
-        Chaos[Chaos API]
+        ToC["ToC Dispatch Engine"]
+        ML["ML Models"]
+        VM["Virtual Metrology"]
+        Chaos["Chaos API"]
+        
+        FastAPI --> ToC
+        FastAPI --> ML
+        FastAPI --> VM
+        FastAPI --> Chaos
     end
 
     subgraph Database["Database - Supabase"]
@@ -43,10 +60,14 @@ flowchart TB
         Machines[(Machines)]
         SensorData[(Sensor Data)]
         Jobs[(Jobs)]
+        
+        PostgreSQL --> Machines
+        PostgreSQL --> SensorData
+        PostgreSQL --> Jobs
     end
 
-    Frontend <-->|WebSocket| Backend
-    Backend <-->|REST| Database
+    Frontend <-->|HTTP REST| Backend
+    Backend <-->|PostgreSQL| Database
     Frontend <-.->|Realtime| Database
 ```
 
@@ -59,10 +80,11 @@ flowchart TB
 | **Frontend** | React 18 + Vite + TypeScript | UI Framework | Vercel |
 | **Styling** | Tailwind CSS 3.4 | Utility-first CSS | - |
 | **Charts** | Recharts | Data Visualization | - |
+| **Icons** | Lucide React | Icon Library | - |
 | **Backend** | FastAPI (Python 3.11) | API & ML Services | Koyeb |
 | **Database** | PostgreSQL 15 | Primary Data Store | Supabase |
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
-| **ML** | Scikit-Learn | Anomaly Detection | - |
+| **ML** | Scikit-Learn | Anomaly Detection & VM | - |
 
 ---
 
@@ -72,11 +94,29 @@ flowchart TB
 YieldOps/
 ├── apps/
 │   ├── dashboard/          # React Frontend (Vercel)
+│   │   ├── src/
+│   │   │   ├── components/    # React components
+│   │   │   │   ├── tabs/         # Overview, Machines, Jobs tabs
+│   │   │   │   ├── ui/           # Reusable UI components
+│   │   │   │   └── *.tsx         # Component files
+│   │   │   ├── hooks/         # Custom hooks (useRealtime, useVirtualMetrology)
+│   │   │   ├── services/      # API & Supabase clients
+│   │   │   ├── lib/           # Utility libraries
+│   │   │   └── types/         # TypeScript types
+│   │   └── .env               # Environment variables
+│   │
 │   └── api/                # FastAPI Backend (Koyeb)
+│       ├── app/
+│       │   ├── api/v1/        # API endpoints
+│       │   ├── core/          # ML & algorithms
+│       │   ├── models/        # Pydantic schemas
+│       │   └── services/      # Database service
+│       └── requirements.txt
+│
 ├── packages/
 │   └── types/              # Shared TypeScript types
-├── ml/                     # ML & Simulation
-├── database/               # Schema & Seed files
+├── ml/                     # ML notebooks & scripts
+├── database/               # Schema & seed files
 ├── README.md               # This file
 └── Architecture.md         # Detailed architecture docs
 ```
@@ -89,7 +129,7 @@ YieldOps/
 
 - Node.js 18+
 - Python 3.11+
-- Supabase account
+- Supabase account (optional for demo mode)
 
 ### Setup
 
@@ -111,7 +151,7 @@ YieldOps/
    cd apps/api && pip install -r requirements.txt
    ```
 
-3. **Environment Variables**
+3. **Environment Variables** (Optional for demo mode)
 
    Create `.env` files:
 
@@ -135,9 +175,68 @@ YieldOps/
    # Dashboard
    npm run dev:dashboard
    
-   # API
+   # API (optional for demo mode)
    npm run dev:api
    ```
+
+---
+
+## Demo Mode
+
+YieldOps includes a **Demo Mode** that provides full UI functionality without requiring any backend configuration:
+
+```mermaid
+flowchart TD
+    A[Start App] --> B{Environment Configured?}
+    B -->|Yes| C[Connect to Backend]
+    B -->|No| D[Enable Demo Mode]
+    D --> E[Load Mock Data]
+    E --> F[Display Demo Badge]
+    F --> G[All Actions Work with Toast Notifications]
+```
+
+**Demo Mode Features:**
+- ✅ All three tabs functional (Overview, Machines, Jobs)
+- ✅ Mock machine data with realistic statuses
+- ✅ Mock job queue with hot lots and priorities
+- ✅ Dispatch queue visualization
+- ✅ Machine detail panel with controls
+- ✅ Job creation and cancellation forms
+- ✅ Chaos injection actions (visual feedback)
+- ✅ Toast notifications for all actions
+- ❌ No persistent data storage
+- ❌ No real-time updates
+
+---
+
+## Dashboard Tabs
+
+### Overview Tab
+- KPI Cards (Machines, Efficiency, Wafers, Jobs, Alerts)
+- Dispatch Queue with prioritized jobs
+- Recent Dispatch Decisions
+- Production Queue preview
+- Chaos Injection controls
+- Machine Status Summary
+- Troubled Machines list
+
+### Machines Tab
+- Machine Grid with filterable cards
+- Real-time status indicators
+- Virtual Metrology predictions
+- Machine Detail Panel:
+  - Status controls
+  - Metrics (Efficiency, Wafers, Temperature, Vibration)
+  - Recover action
+  - Chaos injection
+
+### Jobs Tab
+- Job Statistics (Total, Pending, Queued, Running, etc.)
+- Filterable Job List
+- Create Job Modal
+- Cancel Job action
+- Hot Lot indicators
+- Priority badges
 
 ---
 
@@ -147,10 +246,16 @@ YieldOps/
 |----------|--------|-------------|
 | `/health` | GET | Health check |
 | `/api/v1/machines` | GET | List machines |
-| `/api/v1/jobs` | GET | List jobs |
+| `/api/v1/jobs` | GET/POST | List/Create jobs |
+| `/api/v1/jobs/{id}/cancel` | POST | Cancel job |
 | `/api/v1/dispatch/run` | POST | Execute ToC dispatch |
+| `/api/v1/dispatch/queue` | GET | View dispatch queue |
 | `/api/v1/analytics/monte-carlo` | POST | Run simulation |
+| `/api/v1/analytics/anomalies` | GET | Get anomaly stats |
 | `/api/v1/chaos/inject` | POST | Inject failure |
+| `/api/v1/chaos/recover/{id}` | POST | Recover machine |
+| `/api/v1/vm/status/{id}` | GET | Get VM status |
+| `/api/v1/vm/predict` | POST | Request VM prediction |
 
 See [Architecture.md](Architecture.md) for complete documentation.
 
@@ -173,13 +278,38 @@ koyeb app create yieldops-api \
 
 ### Frontend (Vercel)
 
-Connect your GitHub repo to Vercel for automatic deployments.
+1. Connect GitHub repo to Vercel
+2. Set framework preset to "Vite"
+3. Set root directory to `apps/dashboard`
+4. Add environment variables
+
+---
+
+## Testing
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Inject chaos
+curl -X POST http://localhost:8000/api/v1/chaos/inject \
+  -H "Content-Type: application/json" \
+  -d '{"failure_type": "machine_down"}'
+
+# Run Monte Carlo simulation
+curl -X POST http://localhost:8000/api/v1/analytics/monte-carlo \
+  -H "Content-Type: application/json" \
+  -d '{"time_horizon_days": 30, "n_simulations": 1000}'
+
+# Get VM status
+curl http://localhost:8000/api/v1/vm/status/{machine_id}
+```
 
 ---
 
 ## Documentation
 
-- **[Architecture.md](Architecture.md)** - Detailed architecture, database schema, API specs
+- **[Architecture.md](Architecture.md)** - Detailed architecture, database schema, API specs, Mermaid diagrams
 - **[apps/api/README.md](apps/api/README.md)** - API-specific documentation
 - **[apps/dashboard/README.md](apps/dashboard/README.md)** - Frontend documentation
 
