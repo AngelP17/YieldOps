@@ -33,12 +33,16 @@ class SupabaseService:
     
     async def get_machine_queue_depths(self) -> Dict[str, int]:
         """Get queue depth for each machine."""
-        response = self.client.table("production_jobs").select("assigned_machine_id, count(*)") \
+        response = self.client.table("production_jobs").select("assigned_machine_id") \
             .eq("status", "RUNNING") \
-            .group("assigned_machine_id") \
             .execute()
-        
-        return {item["assigned_machine_id"]: item["count"] for item in (response.data or [])}
+
+        depths: Dict[str, int] = {}
+        for item in (response.data or []):
+            mid = item.get("assigned_machine_id")
+            if mid:
+                depths[mid] = depths.get(mid, 0) + 1
+        return depths
     
     async def get_machine_sensor_readings(self, machine_id: str, limit: int = 100) -> List[Dict]:
         """Get recent sensor readings for a machine."""
@@ -145,13 +149,15 @@ class SupabaseService:
     # Analytics
     async def get_throughput_analytics(self, days: int = 7) -> List[Dict]:
         """Get throughput analytics."""
-        # This is a simplified version - in production you'd use more complex queries
         response = self.client.table("production_jobs") \
-            .select("status, count(*)") \
-            .gte("created_at", f"now() - interval '{days} days'") \
-            .group("status") \
+            .select("status") \
             .execute()
-        return response.data or []
+
+        counts: Dict[str, int] = {}
+        for item in (response.data or []):
+            status = item.get("status", "UNKNOWN")
+            counts[status] = counts.get(status, 0) + 1
+        return [{"status": k, "count": v} for k, v in counts.items()]
     
     async def get_machine_statistics(self) -> Dict:
         """Get overall machine statistics."""
@@ -186,14 +192,12 @@ class SupabaseService:
     async def get_anomaly_stats(self, days: int = 7) -> Dict:
         """Get anomaly detection statistics."""
         response = self.client.table("sensor_readings") \
-            .select("is_anomaly, count(*)") \
-            .gte("recorded_at", f"now() - interval '{days} days'") \
-            .group("is_anomaly") \
+            .select("is_anomaly") \
             .execute()
-        
+
         data = response.data or []
-        total = sum(item.get("count", 0) for item in data)
-        anomalies = sum(item.get("count", 0) for item in data if item.get("is_anomaly"))
+        total = len(data)
+        anomalies = sum(1 for item in data if item.get("is_anomaly"))
         
         return {
             "total_readings": total,
