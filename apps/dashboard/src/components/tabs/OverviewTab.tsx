@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Activity, Cpu, TrendingUp, Layers, Package, Shield, Zap,
-  Play, AlertTriangle, ArrowRight, Clock, RefreshCw, Wrench
+  Play, AlertTriangle, ArrowRight, Clock, RefreshCw, Wrench,
+  BarChart3
 } from 'lucide-react';
 import { KpiCard } from '../ui/KpiCard';
 import { StatusBadge, JobStatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
+import { SystemAnalyticsModal } from '../SystemAnalyticsModal';
 import { api, DispatchQueueResponse, isApiConfigured } from '../../services/apiClient';
 import { useAppConfig } from '../../App';
 import type { Machine, ProductionJob } from '../../types';
@@ -103,6 +105,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<Array<Record<string, any>>>([]);
   const [, setLocalDecisions] = useState<DispatchDecision[]>([]);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const apiAvailable = isApiConfigured();
 
   // Stats
@@ -319,6 +322,14 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             </div>
           </div>
 
+          <button
+            onClick={() => setShowAnalytics(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
+          >
+            <BarChart3 className="w-4 h-4" />
+            System Analytics
+          </button>
+
           <div className="ml-auto flex items-center gap-4 text-sm text-slate-500">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-yellow-400" />
@@ -505,6 +516,14 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
           </div>
         </div>
       </div>
+
+      {/* System Analytics Modal */}
+      <SystemAnalyticsModal
+        isOpen={showAnalytics}
+        onClose={() => setShowAnalytics(false)}
+        machines={machines}
+        jobs={jobs}
+      />
     </div>
   );
 }

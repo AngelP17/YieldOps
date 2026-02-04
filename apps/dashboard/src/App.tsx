@@ -1,6 +1,7 @@
 import { useState, useMemo, createContext, useContext, useCallback, useEffect } from 'react';
 import { Machine, ProductionJob } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
+import { useAutonomousSimulation } from './hooks/useAutonomousSimulation';
 import { isApiConfigured, isSupabaseConfigured } from './services/apiClient';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { MachinesTab } from './components/tabs/MachinesTab';
@@ -13,7 +14,9 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Play,
+  Pause
 } from 'lucide-react';
 
 // Extended mock data for demo when Supabase is not configured
@@ -189,6 +192,18 @@ function App() {
     // For demo mode, just keep current state
   }, [hasSupabase, refreshMachines, refreshJobs]);
 
+  // Autonomous simulation toggle
+  const [simulationEnabled, setSimulationEnabled] = useState(true);
+  
+  // Start autonomous simulation in demo mode
+  useAutonomousSimulation({
+    enabled: simulationEnabled && isUsingMockData,
+    jobProgressionInterval: 5000,
+    machineEventInterval: 8000,
+    newJobInterval: 15000,
+    sensorDataInterval: 3000,
+  });
+
   const appConfigValue: AppConfigContextType = {
     isUsingMockData,
     isSupabaseConnected,
@@ -241,10 +256,25 @@ function App() {
               <div className="flex items-center gap-3">
                 {/* Mock Data Badge */}
                 {isUsingMockData && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">Demo Mode</span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium">Demo Mode</span>
+                    </div>
+                    {/* Simulation Toggle */}
+                    <button
+                      onClick={() => setSimulationEnabled(!simulationEnabled)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                        simulationEnabled 
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                      title="Toggle autonomous simulation"
+                    >
+                      {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                      {simulationEnabled ? 'Simulating' : 'Paused'}
+                    </button>
+                  </>
                 )}
                 
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
