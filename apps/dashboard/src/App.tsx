@@ -1,5 +1,8 @@
 import { useState, useMemo } from 'react';
 import { MachineNode } from './components/MachineNode';
+import { AnalyticsModal } from './components/AnalyticsModal';
+import { ChaosPanel } from './components/ChaosPanel';
+import { DecisionLog } from './components/DecisionLog';
 import { Machine } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
 import { 
@@ -20,7 +23,9 @@ import {
   MoreHorizontal,
   Filter,
   Download,
-  RefreshCw
+  RefreshCw,
+  Bomb,
+  Brain
 } from 'lucide-react';
 
 // Mock data for demo when Supabase is not configured
@@ -52,7 +57,9 @@ function App() {
   const { sensorData } = useLatestSensorData();
   const { jobs: realtimeJobs } = useRealtimeJobs();
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs' | 'chaos' | 'decisions'>('overview');
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+
   
   // Use mock data if Supabase is not configured
   const hasSupabase = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'your_supabase_url';
@@ -148,6 +155,8 @@ function App() {
                 { id: 'overview', label: 'Overview', icon: BarChart3 },
                 { id: 'machines', label: 'Machines', icon: Cpu },
                 { id: 'jobs', label: 'Jobs', icon: Layers },
+                { id: 'chaos', label: 'Chaos', icon: Bomb },
+                { id: 'decisions', label: 'AI Log', icon: Brain },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -190,7 +199,8 @@ function App() {
       </header>
 
       <main className="px-6 lg:px-8 py-8">
-        {/* KPI Cards Row */}
+        {/* KPI Cards Row - Only show on overview */}
+        {activeTab === 'overview' && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <KpiCard 
             label="Total Machines"
@@ -241,8 +251,10 @@ function App() {
             color="rose"
           />
         </div>
+        )}
 
-        {/* Main Content Grid */}
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left Column - Machine Floor */}
           <div className="xl:col-span-2 space-y-6">
@@ -378,7 +390,10 @@ function App() {
                   </div>
 
                   {/* Action Button */}
-                  <button className="w-full py-2.5 px-4 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors">
+                  <button 
+                    onClick={() => setIsAnalyticsOpen(true)}
+                    className="w-full py-2.5 px-4 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
+                  >
                     View Detailed Analytics
                   </button>
                 </div>
@@ -438,7 +453,102 @@ function App() {
             </div>
           </div>
         </div>
+        )}
+
+        {activeTab === 'machines' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">All Machines</h2>
+                <p className="text-sm text-slate-500">Complete machine inventory and status</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                  <Filter className="w-4 h-4" />
+                  Filter
+                </button>
+                <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {machines.map((machine) => (
+                  <MachineNode
+                    key={machine.machine_id}
+                    machine={machine}
+                    onClick={setSelectedMachine}
+                    isSelected={selectedMachine?.machine_id === machine.machine_id}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'jobs' && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Production Jobs</h2>
+                  <p className="text-sm text-slate-500">All jobs in the production queue</p>
+                </div>
+                <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                  <Filter className="w-4 h-4" />
+                  Filter
+                </button>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {jobs.map((job) => (
+                  <div key={job.job_id} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
+                          {job.is_hot_lot && (
+                            <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">
+                              HOT
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">{job.customer_tag} • {job.recipe_type}</p>
+                      </div>
+                      <JobStatusBadge status={job.status} />
+                    </div>
+                    <div className="flex items-center gap-6 text-xs text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Layers className="w-3 h-3" />
+                        {job.wafer_count} wafers
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        P{job.priority_level} Priority
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Cpu className="w-3 h-3" />
+                        {job.assigned_machine_id || 'Unassigned'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'chaos' && <ChaosPanel />}
+        {activeTab === 'decisions' && <DecisionLog />}
       </main>
+
+      {/* Analytics Modal */}
+      <AnalyticsModal
+        machine={selectedMachine}
+        isOpen={isAnalyticsOpen}
+        onClose={() => setIsAnalyticsOpen(false)}
+      />
     </div>
   );
 }
