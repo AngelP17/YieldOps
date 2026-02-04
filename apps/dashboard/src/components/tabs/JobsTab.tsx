@@ -1,0 +1,355 @@
+import { useState, useMemo } from 'react';
+import { Plus, Search, Clock, Layers, X, Flame } from 'lucide-react';
+import { JobStatusBadge } from '../ui/StatusBadge';
+import { Modal } from '../ui/Modal';
+import { useToast } from '../ui/Toast';
+import { api, CreateJobPayload } from '../../services/apiClient';
+import type { Machine, ProductionJob, JobStatus } from '../../types';
+
+interface JobsTabProps {
+  jobs: ProductionJob[];
+  machines: Machine[];
+}
+
+const RECIPE_TYPES = ['ADVANCED_LOGIC', '5NM_FINFE', 'STANDARD_LOGIC', 'MEMORY_DRAM', 'IO_CONTROLLER', 'POWER_MANAGEMENT', 'ANALOG_MIXER', 'TEST_CHIPS'];
+
+export function JobsTab({ jobs, machines }: JobsTabProps) {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<JobStatus | 'ALL'>('ALL');
+  const [hotLotOnly, setHotLotOnly] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'priority' | 'created' | 'deadline'>('priority');
+  const [showCreate, setShowCreate] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // Form state
+  const [form, setForm] = useState<CreateJobPayload>({
+    job_name: '',
+    wafer_count: 25,
+    priority_level: 3,
+    recipe_type: 'STANDARD_LOGIC',
+    is_hot_lot: false,
+    customer_tag: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const machineMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    machines.forEach((m) => { map[m.machine_id] = m.name; });
+    return map;
+  }, [machines]);
+
+  const filtered = useMemo(() => {
+    let result = [...jobs];
+
+    if (statusFilter !== 'ALL') result = result.filter((j) => j.status === statusFilter);
+    if (hotLotOnly) result = result.filter((j) => j.is_hot_lot);
+    if (search) result = result.filter((j) =>
+      j.job_name.toLowerCase().includes(search.toLowerCase()) ||
+      (j.customer_tag || '').toLowerCase().includes(search.toLowerCase())
+    );
+
+    result.sort((a, b) => {
+      if (sortBy === 'priority') {
+        if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+        return a.priority_level - b.priority_level;
+      }
+      if (sortBy === 'deadline') {
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    return result;
+  }, [jobs, statusFilter, hotLotOnly, search, sortBy]);
+
+  // Job stats
+  const jobStats = useMemo(() => ({
+    total: jobs.length,
+    pending: jobs.filter((j) => j.status === 'PENDING').length,
+    queued: jobs.filter((j) => j.status === 'QUEUED').length,
+    running: jobs.filter((j) => j.status === 'RUNNING').length,
+    completed: jobs.filter((j) => j.status === 'COMPLETED').length,
+    failed: jobs.filter((j) => j.status === 'FAILED').length,
+    hotLots: jobs.filter((j) => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED').length,
+  }), [jobs]);
+
+  const handleCreateJob = async () => {
+    if (!form.job_name || !form.recipe_type) {
+      toast('Please fill in required fields', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.createJob(form);
+      toast(`Job "${form.job_name}" created`, 'success');
+      setShowCreate(false);
+      setForm({
+        job_name: '',
+        wafer_count: 25,
+        priority_level: 3,
+        recipe_type: 'STANDARD_LOGIC',
+        is_hot_lot: false,
+        customer_tag: '',
+      });
+    } catch (err: any) {
+      toast(err.message || 'Failed to create job', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelJob = async (jobId: string, jobName: string) => {
+    setCancellingId(jobId);
+    try {
+      await api.cancelJob(jobId);
+      toast(`Job "${jobName}" cancelled`, 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to cancel job', 'error');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Bar */}
+      <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
+        {[
+          { label: 'Total', value: jobStats.total, color: 'text-slate-900' },
+          { label: 'Pending', value: jobStats.pending, color: 'text-yellow-600' },
+          { label: 'Queued', value: jobStats.queued, color: 'text-blue-600' },
+          { label: 'Running', value: jobStats.running, color: 'text-emerald-600' },
+          { label: 'Completed', value: jobStats.completed, color: 'text-slate-500' },
+          { label: 'Failed', value: jobStats.failed, color: 'text-rose-600' },
+          { label: 'Hot Lots', value: jobStats.hotLots, color: 'text-rose-600' },
+        ].map((stat) => (
+          <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-3 text-center">
+            <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
+            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Create Job
+          </button>
+
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search jobs or customers..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as JobStatus | 'ALL')}
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="ALL">All Status</option>
+            <option value="PENDING">Pending</option>
+            <option value="QUEUED">Queued</option>
+            <option value="RUNNING">Running</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="FAILED">Failed</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'priority' | 'created' | 'deadline')}
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="priority">Sort: Priority</option>
+            <option value="created">Sort: Created</option>
+            <option value="deadline">Sort: Deadline</option>
+          </select>
+
+          <button
+            onClick={() => setHotLotOnly(!hotLotOnly)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              hotLotOnly
+                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            Hot Lots
+          </button>
+        </div>
+      </div>
+
+      {/* Job List */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="divide-y divide-slate-100">
+          {filtered.map((job) => (
+            <div key={job.job_id} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-semibold text-slate-900">{job.job_name}</span>
+                    {job.is_hot_lot && (
+                      <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT LOT</span>
+                    )}
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                      job.priority_level <= 2 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      P{job.priority_level}
+                    </span>
+                    <JobStatusBadge status={job.status} />
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-slate-500">
+                    <span>{job.customer_tag || 'No customer'}</span>
+                    <span>&middot;</span>
+                    <span>{job.recipe_type}</span>
+                    <span>&middot;</span>
+                    <span className="flex items-center gap-1"><Layers className="w-3 h-3" />{job.wafer_count} wafers</span>
+                    {job.assigned_machine_id && (
+                      <>
+                        <span>&middot;</span>
+                        <span className="text-blue-600">{machineMap[job.assigned_machine_id] || 'Assigned'}</span>
+                      </>
+                    )}
+                    {job.deadline && (
+                      <>
+                        <span>&middot;</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(job.deadline).toLocaleDateString()}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 ml-4">
+                  {(job.status === 'PENDING' || job.status === 'QUEUED') && (
+                    <button
+                      onClick={() => handleCancelJob(job.job_id, job.job_name)}
+                      disabled={cancellingId === job.job_id}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="px-6 py-12 text-center text-sm text-slate-400">No jobs match your filters</div>
+          )}
+        </div>
+      </div>
+
+      {/* Create Job Modal */}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Production Job">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">Job Name *</label>
+            <input
+              type="text"
+              value={form.job_name}
+              onChange={(e) => setForm({ ...form, job_name: e.target.value })}
+              placeholder="e.g. WF-2026-0001"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1 block">Wafer Count *</label>
+              <input
+                type="number"
+                min="1"
+                value={form.wafer_count}
+                onChange={(e) => setForm({ ...form, wafer_count: parseInt(e.target.value) || 1 })}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1 block">Priority (1=Highest)</label>
+              <select
+                value={form.priority_level}
+                onChange={(e) => setForm({ ...form, priority_level: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="1">P1 - Critical</option>
+                <option value="2">P2 - High</option>
+                <option value="3">P3 - Medium</option>
+                <option value="4">P4 - Standard</option>
+                <option value="5">P5 - Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">Recipe Type *</label>
+            <select
+              value={form.recipe_type}
+              onChange={(e) => setForm({ ...form, recipe_type: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {RECIPE_TYPES.map((r) => (
+                <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">Customer</label>
+            <input
+              type="text"
+              value={form.customer_tag}
+              onChange={(e) => setForm({ ...form, customer_tag: e.target.value })}
+              placeholder="e.g. APPLE, NVIDIA"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_hot_lot}
+                onChange={(e) => setForm({ ...form, is_hot_lot: e.target.checked, priority_level: e.target.checked ? 1 : form.priority_level })}
+                className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+              />
+              <span className="text-sm font-medium text-slate-700">Hot Lot</span>
+            </label>
+            <span className="text-xs text-slate-400">VIP priority - bypasses normal queue</span>
+          </div>
+
+          <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+            <button
+              onClick={() => setShowCreate(false)}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateJob}
+              disabled={submitting}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {submitting ? 'Creating...' : 'Create Job'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
