@@ -7,6 +7,7 @@ import { KpiCard } from '../ui/KpiCard';
 import { StatusBadge, JobStatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
 import { api, DispatchQueueResponse, isApiConfigured } from '../../services/apiClient';
+import { useAppConfig } from '../../App';
 import type { Machine, ProductionJob } from '../../types';
 
 interface OverviewTabProps {
@@ -33,6 +34,7 @@ const MOCK_DISPATCH_HISTORY = [
 
 export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
+  const { isUsingMockData, updateMachine } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
   const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
@@ -90,7 +92,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
 
   const handleRunDispatch = async () => {
     if (!apiAvailable) {
-      toast('Dispatch simulation complete (Demo Mode)', 'success');
+      toast('Dispatch simulation complete - 2 jobs assigned (Demo Mode)', 'success');
       return;
     }
 
@@ -111,15 +113,37 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   };
 
   const handleInjectChaos = async (type: 'machine_down' | 'sensor_spike' | 'efficiency_drop') => {
-    if (!apiAvailable) {
-      toast(`Chaos injected: ${type} (Demo Mode - no actual changes)`, 'info');
+    setChaosLoading(true);
+    
+    // Pick a random running machine to affect
+    const runningMachines = machines.filter(m => m.status === 'RUNNING');
+    if (runningMachines.length === 0) {
+      toast('No running machines available for chaos injection', 'warning');
+      setChaosLoading(false);
+      return;
+    }
+    
+    const targetMachine = runningMachines[Math.floor(Math.random() * runningMachines.length)];
+    
+    if (!apiAvailable || isUsingMockData) {
+      // Apply chaos directly to local state
+      if (type === 'machine_down') {
+        updateMachine(targetMachine.machine_id, { status: 'DOWN', efficiency_rating: 0 });
+        toast(`Chaos injected: ${targetMachine.name} is now DOWN (Demo Mode)`, 'info');
+      } else if (type === 'efficiency_drop') {
+        const newEfficiency = Math.max(0.3, targetMachine.efficiency_rating - 0.3);
+        updateMachine(targetMachine.machine_id, { efficiency_rating: newEfficiency });
+        toast(`Chaos injected: ${targetMachine.name} efficiency dropped to ${(newEfficiency * 100).toFixed(0)}% (Demo Mode)`, 'info');
+      } else if (type === 'sensor_spike') {
+        toast(`Chaos injected: Sensor spike on ${targetMachine.name} (Demo Mode)`, 'info');
+      }
+      setChaosLoading(false);
       return;
     }
 
-    setChaosLoading(true);
     try {
-      const result: any = await api.injectChaos({ failure_type: type, severity: 'medium' });
-      toast(`Chaos injected: ${result.scenario || type}`, 'info');
+      const result: any = await api.injectChaos({ failure_type: type, machine_id: targetMachine.machine_id, severity: 'medium' });
+      toast(`Chaos injected: ${result.scenario || type} on ${targetMachine.name}`, 'info');
     } catch (err: any) {
       toast(err.message || 'Chaos injection failed', 'error');
     } finally {
@@ -128,8 +152,9 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   };
 
   const handleRecover = async (machineId: string, machineName: string) => {
-    if (!apiAvailable) {
-      toast(`${machineName} recovered (Demo Mode)`, 'success');
+    if (!apiAvailable || isUsingMockData) {
+      updateMachine(machineId, { status: 'IDLE', efficiency_rating: 0.90 });
+      toast(`${machineName} recovered to IDLE status (Demo Mode)`, 'success');
       return;
     }
 

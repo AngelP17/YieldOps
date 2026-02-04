@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Search, Wrench, Zap, Activity, TrendingUp, Layers, AlertTriangle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search, Wrench, Zap, Activity, TrendingUp, Layers, AlertTriangle, BarChart3 } from 'lucide-react';
 import { MachineNode } from '../MachineNode';
 import { StatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
+import { AnalyticsModal } from '../AnalyticsModal';
 import { api, isApiConfigured } from '../../services/apiClient';
+import { useAppConfig } from '../../App';
 import { useVirtualMetrologyBatch } from '../../hooks/useVirtualMetrology';
 import type { Machine, MachineStatus, MachineType } from '../../types';
 
@@ -13,29 +15,64 @@ interface MachinesTabProps {
 
 export function MachinesTab({ machines }: MachinesTabProps) {
   const { toast } = useToast();
+  const { isUsingMockData, updateMachine } = useAppConfig();
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [statusFilter, setStatusFilter] = useState<MachineStatus | 'ALL'>('ALL');
   const [typeFilter, setTypeFilter] = useState<MachineType | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'status' | 'efficiency' | 'type'>('name');
   const apiAvailable = isApiConfigured();
 
   // VM polling for all machines
   const { statuses: vmStatuses } = useVirtualMetrologyBatch(
     machines.map(m => m.machine_id),
-    { pollingInterval: 30000, enabled: apiAvailable }
+    { pollingInterval: 30000, enabled: true }
   );
 
-  const filtered = machines.filter((m) => {
-    if (statusFilter !== 'ALL' && m.status !== statusFilter) return false;
-    if (typeFilter !== 'ALL' && m.type !== typeFilter) return false;
-    if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const result = machines.filter((m) => {
+      if (statusFilter !== 'ALL' && m.status !== statusFilter) return false;
+      if (typeFilter !== 'ALL' && m.type !== typeFilter) return false;
+      if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+
+    // Apply sorting
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'status': {
+          // Order: RUNNING > IDLE > MAINTENANCE > DOWN
+          const statusOrder = { RUNNING: 0, IDLE: 1, MAINTENANCE: 2, DOWN: 3 };
+          const orderDiff = statusOrder[a.status] - statusOrder[b.status];
+          if (orderDiff !== 0) return orderDiff;
+          // Secondary sort by name
+          return a.name.localeCompare(b.name);
+        }
+        case 'efficiency': {
+          // Higher efficiency first
+          const effDiff = b.efficiency_rating - a.efficiency_rating;
+          if (effDiff !== 0) return effDiff;
+          // Secondary sort by name
+          return a.name.localeCompare(b.name);
+        }
+        case 'type':
+          return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [machines, statusFilter, typeFilter, search, sortBy]);
 
   const handleStatusChange = async (machineId: string, status: MachineStatus) => {
-    if (!apiAvailable) {
-      toast(`Status updated to ${status} (Demo Mode)`, 'success');
+    if (!apiAvailable || isUsingMockData) {
+      updateMachine(machineId, { status });
+      toast(`Machine status updated to ${status} (Demo Mode)`, 'success');
       if (selectedMachine?.machine_id === machineId) {
         setSelectedMachine({ ...selectedMachine, status });
       }
@@ -57,10 +94,11 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   };
 
   const handleRecover = async (machineId: string, name: string) => {
-    if (!apiAvailable) {
-      toast(`${name} recovered (Demo Mode)`, 'success');
+    if (!apiAvailable || isUsingMockData) {
+      updateMachine(machineId, { status: 'IDLE', efficiency_rating: 0.90 });
+      toast(`${name} recovered to IDLE (Demo Mode)`, 'success');
       if (selectedMachine?.machine_id === machineId) {
-        setSelectedMachine({ ...selectedMachine, status: 'IDLE' });
+        setSelectedMachine({ ...selectedMachine, status: 'IDLE', efficiency_rating: 0.90 });
       }
       return;
     }
@@ -80,12 +118,25 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   };
 
   const handleChaos = async (machineId: string, type: 'machine_down' | 'sensor_spike' | 'efficiency_drop') => {
-    if (!apiAvailable) {
-      toast(`Chaos injected: ${type} (Demo Mode)`, 'info');
-      if (selectedMachine?.machine_id === machineId) {
-        const newStatus = type === 'machine_down' ? 'DOWN' : selectedMachine.status;
-        const newEfficiency = type === 'efficiency_drop' ? 0.5 : selectedMachine.efficiency_rating;
-        setSelectedMachine({ ...selectedMachine, status: newStatus as MachineStatus, efficiency_rating: newEfficiency });
+    const machine = machines.find(m => m.machine_id === machineId);
+    if (!machine) return;
+
+    if (!apiAvailable || isUsingMockData) {
+      if (type === 'machine_down') {
+        updateMachine(machineId, { status: 'DOWN', efficiency_rating: 0 });
+        toast(`Chaos: ${machine.name} is now DOWN (Demo Mode)`, 'info');
+        if (selectedMachine?.machine_id === machineId) {
+          setSelectedMachine({ ...selectedMachine, status: 'DOWN', efficiency_rating: 0 });
+        }
+      } else if (type === 'efficiency_drop') {
+        const newEfficiency = Math.max(0.3, machine.efficiency_rating - 0.3);
+        updateMachine(machineId, { efficiency_rating: newEfficiency });
+        toast(`Chaos: ${machine.name} efficiency dropped to ${(newEfficiency * 100).toFixed(0)}% (Demo Mode)`, 'info');
+        if (selectedMachine?.machine_id === machineId) {
+          setSelectedMachine({ ...selectedMachine, efficiency_rating: newEfficiency });
+        }
+      } else if (type === 'sensor_spike') {
+        toast(`Chaos: Sensor spike on ${machine.name} (Demo Mode)`, 'info');
       }
       return;
     }
@@ -143,6 +194,18 @@ export function MachinesTab({ machines }: MachinesTabProps) {
             <option value="deposition">Deposition</option>
             <option value="inspection">Inspection</option>
             <option value="cleaning">Cleaning</option>
+          </select>
+
+          {/* Sort Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'status' | 'efficiency' | 'type')}
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="name">Sort: Name</option>
+            <option value="status">Sort: Status</option>
+            <option value="efficiency">Sort: Efficiency</option>
+            <option value="type">Sort: Type</option>
           </select>
 
           <span className="text-sm text-slate-500">{filtered.length} machines</span>
@@ -240,6 +303,15 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                   </div>
                 </div>
 
+                {/* Analytics Button */}
+                <button
+                  onClick={() => setShowAnalytics(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  View Analytics & Export
+                </button>
+
                 {/* Status Controls */}
                 <div>
                   <label className="text-xs font-medium text-slate-500 mb-2 block">Change Status</label>
@@ -302,7 +374,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                       {selectedMachine.last_maintenance ? new Date(selectedMachine.last_maintenance).toLocaleDateString() : '—'}
                     </span>
                   </div>
-                  {!apiAvailable && (
+                  {isUsingMockData && (
                     <div className="flex items-center gap-2 p-2 bg-amber-50 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-amber-500" />
                       <span className="text-xs text-amber-700">Demo Mode - Changes are local only</span>
@@ -317,11 +389,19 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                 <Search className="w-6 h-6 text-slate-400" />
               </div>
               <h3 className="text-sm font-medium text-slate-900 mb-1">No Machine Selected</h3>
-              <p className="text-xs text-slate-500">Click on a machine to view details and controls</p>
+              <p className="text-xs text-slate-500">Click on a machine to view details, analytics, and controls</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Analytics Modal */}
+      <AnalyticsModal
+        machine={selectedMachine}
+        isOpen={showAnalytics}
+        onClose={() => setShowAnalytics(false)}
+        enableVM={true}
+      />
     </div>
   );
 }

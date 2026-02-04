@@ -4,6 +4,7 @@ import { JobStatusBadge } from '../ui/StatusBadge';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
 import { api, CreateJobPayload, isApiConfigured } from '../../services/apiClient';
+import { useAppConfig } from '../../App';
 import type { Machine, ProductionJob, JobStatus } from '../../types';
 
 interface JobsTabProps {
@@ -15,6 +16,7 @@ const RECIPE_TYPES = ['ADVANCED_LOGIC', '5NM_FINFE', 'STANDARD_LOGIC', 'MEMORY_D
 
 export function JobsTab({ jobs, machines }: JobsTabProps) {
   const { toast } = useToast();
+  const { isUsingMockData, addJob, updateJob } = useAppConfig();
   const [statusFilter, setStatusFilter] = useState<JobStatus | 'ALL'>('ALL');
   const [hotLotOnly, setHotLotOnly] = useState(false);
   const [search, setSearch] = useState('');
@@ -83,8 +85,25 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       return;
     }
 
-    if (!apiAvailable) {
-      toast(`Job "${form.job_name}" created (Demo Mode - not persisted)`, 'success');
+    if (!apiAvailable || isUsingMockData) {
+      // Create job locally
+      const newJob: ProductionJob = {
+        job_id: `job-${Date.now()}`,
+        job_name: form.job_name,
+        wafer_count: form.wafer_count,
+        priority_level: form.priority_level as 1 | 2 | 3 | 4 | 5,
+        status: 'PENDING',
+        recipe_type: form.recipe_type,
+        is_hot_lot: form.is_hot_lot,
+        customer_tag: form.customer_tag,
+        assigned_machine_id: undefined,
+        estimated_duration_minutes: form.estimated_duration_minutes,
+        deadline: form.deadline,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      addJob(newJob);
+      toast(`Job "${form.job_name}" created (Demo Mode)`, 'success');
       setShowCreate(false);
       setForm({
         job_name: '',
@@ -118,7 +137,8 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
   };
 
   const handleCancelJob = async (jobId: string, jobName: string) => {
-    if (!apiAvailable) {
+    if (!apiAvailable || isUsingMockData) {
+      updateJob(jobId, { status: 'CANCELLED' });
       toast(`Job "${jobName}" cancelled (Demo Mode)`, 'success');
       return;
     }
@@ -137,12 +157,12 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
   return (
     <div className="space-y-6">
       {/* Demo Mode Banner */}
-      {!apiAvailable && (
+      {isUsingMockData && (
         <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle className="w-5 h-5 text-amber-500" />
           <div>
             <p className="text-sm font-medium text-amber-800">Demo Mode Active</p>
-            <p className="text-xs text-amber-700">Actions will not be persisted. Configure VITE_API_URL to enable full functionality.</p>
+            <p className="text-xs text-amber-700">Jobs will be stored locally. Configure VITE_API_URL to enable persistent storage.</p>
           </div>
         </div>
       )}
@@ -290,10 +310,10 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       {/* Create Job Modal */}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Production Job">
         <div className="space-y-4">
-          {!apiAvailable && (
+          {isUsingMockData && (
             <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <span className="text-xs text-amber-700">Demo Mode - Job will not be saved to database</span>
+              <span className="text-xs text-amber-700">Demo Mode - Job will be stored locally only</span>
             </div>
           )}
 
