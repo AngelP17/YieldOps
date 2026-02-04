@@ -58,11 +58,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://yield-ops-dashboard.vercel.app",
         "https://yieldops.vercel.app",
         "https://yieldops-dashboard.vercel.app",
         "http://localhost:5173",  # Vite dev server
         "http://localhost:3000",  # React dev server
     ],
+    allow_origin_regex=r"https://yield-ops-dashboard-.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
