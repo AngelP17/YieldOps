@@ -3,7 +3,7 @@
 Intelligent Manufacturing & IIoT Portfolio Project
 
 **Live Demo:** [https://yield-ops-dashboard.vercel.app/](https://yield-ops-dashboard.vercel.app/) *(Frontend)*  
-**API Endpoint:** https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app/ *(Backend)*
+**API Endpoint:** <https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app/> *(Backend)*
 
 ---
 
@@ -96,13 +96,27 @@ flowchart TB
         Realtime[("Supabase Realtime")]
         
         subgraph Tables["Core Tables"]
-            Machines[(machines)]
+            Machines[(machines - 48 tools)]
             SensorReadings[(sensor_readings)]
-            ProductionJobs[(production_jobs)]
+            ProductionJobs[(production_jobs - 25 jobs)]
             DispatchDecisions[(dispatch_decisions)]
         end
         
+        subgraph VMTables["Virtual Metrology Tables"]
+            VMPredictions[(vm_predictions)]
+            MetrologyResults[(metrology_results)]
+            RecipeAdjustments[(recipe_adjustments)]
+        end
+        
+        subgraph OpsTables["Operations Tables"]
+            MaintenanceLogs[(maintenance_logs)]
+            AnomalyAlerts[(anomaly_alerts)]
+            CapacitySimulations[(capacity_simulations)]
+        end
+        
         PostgreSQL --> Tables
+        PostgreSQL --> VMTables
+        PostgreSQL --> OpsTables
         PostgreSQL --> Realtime
     end
 
@@ -137,6 +151,38 @@ flowchart TB
 ---
 
 ## Database Schema
+
+### Seed Data Overview
+
+The database is seeded with realistic semiconductor fab data:
+
+| Entity | Count | Description |
+|--------|-------|-------------|
+| **Machines** | 48 | Across 8 zones: LITHO-01 to DEP-12 |
+| **Production Jobs** | 25 | Real customers: Apple, NVIDIA, AMD, Intel, etc. |
+| **Sensor Readings** | 4,800+ | 100+ readings per machine for VM training |
+| **Dispatch Decisions** | 5+ | Sample dispatch history |
+
+#### Machine Zones
+
+| Zone | Machines | Type |
+|------|----------|------|
+| ZONE A | LITHO-01 to LITHO-08 | EUV/DUV Lithography Scanners |
+| ZONE B | ETCH-01 to ETCH-08 | Plasma Etching Systems |
+| ZONE C | DEP-01 to DEP-10 | CVD/PVD Deposition |
+| ZONE D | INSP-01 to INSP-08 | Inspection & Metrology |
+| ZONE E | CLEAN-01 to CLEAN-08 | Wet/Dry Cleaning |
+| ZONE F-H | Expansion | Additional capacity |
+
+#### Production Jobs
+
+| Priority | Examples | Customer Tags |
+|----------|----------|---------------|
+| 1 (Hot Lot) | HOT-LOT-001 to HOT-LOT-005 | Apple, NVIDIA, Google, Amazon, Samsung |
+| 2 (High) | WAFER-BATCH-103 to 108 | AMD, Micron, Broadcom, Qualcomm |
+| 3 (Medium) | WAFER-BATCH-109 to 116 | TI, NXP, ST, MediaTek |
+| 4 (Standard) | WAFER-BATCH-117 to 122 | ADI, Maxim, Cirrus |
+| 5 (Low) | WAFER-BATCH-123 to 127 | Internal R&D, QA, Engineering |
 
 ### Entity Relationship Diagram
 
@@ -205,6 +251,7 @@ erDiagram
 ### Core Tables
 
 #### Machines
+
 ```sql
 CREATE TABLE machines (
     machine_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -221,6 +268,7 @@ CREATE TABLE machines (
 ```
 
 #### Sensor Readings
+
 ```sql
 CREATE TABLE sensor_readings (
     reading_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -236,6 +284,7 @@ CREATE TABLE sensor_readings (
 ```
 
 #### Production Jobs
+
 ```sql
 CREATE TABLE production_jobs (
     job_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -254,6 +303,7 @@ CREATE TABLE production_jobs (
 ```
 
 #### Dispatch Decisions
+
 ```sql
 CREATE TABLE dispatch_decisions (
     decision_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -267,7 +317,63 @@ CREATE TABLE dispatch_decisions (
 );
 ```
 
-See `database/schema.sql` for complete schema with indexes, triggers, and RLS policies.
+### Additional Tables
+
+#### Virtual Metrology Predictions
+
+```sql
+CREATE TABLE vm_predictions (
+    prediction_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    lot_id VARCHAR NOT NULL,
+    tool_id UUID NOT NULL REFERENCES machines(machine_id),
+    predicted_thickness_nm DECIMAL NOT NULL,
+    confidence_score DECIMAL NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    model_version VARCHAR DEFAULT '1.0.0',
+    features_used JSONB,
+    actual_thickness_nm DECIMAL,
+    prediction_error DECIMAL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Metrology Results
+
+```sql
+CREATE TABLE metrology_results (
+    result_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    lot_id VARCHAR NOT NULL,
+    tool_id UUID NOT NULL REFERENCES machines(machine_id),
+    thickness_nm DECIMAL NOT NULL,
+    uniformity_pct DECIMAL,
+    measured_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Recipe Adjustments (R2R Control)
+
+```sql
+CREATE TABLE recipe_adjustments (
+    adjustment_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tool_id UUID NOT NULL REFERENCES machines(machine_id),
+    lot_id VARCHAR,
+    parameter_name VARCHAR NOT NULL,
+    current_value DECIMAL NOT NULL DEFAULT 0,
+    adjustment_value DECIMAL NOT NULL,
+    new_value DECIMAL NOT NULL DEFAULT 0,
+    reason TEXT,
+    applied BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### Database Files
+
+| File | Size | Description |
+|------|------|-------------|
+| `schema.sql` | 13KB | Core tables, constraints, indexes, RLS policies |
+| `seed.sql` | 16KB | 48 machines, 25 jobs, sensor readings |
+| `reset_and_seed.sql` | 27KB | **Full reset + seed** - Use this for Supabase migration |
+| `migrations/002_virtual_metrology.sql` | 4KB | VM tables (if not in schema) |
 
 ---
 
@@ -322,9 +428,11 @@ YieldOps/
 │
 ├── ml/                     # ML notebooks & scripts
 ├── database/               # Schema & seed files
-│   ├── schema.sql
-│   ├── seed.sql
+│   ├── schema.sql          # Core database schema
+│   ├── seed.sql            # Seed data (48 machines, 25 jobs)
+│   ├── reset_and_seed.sql  # Full reset + seed for Supabase
 │   └── migrations/
+│       └── 002_virtual_metrology.sql
 │
 ├── README.md               # Project overview
 └── Architecture.md         # This file
@@ -352,6 +460,7 @@ flowchart TD
 ```
 
 **Algorithm Rules:**
+
 1. Hot Lots (is_hot_lot=True) always first
 2. Priority level (1=highest, 5=lowest)
 3. FIFO within same priority
@@ -422,6 +531,7 @@ flowchart LR
 ```
 
 **Scenarios:**
+
 - `machine_down`: Force machine failure
 - `sensor_spike`: Inject anomalous readings
 - `efficiency_drop`: Reduce machine efficiency
@@ -448,6 +558,7 @@ flowchart TD
 ```
 
 **Key Features:**
+
 - `updateMachine()` - Updates machine status/efficiency immediately
 - `updateJob()` - Updates job status and assignments immediately  
 - `addJob()` - Adds new jobs to the list immediately
@@ -480,6 +591,7 @@ flowchart TD
 ```
 
 **Algorithm Rules:**
+
 1. Hot lots always processed first
 2. Priority level (1=highest, 5=lowest)
 3. FIFO within same priority
@@ -537,6 +649,7 @@ flowchart TB
 ## API Reference
 
 ### Base URL
+
 ```
 Production: https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app
 Local: http://localhost:8000
@@ -574,6 +687,7 @@ See `apps/api/README.md` for detailed API documentation.
 ## Environment Variables
 
 ### apps/api/.env
+
 ```bash
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_KEY=your_service_key
@@ -583,6 +697,7 @@ AUTO_INIT_MODEL=true
 ```
 
 ### apps/dashboard/.env
+
 ```bash
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_anon_key
@@ -654,15 +769,57 @@ flowchart TD
 ```
 
 **Features in Demo Mode:**
-- All tabs display mock data (16 machines, 8 jobs)
+
+- All tabs display realistic mock data (48 machines, 25 jobs)
 - **Working ToC Dispatch** - Frontend algorithm actually assigns jobs to machines
 - **Immediate UI Updates** - Dual-state pattern for instant feedback
 - Actions trigger toast notifications
 - Sorting on all tabs (priority, deadline, status, efficiency, type)
 - Analytics modal with Excel export
+- Virtual Metrology with fallback mock predictions
+- System Analytics with realistic data fallback
 - Visual indicators show "Demo Mode" status
 - No "Failed to fetch" errors
 - Full UI interactivity
+
+---
+
+## Live Mode with Supabase
+
+When connected to Supabase, the system operates in **Live Mode**:
+
+```mermaid
+flowchart TD
+    A[App Start] --> B{Supabase Configured?}
+    B -->|Yes| C[Connect to Supabase]
+    C --> D[Enable Realtime Subscriptions]
+    D --> E[Load Live Data]
+    E --> F[Autonomous Simulation]
+    F --> G[Real-time Updates Across All Tabs]
+    B -->|No| H[Fall Back to Demo Mode]
+```
+
+**Live Mode Features:**
+
+- ✅ Real-time data sync via Supabase Realtime
+- ✅ Persistent data storage
+- ✅ Autonomous simulation (jobs progress automatically)
+- ✅ Live VM predictions using sensor data
+- ✅ Multi-user support (all users see same data)
+- ✅ Changes propagate instantly without page refresh
+
+### Setting Up Live Mode
+
+1. **Create Supabase Project** at [supabase.com](https://supabase.com)
+2. **Run Database Migration** in Supabase SQL Editor:
+
+   ```sql
+   -- Copy contents of database/reset_and_seed.sql
+   ```
+
+3. **Configure Environment Variables** in Vercel:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
 
 ---
 

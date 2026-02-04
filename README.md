@@ -3,7 +3,7 @@
 Intelligent Manufacturing & IIoT Portfolio Project
 
 **Live Demo:** [https://yield-ops-dashboard.vercel.app/](https://yield-ops-dashboard.vercel.app/) *(Frontend)*  
-**API Endpoint:** https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app/ *(Backend)*
+**API Endpoint:** <https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app/> *(Backend)*
 
 ---
 
@@ -116,11 +116,22 @@ YieldOps/
 │
 ├── packages/
 │   └── types/              # Shared TypeScript types
-├── ml/                     # ML notebooks & scripts
 ├── database/               # Schema & seed files
+│   ├── schema.sql          # Core database schema
+│   ├── seed.sql            # Seed data (48 machines, 25 jobs)
+│   ├── reset_and_seed.sql  # Full reset + seed for Supabase
+│   └── migrations/
 ├── README.md               # This file
 └── Architecture.md         # Detailed architecture docs
 ```
+
+### Database Seed Data
+
+| Entity | Count | Description |
+|--------|-------|-------------|
+| **Machines** | 48 | LITHO-01 to DEP-12 across 8 zones |
+| **Production Jobs** | 25 | Apple, NVIDIA, AMD, Intel, etc. |
+| **Sensor Readings** | 4,800+ | 100+ per machine for VM training |
 
 ---
 
@@ -135,12 +146,14 @@ YieldOps/
 ### Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone git@github.com:AngelP17/YieldOps.git
    cd YieldOps
    ```
 
 2. **Install dependencies**
+
    ```bash
    # Root
    npm install
@@ -157,6 +170,7 @@ YieldOps/
    Create `.env` files:
 
    **apps/api/.env:**
+
    ```bash
    SUPABASE_URL=your_supabase_url
    SUPABASE_SERVICE_KEY=your_service_key
@@ -165,6 +179,7 @@ YieldOps/
    ```
 
    **apps/dashboard/.env:**
+
    ```bash
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_anon_key
@@ -172,6 +187,7 @@ YieldOps/
    ```
 
 4. **Run Development**
+
    ```bash
    # Dashboard
    npm run dev:dashboard
@@ -197,24 +213,52 @@ flowchart TD
 ```
 
 **Demo Mode Features:**
+
 - ✅ All three tabs functional (Overview, Machines, Jobs)
-- ✅ Mock machine data with realistic statuses (16 machines)
-- ✅ Mock job queue with hot lots and priorities (8 jobs)
+- ✅ Realistic mock data (48 machines, 25 jobs with real customers)
 - ✅ **Working ToC Dispatch** - Actually assigns jobs to machines using Goldratt's algorithm
 - ✅ **Immediate UI Updates** - All actions update state without page refresh
 - ✅ Machine detail panel with status controls, chaos injection, recovery
 - ✅ Job creation and cancellation with instant list updates
 - ✅ Sorting on all tabs (priority, deadline, status, efficiency, type)
 - ✅ Analytics modal with export to Excel functionality
+- ✅ Virtual Metrology with fallback mock predictions
+- ✅ System Analytics with realistic data fallback
 - ✅ Toast notifications for all actions
 - ❌ No persistent data storage
-- ❌ No real-time updates
+- ❌ No real-time sync across tabs/users
+
+---
+
+## Live Mode (Supabase)
+
+When connected to Supabase, the system operates in **Live Mode** with real-time data sync:
+
+**Live Mode Features:**
+
+- ✅ Real-time data sync via Supabase Realtime
+- ✅ Persistent data storage in PostgreSQL
+- ✅ Autonomous simulation (jobs progress automatically)
+- ✅ Live VM predictions using sensor data
+- ✅ Multi-user support (all users see same data)
+- ✅ Changes propagate instantly without page refresh
+
+### Setting Up Live Mode
+
+1. **Create Supabase Project** at [supabase.com](https://supabase.com)
+2. **Run Database Migration** in Supabase SQL Editor:
+   - Copy contents of `database/reset_and_seed.sql`
+   - Paste into SQL Editor and run
+3. **Configure Environment Variables** in Vercel:
+   - `VITE_SUPABASE_URL` - Your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` - Your Supabase anon key
 
 ---
 
 ## Dashboard Tabs
 
 ### Overview Tab
+
 - KPI Cards (Machines, Efficiency, Wafers, Jobs, Alerts)
 - **ToC Dispatch** - Run Theory of Constraints dispatch algorithm
 - Dispatch Queue with prioritized jobs (hot lots first)
@@ -225,6 +269,7 @@ flowchart TD
 - Troubled Machines list with recover actions
 
 ### Machines Tab
+
 - Machine Grid with filterable/sortable cards (by name, status, efficiency, type)
 - Real-time status indicators with VM predictions
 - **Sorting** - Name, Status, Efficiency, Type
@@ -236,6 +281,7 @@ flowchart TD
   - Chaos injection (machine down, sensor spike, efficiency drop)
 
 ### Jobs Tab
+
 - Job Statistics (Total, Pending, Queued, Running, Completed, Failed, Hot Lots)
 - **Enhanced Sorting** - Priority (hot lots first), Deadline, Created
 - Filterable Job List by status and search
