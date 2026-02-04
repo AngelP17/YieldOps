@@ -54,15 +54,46 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
 
     result.sort((a, b) => {
       if (sortBy === 'priority') {
+        // 1. Hot lots first
         if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
-        return a.priority_level - b.priority_level;
+        // 2. Then by priority level (1=highest, 5=lowest)
+        if (a.priority_level !== b.priority_level) {
+          return a.priority_level - b.priority_level;
+        }
+        // 3. Then by created_at (newest first) for consistent ordering
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
       if (sortBy === 'deadline') {
+        // 1. Jobs with deadline come first (earliest deadline first)
+        if (!a.deadline && !b.deadline) {
+          // Both have no deadline - sort by priority then created
+          if (a.priority_level !== b.priority_level) {
+            return a.priority_level - b.priority_level;
+          }
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
         if (!a.deadline) return 1;
         if (!b.deadline) return -1;
-        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        // 2. When deadlines are equal, sort by priority level
+        const deadlineDiff = new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        if (deadlineDiff !== 0) return deadlineDiff;
+        if (a.priority_level !== b.priority_level) {
+          return a.priority_level - b.priority_level;
+        }
+        // 3. Then by created_at
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      // sortBy === 'created'
+      // 1. Newest first (descending by created_at)
+      const dateDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      // 2. Secondary sort by priority level
+      if (a.priority_level !== b.priority_level) {
+        return a.priority_level - b.priority_level;
+      }
+      // 3. Tertiary sort by hot lot status
+      if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+      return 0;
     });
 
     return result;
