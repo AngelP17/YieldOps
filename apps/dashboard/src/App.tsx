@@ -1,4 +1,4 @@
-import { useState, useMemo, createContext, useContext, useCallback } from 'react';
+import { useState, useMemo, createContext, useContext, useCallback, useEffect } from 'react';
 import { Machine, ProductionJob } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
 import { isApiConfigured, isSupabaseConfigured } from './services/apiClient';
@@ -75,9 +75,9 @@ const AppConfigContext = createContext<AppConfigContextType>({
 export const useAppConfig = () => useContext(AppConfigContext);
 
 function App() {
-  const { machines: realtimeMachines, isConnected: isSupabaseConnected } = useRealtimeMachines();
+  const { machines: realtimeMachines, isConnected: isSupabaseConnected, refresh: refreshMachines } = useRealtimeMachines();
   const { sensorData } = useLatestSensorData();
-  const { jobs: realtimeJobs } = useRealtimeJobs();
+  const { jobs: realtimeJobs, refresh: refreshJobs } = useRealtimeJobs();
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs'>('overview');
 
   const hasSupabase = isSupabaseConfigured();
@@ -89,48 +89,99 @@ function App() {
   const [localJobs, setLocalJobs] = useState<ProductionJob[]>(MOCK_JOBS);
 
   // Use realtime data if available, otherwise use local mock data
-  const machines = hasSupabase ? realtimeMachines : localMachines;
-  const jobs = hasSupabase ? realtimeJobs : localJobs;
+  // When Supabase is connected, we use realtime data but still allow local modifications
+  // for immediate UI feedback before the realtime update comes through
+  const [displayMachines, setDisplayMachines] = useState<Machine[]>(MOCK_MACHINES);
+  const [displayJobs, setDisplayJobs] = useState<ProductionJob[]>(MOCK_JOBS);
+
+  // Sync display data with source data
+  useEffect(() => {
+    if (hasSupabase) {
+      setDisplayMachines(realtimeMachines);
+    } else {
+      setDisplayMachines(localMachines);
+    }
+  }, [hasSupabase, realtimeMachines, localMachines]);
+
+  useEffect(() => {
+    if (hasSupabase) {
+      setDisplayJobs(realtimeJobs);
+    } else {
+      setDisplayJobs(localJobs);
+    }
+  }, [hasSupabase, realtimeJobs, localJobs]);
 
   const machinesWithSensorData = useMemo(() => {
-    return machines.map((m) => ({
+    return displayMachines.map((m) => ({
       ...m,
       temperature: sensorData[m.machine_id]?.temperature,
       vibration: sensorData[m.machine_id]?.vibration,
     }));
-  }, [machines, sensorData]);
+  }, [displayMachines, sensorData]);
 
-  // Update machine in local state (for demo mode)
+  // Update machine - works for both real and mock data with immediate UI update
   const updateMachine = useCallback((machineId: string, updates: Partial<Machine>) => {
+    const updatedMachine = { ...updates, updated_at: new Date().toISOString() };
+    
+    // Always update local state for immediate UI feedback
     setLocalMachines(prev => prev.map(m => 
-      m.machine_id === machineId ? { ...m, ...updates, updated_at: new Date().toISOString() } : m
+      m.machine_id === machineId ? { ...m, ...updatedMachine } : m
     ));
+    
+    // Also update display machines immediately
+    setDisplayMachines(prev => prev.map(m => 
+      m.machine_id === machineId ? { ...m, ...updatedMachine } : m
+    ));
+    
+    // If using Supabase, the realtime subscription will eventually sync the real data
   }, []);
 
-  // Add job to local state (for demo mode)
+  // Add job - works for both real and mock data with immediate UI update
   const addJob = useCallback((job: ProductionJob) => {
+    // Always add to local state for immediate UI feedback
     setLocalJobs(prev => [job, ...prev]);
-  }, []);
+    
+    // Also update display jobs immediately
+    setDisplayJobs(prev => [job, ...prev]);
+    
+    // If using Supabase, refresh to get the real data
+    if (hasSupabase) {
+      setTimeout(() => refreshJobs(), 500);
+    }
+  }, [hasSupabase, refreshJobs]);
 
-  // Update job in local state (for demo mode)
+  // Update job - works for both real and mock data with immediate UI update
   const updateJob = useCallback((jobId: string, updates: Partial<ProductionJob>) => {
+    const updatedJob = { ...updates, updated_at: new Date().toISOString() };
+    
+    // Always update local state for immediate UI feedback
     setLocalJobs(prev => prev.map(j => 
-      j.job_id === jobId ? { ...j, ...updates, updated_at: new Date().toISOString() } : j
+      j.job_id === jobId ? { ...j, ...updatedJob } : j
     ));
+    
+    // Also update display jobs immediately
+    setDisplayJobs(prev => prev.map(j => 
+      j.job_id === jobId ? { ...j, ...updatedJob } : j
+    ));
+    
+    // If using Supabase, the realtime subscription will eventually sync the real data
   }, []);
 
-  // Refresh data (for demo mode, this just regenerates mock data slightly)
+  // Refresh data
   const refreshData = useCallback(() => {
-    // In a real app, this would trigger a refetch
-    // For demo mode, we keep the current state
-  }, []);
+    if (hasSupabase) {
+      refreshMachines();
+      refreshJobs();
+    }
+    // For demo mode, just keep current state
+  }, [hasSupabase, refreshMachines, refreshJobs]);
 
   const appConfigValue: AppConfigContextType = {
     isUsingMockData,
     isSupabaseConnected,
     isApiConfigured: hasApi,
     machines: machinesWithSensorData,
-    jobs,
+    jobs: displayJobs,
     updateMachine,
     addJob,
     updateJob,
@@ -209,13 +260,13 @@ function App() {
 
         <main className="px-6 lg:px-8 py-8">
           {activeTab === 'overview' && (
-            <OverviewTab machines={machinesWithSensorData} jobs={jobs} />
+            <OverviewTab machines={machinesWithSensorData} jobs={displayJobs} />
           )}
           {activeTab === 'machines' && (
             <MachinesTab machines={machinesWithSensorData} />
           )}
           {activeTab === 'jobs' && (
-            <JobsTab jobs={jobs} machines={machines} />
+            <JobsTab jobs={displayJobs} machines={machinesWithSensorData} />
           )}
         </main>
       </div>
