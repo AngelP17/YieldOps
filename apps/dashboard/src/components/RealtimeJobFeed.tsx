@@ -5,21 +5,19 @@
  * Shows live job status changes as they happen
  */
 
-import { useState, useRef, useEffect } from 'react';
-import { 
-  Clock, 
-  Flame, 
-  Package, 
-  Play, 
-  CheckCircle2, 
+import { useState, useRef } from 'react';
+import {
+  Clock,
+  Flame,
+  Package,
+  Play,
+  CheckCircle2,
   XCircle,
   Zap,
   RefreshCw,
-  ChevronDown,
-  Filter,
-  ArrowUpDown
+  ChevronDown
 } from 'lucide-react';
-import { useJobStream, type JobStreamEvent } from '../hooks/useJobStream';
+import { useJobStream } from '../hooks/useJobStream';
 import type { ProductionJob } from '../types';
 
 interface RealtimeJobFeedProps {
@@ -28,10 +26,10 @@ interface RealtimeJobFeedProps {
   className?: string;
 }
 
-export function RealtimeJobFeed({ 
+export function RealtimeJobFeed({
   maxItems = 20,
   showFilters = true,
-  className = '' 
+  className = ''
 }: RealtimeJobFeedProps) {
   const [statusFilter, setStatusFilter] = useState<string[]>(['PENDING', 'QUEUED', 'RUNNING']);
   const [sortBy, setSortBy] = useState<'created' | 'priority' | 'deadline'>('created');
@@ -39,14 +37,14 @@ export function RealtimeJobFeed({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hasNewItems, setHasNewItems] = useState(false);
 
-  const { 
-    jobs, 
-    events, 
-    stats, 
-    isConnected, 
-    isLoading, 
+  const {
+    jobs,
+    events,
+    stats,
+    isConnected,
+    isLoading,
     error,
-    refresh 
+    refresh
   } = useJobStream({
     enabled: true,
     statusFilter: statusFilter as ('PENDING' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED')[],
@@ -94,9 +92,8 @@ export function RealtimeJobFeed({
       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${
-              isConnected ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
-            }`}>
+            <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${isConnected ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+              }`}>
               {isConnected ? <Zap className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
             </div>
             <div>
@@ -112,7 +109,7 @@ export function RealtimeJobFeed({
               </div>
             </div>
           </div>
-          
+
           <button
             onClick={refresh}
             disabled={isLoading}
@@ -129,31 +126,30 @@ export function RealtimeJobFeed({
               <button
                 key={status}
                 onClick={() => {
-                  setStatusFilter(prev => 
+                  setStatusFilter(prev =>
                     prev.includes(status)
                       ? prev.filter(s => s !== status)
                       : [...prev, status]
                   );
                 }}
-                className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                  statusFilter.includes(status)
+                className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${statusFilter.includes(status)
                     ? status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
                       status === 'QUEUED' ? 'bg-blue-100 text-blue-700' :
-                      'bg-emerald-100 text-emerald-700'
+                        'bg-emerald-100 text-emerald-700'
                     : 'bg-slate-100 text-slate-400'
-                }`}
+                  }`}
               >
                 {status}
                 <span className="ml-1 opacity-75">
                   {status === 'PENDING' ? stats.pendingJobs :
-                   status === 'QUEUED' ? stats.queuedJobs :
-                   stats.runningJobs}
+                    status === 'QUEUED' ? stats.queuedJobs :
+                      stats.runningJobs}
                 </span>
               </button>
             ))}
-            
+
             <div className="flex-1" />
-            
+
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -182,7 +178,7 @@ export function RealtimeJobFeed({
       )}
 
       {/* Job list */}
-      <div 
+      <div
         ref={scrollRef}
         onScroll={handleScroll}
         className="max-h-[400px] overflow-y-auto"
@@ -194,7 +190,7 @@ export function RealtimeJobFeed({
         ) : error ? (
           <div className="text-center py-8 text-red-500">
             <p className="text-sm">Failed to load jobs</p>
-            <button 
+            <button
               onClick={refresh}
               className="mt-2 text-xs text-blue-500 hover:underline"
             >
@@ -209,8 +205,8 @@ export function RealtimeJobFeed({
         ) : (
           <div className="divide-y divide-slate-100">
             {displayedJobs.map((job, index) => (
-              <JobFeedItem 
-                key={job.job_id} 
+              <JobFeedItem
+                key={job.job_id}
                 job={job}
                 isNew={index < stats.recentArrivals}
               />
@@ -299,26 +295,24 @@ function JobFeedItem({ job, isNew }: JobFeedItemProps) {
 
           {/* Progress or meta info */}
           <div className="flex items-center gap-2 mt-2">
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-              job.priority_level === 1 ? 'bg-red-100 text-red-700' :
-              job.priority_level === 2 ? 'bg-orange-100 text-orange-700' :
-              job.priority_level === 3 ? 'bg-yellow-100 text-yellow-700' :
-              job.priority_level === 4 ? 'bg-blue-100 text-blue-700' :
-              'bg-slate-100 text-slate-600'
-            }`}>
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${job.priority_level === 1 ? 'bg-red-100 text-red-700' :
+                job.priority_level === 2 ? 'bg-orange-100 text-orange-700' :
+                  job.priority_level === 3 ? 'bg-yellow-100 text-yellow-700' :
+                    job.priority_level === 4 ? 'bg-blue-100 text-blue-700' :
+                      'bg-slate-100 text-slate-600'
+              }`}>
               P{job.priority_level}
             </span>
-            
+
             <span className="text-[10px] text-slate-400">
               {job.recipe_type}
             </span>
 
             {job.deadline && (
-              <span className={`text-[10px] ${
-                new Date(job.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000)
+              <span className={`text-[10px] ${new Date(job.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000)
                   ? 'text-red-500 font-medium'
                   : 'text-slate-400'
-              }`}>
+                }`}>
                 Due {getTimeAgo(new Date(job.deadline).getTime(), true)}
               </span>
             )}
@@ -332,7 +326,7 @@ function JobFeedItem({ job, isNew }: JobFeedItemProps) {
 // Helper function
 function getTimeAgo(timestamp: number, future = false): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  
+
   if (future) {
     const futureSeconds = -seconds;
     if (futureSeconds < 60) return 'soon';
@@ -340,7 +334,7 @@ function getTimeAgo(timestamp: number, future = false): string {
     if (futureSeconds < 86400) return `in ${Math.floor(futureSeconds / 3600)}h`;
     return `in ${Math.floor(futureSeconds / 86400)}d`;
   }
-  
+
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -360,11 +354,11 @@ export function MobileJobFeedSheet({
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 z-40 md:hidden"
         onClick={onClose}
       />
-      
+
       {/* Sheet */}
       <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 md:hidden max-h-[80vh]">
         <div className="sticky top-0 bg-white rounded-t-2xl border-b border-slate-100">
@@ -382,7 +376,7 @@ export function MobileJobFeedSheet({
             </button>
           </div>
         </div>
-        
+
         <div className="overflow-y-auto max-h-[calc(80vh-60px)]">
           <RealtimeJobFeed showFilters={false} className="border-0 rounded-none" />
         </div>

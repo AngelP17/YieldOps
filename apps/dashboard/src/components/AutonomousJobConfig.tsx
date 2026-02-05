@@ -6,21 +6,19 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  Settings, 
-  Play, 
-  Pause, 
+import {
+  Settings,
+  Play,
+  Pause,
   Zap,
   BarChart3,
   Users,
-  Clock,
   RotateCcw,
   Save,
   AlertCircle,
-  CheckCircle2,
-  Flame
+  CheckCircle2
 } from 'lucide-react';
-import { apiClient } from '../services/apiClient';
+import { api } from '../services/apiClient';
 
 interface JobGeneratorConfig {
   enabled: boolean;
@@ -55,13 +53,13 @@ export function AutonomousJobConfig() {
       setIsLoading(true);
       setError(null);
 
-      const [configRes, statsRes] = await Promise.all([
-        apiClient.get('/job-generator/config'),
-        apiClient.get('/job-generator/status'),
+      const [configData, statsData] = await Promise.all([
+        api.getJobGeneratorConfig(),
+        api.getJobGeneratorStatus(),
       ]);
 
-      setConfig(configRes.data);
-      setStats(statsRes.data);
+      setConfig(configData);
+      setStats(statsData);
     } catch (err) {
       setError('Failed to load configuration');
       console.error('Error fetching job generator config:', err);
@@ -80,16 +78,16 @@ export function AutonomousJobConfig() {
   // Save configuration
   const saveConfig = async () => {
     if (!config) return;
-    
+
     try {
       setIsSaving(true);
       setError(null);
-      
-      await apiClient.post('/job-generator/config', config);
-      
+
+      await api.updateJobGeneratorConfig(config as unknown as Record<string, unknown>);
+
       setSuccessMessage('Configuration saved successfully');
       setTimeout(() => setSuccessMessage(null), 3000);
-      
+
       await fetchData();
     } catch (err) {
       setError('Failed to save configuration');
@@ -102,8 +100,11 @@ export function AutonomousJobConfig() {
   // Toggle generator
   const toggleGenerator = async () => {
     try {
-      const endpoint = stats?.running ? '/job-generator/stop' : '/job-generator/start';
-      await apiClient.post(endpoint);
+      if (stats?.running) {
+        await api.stopJobGenerator();
+      } else {
+        await api.startJobGenerator();
+      }
       await fetchData();
     } catch (err) {
       setError('Failed to toggle generator');
@@ -114,7 +115,7 @@ export function AutonomousJobConfig() {
   // Generate test job
   const generateTestJob = async () => {
     try {
-      await apiClient.post('/job-generator/generate?triggered_by=manual_test');
+      await api.generateTestJob();
       setSuccessMessage('Test job generated');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
@@ -163,7 +164,7 @@ export function AutonomousJobConfig() {
         <div className="text-center text-slate-500 py-8">
           <AlertCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
           <p>Failed to load configuration</p>
-          <button 
+          <button
             onClick={fetchData}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
@@ -188,7 +189,7 @@ export function AutonomousJobConfig() {
               <p className="text-xs text-slate-500">Configure dynamic job creation</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {stats?.running ? (
               <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
@@ -234,7 +235,7 @@ export function AutonomousJobConfig() {
           {error}
         </div>
       )}
-      
+
       {successMessage && (
         <div className="mx-6 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-sm text-emerald-700">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -253,11 +254,10 @@ export function AutonomousJobConfig() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.id
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               <tab.icon className="w-4 h-4" />
               <span className="hidden sm:inline">{tab.label}</span>
@@ -278,11 +278,10 @@ export function AutonomousJobConfig() {
               </div>
               <button
                 onClick={toggleGenerator}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  stats?.running
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${stats?.running
                     ? 'bg-red-100 text-red-700 hover:bg-red-200'
                     : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                }`}
+                  }`}
               >
                 {stats?.running ? (
                   <><Pause className="w-4 h-4" /> Stop</>
@@ -373,18 +372,17 @@ export function AutonomousJobConfig() {
             <p className="text-sm text-slate-500">
               Adjust the probability distribution for job priority levels
             </p>
-            
+
             {Object.entries(config.priority_distribution)
               .sort(([a], [b]) => parseInt(a) - parseInt(b))
               .map(([priority, probability]) => (
                 <div key={priority} className="flex items-center gap-4">
-                  <span className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold ${
-                    priority === '1' ? 'bg-red-100 text-red-700' :
-                    priority === '2' ? 'bg-orange-100 text-orange-700' :
-                    priority === '3' ? 'bg-yellow-100 text-yellow-700' :
-                    priority === '4' ? 'bg-blue-100 text-blue-700' :
-                    'bg-slate-100 text-slate-700'
-                  }`}>
+                  <span className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold ${priority === '1' ? 'bg-red-100 text-red-700' :
+                      priority === '2' ? 'bg-orange-100 text-orange-700' :
+                        priority === '3' ? 'bg-yellow-100 text-yellow-700' :
+                          priority === '4' ? 'bg-blue-100 text-blue-700' :
+                            'bg-slate-100 text-slate-700'
+                    }`}>
                     P{priority}
                   </span>
                   <div className="flex-1">
@@ -403,7 +401,7 @@ export function AutonomousJobConfig() {
                   </span>
                 </div>
               ))}
-            
+
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mt-4">
               <div className="flex items-start gap-2 text-sm text-amber-800">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -418,7 +416,7 @@ export function AutonomousJobConfig() {
             <p className="text-sm text-slate-500 sticky top-0 bg-white pb-2">
               Adjust relative weights for customer job generation frequency
             </p>
-            
+
             {Object.entries(config.customer_weights)
               .sort(([, a], [, b]) => b - a)
               .map(([customer, weight]) => (
@@ -455,7 +453,7 @@ export function AutonomousJobConfig() {
           <Zap className="w-4 h-4" />
           Test Generate
         </button>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={fetchData}

@@ -143,12 +143,13 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
     
     if (eventType === 'DELETE') {
       setJobs(prev => prev.filter(j => j.job_id !== oldRecord.job_id));
-      setEvents(prev => [{
+      const event: JobStreamEvent = {
         type: 'DELETE',
         job: mapDatabaseJob(oldRecord),
         timestamp: Date.now(),
         source: 'realtime',
-      }, ...prev].slice(0, 100));
+      };
+      setEvents(prev => [event, ...prev].slice(0, 100));
       return;
     }
 
@@ -168,12 +169,13 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
         // Trigger arrival callback
         onJobArrival?.(job);
         
-        setEvents(prev => [{
+        const event: JobStreamEvent = {
           type: 'INSERT',
           job,
           timestamp: Date.now(),
           source: 'realtime',
-        }, ...prev].slice(0, 100));
+        };
+        setEvents(prev => [event, ...prev].slice(0, 100));
       }
     } else if (eventType === 'UPDATE') {
       // Check for completion
@@ -196,12 +198,13 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
           });
         }
         
-        setEvents(prev => [{
+        const event: JobStreamEvent = {
           type: 'UPDATE',
           job,
           timestamp: Date.now(),
           source: 'realtime',
-        }, ...prev].slice(0, 100));
+        };
+        setEvents(prev => [event, ...prev].slice(0, 100));
       } else {
         // Remove if no longer matches filter
         setJobs(prev => prev.filter(j => j.job_id !== job.job_id));
@@ -259,13 +262,13 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
     channelRef.current = supabase
       .channel('job-stream')
       .on(
-        'postgres_changes',
+        'postgres_changes' as any,
         {
           event: '*',
           schema: 'public',
           table: 'production_jobs',
         },
-        handleRealtimeEvent
+        handleRealtimeEvent as any
       )
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED');
@@ -287,12 +290,13 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   // Optimistic update helpers
   const addOptimisticJob = useCallback((job: ProductionJob) => {
     setJobs(prev => [job, ...prev]);
-    setEvents(prev => [{
+    const event: JobStreamEvent = {
       type: 'INSERT',
       job,
       timestamp: Date.now(),
       source: 'optimistic',
-    }, ...prev].slice(0, 100));
+    };
+    setEvents(prev => [event, ...prev].slice(0, 100));
   }, []);
 
   const updateOptimisticJob = useCallback((jobId: string, updates: Partial<ProductionJob>) => {
@@ -346,7 +350,10 @@ export function useJobArrivals(options: {
       // Keep only last 100 IDs to prevent memory leak
       if (processedIds.current.size > 100) {
         const iterator = processedIds.current.values();
-        processedIds.current.delete(iterator.next().value);
+        const firstValue = iterator.next().value;
+        if (firstValue) {
+          processedIds.current.delete(firstValue);
+        }
       }
       
       if (job.is_hot_lot) {
@@ -411,17 +418,19 @@ export function useJobWatcher(jobId: string | null, options: { enabled?: boolean
     fetchJob();
 
     // Subscribe to changes
+    const channelName = jobId ? `job-${jobId}` : 'job-watcher';
+    const filterValue = jobId ? `job_id=eq.${jobId}` : '';
     const channel = supabase
-      .channel(`job-${jobId}`)
+      .channel(channelName)
       .on(
-        'postgres_changes',
+        'postgres_changes' as any,
         {
           event: '*',
           schema: 'public',
           table: 'production_jobs',
-          filter: `job_id=eq.${jobId}`,
-        },
-        (payload) => {
+          filter: filterValue || undefined,
+        } as any,
+        (payload: any) => {
           if (payload.eventType === 'DELETE') {
             setJob(null);
           } else {
