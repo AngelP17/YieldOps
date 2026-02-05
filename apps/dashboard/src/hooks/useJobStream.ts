@@ -81,7 +81,7 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
+
   // Batch processing refs
   const pendingUpdatesRef = useRef<ProductionJob[]>([]);
   const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -91,7 +91,7 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   const stats: JobStreamStats = useMemo(() => {
     const now = Date.now();
     const recentThreshold = now - 5 * 60 * 1000; // 5 minutes
-    
+
     return {
       totalJobs: jobs.length,
       pendingJobs: jobs.filter(j => j.status === 'PENDING').length,
@@ -105,17 +105,17 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   // Process batched updates
   const processBatch = useCallback(() => {
     if (pendingUpdatesRef.current.length === 0) return;
-    
+
     const updates = [...pendingUpdatesRef.current];
     pendingUpdatesRef.current = [];
-    
+
     setJobs(prev => {
       const jobMap = new Map(prev.map(j => [j.job_id, j]));
-      
+
       updates.forEach(job => {
         jobMap.set(job.job_id, job);
       });
-      
+
       return Array.from(jobMap.values())
         .filter(j => statusFilter.includes(j.status))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -125,11 +125,11 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   // Schedule batch update
   const scheduleBatchUpdate = useCallback((job: ProductionJob) => {
     pendingUpdatesRef.current.push(job);
-    
+
     if (batchTimeoutRef.current) {
       clearTimeout(batchTimeoutRef.current);
     }
-    
+
     batchTimeoutRef.current = setTimeout(processBatch, batchInterval);
   }, [batchInterval, processBatch]);
 
@@ -140,24 +140,24 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
     old: DatabaseProductionJob;
   }) => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
-    
+
     if (eventType === 'DELETE') {
       setJobs(prev => prev.filter(j => j.job_id !== oldRecord.job_id));
       const event: JobStreamEvent = {
-        type: 'DELETE',
+        type: 'DELETE' as const,
         job: mapDatabaseJob(oldRecord),
         timestamp: Date.now(),
-        source: 'realtime',
+        source: 'realtime' as const,
       };
       setEvents(prev => [event, ...prev].slice(0, 100));
       return;
     }
 
     const job = mapDatabaseJob(newRecord);
-    
+
     // Check if job matches status filter
     const matchesFilter = statusFilter.includes(job.status);
-    
+
     if (eventType === 'INSERT') {
       if (matchesFilter) {
         if (batchUpdates) {
@@ -165,15 +165,15 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
         } else {
           setJobs(prev => [job, ...prev].filter(j => statusFilter.includes(j.status)));
         }
-        
+
         // Trigger arrival callback
         onJobArrival?.(job);
-        
+
         const event: JobStreamEvent = {
-          type: 'INSERT',
+          type: 'INSERT' as const,
           job,
           timestamp: Date.now(),
-          source: 'realtime',
+          source: 'realtime' as const,
         };
         setEvents(prev => [event, ...prev].slice(0, 100));
       }
@@ -182,7 +182,7 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
       if (oldRecord.status !== 'COMPLETED' && newRecord.status === 'COMPLETED') {
         onJobComplete?.(job);
       }
-      
+
       if (matchesFilter) {
         if (batchUpdates) {
           scheduleBatchUpdate(job);
@@ -197,12 +197,12 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
             }
           });
         }
-        
+
         const event: JobStreamEvent = {
-          type: 'UPDATE',
+          type: 'UPDATE' as const,
           job,
           timestamp: Date.now(),
-          source: 'realtime',
+          source: 'realtime' as const,
         };
         setEvents(prev => [event, ...prev].slice(0, 100));
       } else {
@@ -216,28 +216,28 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   const fetchJobs = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       let query = supabase
         .from('production_jobs')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       // Apply status filter
       if (statusFilter.length > 0) {
         query = query.in('status', statusFilter);
       }
-      
+
       // Apply time filter for history
       if (includeHistory && historyHours) {
         const cutoff = new Date(Date.now() - historyHours * 60 * 60 * 1000).toISOString();
         query = query.gte('created_at', cutoff);
       }
-      
+
       const { data, error: queryError } = await query;
-      
+
       if (queryError) throw queryError;
-      
+
       const mappedJobs = (data || []).map(mapDatabaseJob);
       setJobs(mappedJobs);
     } catch (err) {
@@ -291,16 +291,16 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   const addOptimisticJob = useCallback((job: ProductionJob) => {
     setJobs(prev => [job, ...prev]);
     const event: JobStreamEvent = {
-      type: 'INSERT',
+      type: 'INSERT' as const,
       job,
       timestamp: Date.now(),
-      source: 'optimistic',
+      source: 'optimistic' as const,
     };
     setEvents(prev => [event, ...prev].slice(0, 100));
   }, []);
 
   const updateOptimisticJob = useCallback((jobId: string, updates: Partial<ProductionJob>) => {
-    setJobs(prev => prev.map(j => 
+    setJobs(prev => prev.map(j =>
       j.job_id === jobId ? { ...j, ...updates, updated_at: new Date().toISOString() } : j
     ));
   }, []);
@@ -346,7 +346,7 @@ export function useJobArrivals(options: {
     onJobArrival: (job) => {
       if (processedIds.current.has(job.job_id)) return;
       processedIds.current.add(job.job_id);
-      
+
       // Keep only last 100 IDs to prevent memory leak
       if (processedIds.current.size > 100) {
         const iterator = processedIds.current.values();
@@ -355,13 +355,13 @@ export function useJobArrivals(options: {
           processedIds.current.delete(firstValue);
         }
       }
-      
+
       if (job.is_hot_lot) {
         onHotLot?.(job);
       } else {
         onStandardJob?.(job);
       }
-      
+
       setRecentArrivals(prev => [job, ...prev].slice(0, 10));
     },
   });
@@ -406,7 +406,7 @@ export function useJobWatcher(jobId: string | null, options: { enabled?: boolean
           .single();
 
         if (queryError) throw queryError;
-        
+
         setJob(data ? mapDatabaseJob(data) : null);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to fetch job'));
