@@ -14,7 +14,8 @@ Intelligent Manufacturing & IIoT Portfolio Project
 ### Key Capabilities
 
 - **Real-time Monitoring**: Live machine status via WebSockets/Supabase Realtime
-- **Intelligent Dispatching**: Automated job routing based on efficiency and priority
+- **Intelligent Dispatching**: Automated job routing based on efficiency and priority (ToC)
+- **Autonomous Simulation**: Jobs progress automatically through PENDING→QUEUED→RUNNING→COMPLETED
 - **Predictive Maintenance**: Anomaly detection using Isolation Forest
 - **Virtual Metrology**: Predict film thickness and enable Run-to-Run (R2R) control
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
@@ -49,11 +50,13 @@ flowchart TB
         ML["ML Models"]
         VM["Virtual Metrology"]
         Chaos["Chaos API"]
+        Simulation["Simulation API"]
         
         FastAPI --> ToC
         FastAPI --> ML
         FastAPI --> VM
         FastAPI --> Chaos
+        FastAPI --> Simulation
     end
 
     subgraph Database["Database - Supabase"]
@@ -61,10 +64,12 @@ flowchart TB
         Machines[(Machines)]
         SensorData[(Sensor Data)]
         Jobs[(Jobs)]
+        SimFunctions["simulate_job_progression()"]
         
         PostgreSQL --> Machines
         PostgreSQL --> SensorData
         PostgreSQL --> Jobs
+        PostgreSQL --> SimFunctions
     end
 
     Frontend <-->|HTTP REST| Backend
@@ -303,6 +308,10 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 | `/api/v1/jobs/{id}/cancel` | POST | Cancel job |
 | `/api/v1/dispatch/run` | POST | Execute ToC dispatch |
 | `/api/v1/dispatch/queue` | GET | View dispatch queue |
+| `/api/v1/simulation/tick` | POST | Run one simulation tick |
+| `/api/v1/simulation/fast` | POST | Run multiple ticks (fast forward) |
+| `/api/v1/simulation/status` | GET | Get simulation status |
+| `/api/v1/simulation/reset` | POST | Reset to initial distribution |
 | `/api/v1/analytics/monte-carlo` | POST | Run simulation |
 | `/api/v1/analytics/anomalies` | GET | Get anomaly stats |
 | `/api/v1/chaos/inject` | POST | Inject failure |

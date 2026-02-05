@@ -15,6 +15,7 @@ Intelligent Manufacturing & IIoT Portfolio Project
 
 - **Real-time Monitoring**: Live machine status via WebSockets/Supabase Realtime
 - **Intelligent Dispatching**: Automated job routing based on efficiency and priority (ToC)
+- **Autonomous Simulation**: Jobs progress automatically through PENDING→QUEUED→RUNNING→COMPLETED
 - **Predictive Maintenance**: Anomaly detection using Isolation Forest
 - **Virtual Metrology**: Predict film thickness and enable Run-to-Run control
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
@@ -73,6 +74,7 @@ flowchart TB
             AnalyticsAPI["/analytics"]
             VMAPI["/vm"]
             SchedulerAPI["/scheduler"]
+            SimulationAPI["/simulation"]
         end
         
         subgraph CoreEngines["Core Engines"]
@@ -527,7 +529,7 @@ flowchart TD
 - **Iterations**: 10,000+ simulations
 - **Output**: P5, P50, P95, P99 confidence intervals
 - **Use Case**: "Can we meet 1000 wafers/day target?"
-- **Backends**: 
+- **Backends**:
   - **Rust**: 10-50x speedup using rayon parallel execution
   - **Python/NumPy**: Fallback when Rust unavailable
 - **Auto-selection**: Rust for n≥1000 simulations
@@ -578,6 +580,42 @@ flowchart LR
 - `efficiency_drop`: Reduce machine efficiency
 
 **Purpose**: Test system resilience under failures
+
+### 7. Autonomous Job Simulation
+
+```mermaid
+flowchart TD
+    A["simulate_job_progression()"] --> B["PENDING → QUEUED"]
+    B --> C["Assign to Idle Machines"]
+    C --> D["QUEUED → RUNNING"]
+    D --> E["Start Processing"]
+    E --> F{"Duration Complete?"}
+    F -->|Yes, 95%| G["RUNNING → COMPLETED"]
+    F -->|Yes, 5%| H["RUNNING → FAILED"]
+    F -->|No| E
+    G --> I["Free Machine"]
+    H --> I
+    I --> J["Generate New Jobs if Queue Low"]
+    J --> K["Machine Events"]
+    K --> L["Failures / Recovery / Efficiency"]
+```
+
+**PostgreSQL Function**: `simulate_job_progression()`
+
+- Dispatches PENDING jobs to IDLE machines
+- Starts QUEUED jobs (sets RUNNING status)
+- Completes/fails RUNNING jobs based on duration
+- Auto-generates new jobs when queue is low
+- Handles machine failures and recovery
+
+**API Endpoints**:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/simulation/tick` | POST | Run one simulation cycle |
+| `/api/v1/simulation/fast?ticks=N` | POST | Fast forward N cycles |
+| `/api/v1/simulation/status` | GET | Get current job/machine counts |
+| `/api/v1/simulation/reset` | POST | Reset to initial distribution |
 
 ---
 
@@ -720,6 +758,10 @@ Local: http://localhost:8000
 | `/api/v1/vm/history/{id}` | GET | Get VM history |
 | `/api/v1/vm/predict` | POST | Request prediction |
 | `/api/v1/vm/model/info` | GET | Get VM model info |
+| `/api/v1/simulation/tick` | POST | Run one simulation tick |
+| `/api/v1/simulation/fast` | POST | Fast forward (multiple ticks) |
+| `/api/v1/simulation/status` | GET | Get job/machine counts |
+| `/api/v1/simulation/reset` | POST | Reset to initial distribution |
 
 See `apps/api/README.md` for detailed API documentation.
 
@@ -768,6 +810,7 @@ PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release
 **Path**: `rust/monte_carlo/`
 
 **Features**:
+
 - Parallel simulation using rayon
 - P5/P50/P95/P99 confidence intervals
 - Bottleneck analysis
@@ -786,6 +829,7 @@ let result = sim.run_simulation(machines, 30, 10000)?;
 **Path**: `rust/scheduler/`
 
 **Features**:
+
 - Constraint-based optimization
 - Recipe type matching
 - Deadline awareness
