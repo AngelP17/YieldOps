@@ -218,6 +218,8 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
     setError(null);
 
     try {
+      console.log('[JobStream] Fetching jobs with filter:', statusFilter);
+      
       let query = supabase
         .from('production_jobs')
         .select('*')
@@ -236,13 +238,17 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
 
       const { data, error: queryError } = await query;
 
-      if (queryError) throw queryError;
+      if (queryError) {
+        console.error('[JobStream] Query error:', queryError);
+        throw queryError;
+      }
 
+      console.log('[JobStream] Fetched jobs:', data?.length || 0);
       const mappedJobs = (data || []).map(mapDatabaseJob);
       setJobs(mappedJobs);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch jobs'));
-      console.error('Error fetching jobs:', err);
+      console.error('[JobStream] Error fetching jobs:', err);
     } finally {
       setIsLoading(false);
     }
@@ -254,6 +260,8 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
       setIsConnected(false);
       return;
     }
+
+    console.log('[JobStream] Starting realtime subscription...');
 
     // Fetch initial data
     fetchJobs();
@@ -268,9 +276,13 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
           schema: 'public',
           table: 'production_jobs',
         },
-        handleRealtimeEvent as any
+        (payload: any) => {
+          console.log('[JobStream] Realtime event:', payload.eventType, payload.new?.job_name || payload.old?.job_name);
+          handleRealtimeEvent(payload as any);
+        }
       )
       .subscribe((status) => {
+        console.log('[JobStream] Subscription status:', status);
         setIsConnected(status === 'SUBSCRIBED');
         if (status === 'CHANNEL_ERROR') {
           setError(new Error('Realtime channel error'));
@@ -278,6 +290,7 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
       });
 
     return () => {
+      console.log('[JobStream] Cleaning up subscription');
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
