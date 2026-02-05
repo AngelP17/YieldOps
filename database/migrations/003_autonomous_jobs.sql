@@ -26,9 +26,9 @@ CREATE TABLE job_generation_config (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert default configuration
+-- Insert default configuration (realistic fab volume)
 INSERT INTO job_generation_config (enabled, generation_interval_seconds, min_jobs, max_jobs)
-VALUES (true, 30, 10, 50);
+VALUES (true, 15, 25, 100);
 
 -- Table: Job generation log (track autonomous job creation)
 CREATE TABLE job_generation_log (
