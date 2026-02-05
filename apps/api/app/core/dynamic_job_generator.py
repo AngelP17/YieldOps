@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 class JobGenerationConfig:
     """Configuration for autonomous job generation."""
     enabled: bool = True
-    generation_interval_seconds: int = 30
-    min_jobs: int = 10
-    max_jobs: int = 50
+    generation_interval_seconds: int = 15  # Generate faster
+    min_jobs: int = 20  # Maintain more jobs for realistic fab
+    max_jobs: int = 100  # Higher maximum
     hot_lot_probability: float = 0.15
     priority_distribution: Dict[str, float] = None
     customer_weights: Dict[str, float] = None
