@@ -76,6 +76,7 @@ flowchart TB
             MachinesAPI["/machines"]
             JobsAPI["/jobs"]
             DispatchAPI["/dispatch"]
+            JobGeneratorAPI["/job-generator"]
             ChaosAPI["/chaos"]
             AnalyticsAPI["/analytics"]
             VMAPI["/vm"]
@@ -127,6 +128,8 @@ flowchart TB
             MaintenanceLogs[(maintenance_logs)]
             AnomalyAlerts[(anomaly_alerts)]
             CapacitySimulations[(capacity_simulations)]
+            JobGenConfig[(job_generation_config)]
+            JobGenLog[(job_generation_log)]
         end
         
         PostgreSQL --> Tables
@@ -600,6 +603,52 @@ flowchart LR
 - `efficiency_drop`: Reduce machine efficiency
 
 **Purpose**: Test system resilience under failures
+
+### 7. Autonomous Job Generator
+
+```mermaid
+flowchart TD
+    A[System Check] --> B{Jobs < Minimum?}
+    B -->|Yes| C[Generate Autonomous Job]
+    B -->|No| D[Wait Interval]
+    C --> E[Select Customer by Weight]
+    E --> F[Select Priority by Distribution]
+    F --> G[Select Recipe Randomly]
+    G --> H[Insert to Database]
+    H --> I[Log Generation]
+    I --> J[Broadcast via Realtime]
+    J --> K[Frontend Notification]
+    D --> A
+```
+
+**Backend Service (`DynamicJobGenerator`):**
+
+- **Monitors**: Current job queue depth every 30s (configurable)
+- **Generates**: New jobs when below minimum threshold
+- **Weighted Selection**:
+  - Customers: Apple (1.5x), NVIDIA (1.4x), AMD (1.3x), etc.
+  - Priorities: P1 (15%), P2 (25%), P3 (30%), P4 (20%), P5 (10%)
+  - Hot Lots: 15% probability
+- **Creates**: Real jobs in Supabase database with proper naming
+
+**API Endpoints:**
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/v1/job-generator/start` | Enable autonomous generation |
+| `POST /api/v1/job-generator/stop` | Disable generation |
+| `GET /api/v1/job-generator/config` | Get configuration |
+| `POST /api/v1/job-generator/config` | Update configuration |
+| `POST /api/v1/job-generator/generate` | Manually trigger one job |
+| `GET /api/v1/job-generator/status` | Get stats and status |
+
+**Frontend Real-time Streaming:**
+
+- `useJobStream` hook subscribes to Supabase Realtime
+- Instant INSERT/UPDATE/DELETE notifications via WebSocket
+- Job arrival notifications for hot lots
+- Real-time job feed component
+- Batch updates for performance
 
 ---
 

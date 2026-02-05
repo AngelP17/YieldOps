@@ -423,6 +423,12 @@ CANCELLED  CANCELLED   FAILED
 | `/api/v1/jobs/{id}/cancel` | POST | Cancel job |
 | `/api/v1/dispatch/run` | POST | Execute ToC dispatch |
 | `/api/v1/dispatch/queue` | GET | View dispatch queue |
+| `/api/v1/job-generator/config` | GET/POST | Get/Update generator config |
+| `/api/v1/job-generator/status` | GET | Get generator status/stats |
+| `/api/v1/job-generator/start` | POST | Start autonomous generator |
+| `/api/v1/job-generator/stop` | POST | Stop autonomous generator |
+| `/api/v1/job-generator/generate` | POST | Manually generate single job |
+| `/api/v1/job-generator/counts` | GET | Get job counts by status |
 | `/api/v1/analytics/monte-carlo` | POST | Run simulation |
 | `/api/v1/analytics/anomalies` | GET | Get anomaly stats |
 | `/api/v1/chaos/inject` | POST | Inject failure |
