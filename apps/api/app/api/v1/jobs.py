@@ -71,6 +71,44 @@ async def get_job_queue():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/lifecycle/status")
+async def get_lifecycle_status():
+    """Get job lifecycle processor status."""
+    try:
+        from app.core.job_lifecycle_processor import get_lifecycle_processor
+        processor = get_lifecycle_processor(supabase_service.client)
+        return processor.get_stats()
+    except Exception as e:
+        logger.error(f"Error getting lifecycle status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lifecycle/start")
+async def start_lifecycle_processor():
+    """Start the job lifecycle processor."""
+    try:
+        from app.core.job_lifecycle_processor import get_lifecycle_processor
+        processor = get_lifecycle_processor(supabase_service.client)
+        processor.start()
+        return {"message": "Job lifecycle processor started"}
+    except Exception as e:
+        logger.error(f"Error starting lifecycle processor: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lifecycle/stop")
+async def stop_lifecycle_processor():
+    """Stop the job lifecycle processor."""
+    try:
+        from app.core.job_lifecycle_processor import get_lifecycle_processor
+        processor = get_lifecycle_processor(supabase_service.client)
+        processor.stop()
+        return {"message": "Job lifecycle processor stopped"}
+    except Exception as e:
+        logger.error(f"Error stopping lifecycle processor: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/{job_id}", response_model=ProductionJobResponse)
 async def get_job(job_id: str):
     """Get a specific job by ID."""
@@ -263,42 +301,4 @@ async def complete_job(job_id: str):
         raise
     except Exception as e:
         logger.error(f"Error completing job: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/lifecycle/status")
-async def get_lifecycle_status():
-    """Get job lifecycle processor status."""
-    try:
-        from app.core.job_lifecycle_processor import get_lifecycle_processor
-        processor = get_lifecycle_processor(supabase_service.client)
-        return processor.get_stats()
-    except Exception as e:
-        logger.error(f"Error getting lifecycle status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/lifecycle/start")
-async def start_lifecycle_processor():
-    """Start the job lifecycle processor."""
-    try:
-        from app.core.job_lifecycle_processor import get_lifecycle_processor
-        processor = get_lifecycle_processor(supabase_service.client)
-        processor.start()
-        return {"message": "Job lifecycle processor started"}
-    except Exception as e:
-        logger.error(f"Error starting lifecycle processor: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/lifecycle/stop")
-async def stop_lifecycle_processor():
-    """Stop the job lifecycle processor."""
-    try:
-        from app.core.job_lifecycle_processor import get_lifecycle_processor
-        processor = get_lifecycle_processor(supabase_service.client)
-        processor.stop()
-        return {"message": "Job lifecycle processor stopped"}
-    except Exception as e:
-        logger.error(f"Error stopping lifecycle processor: {e}")
         raise HTTPException(status_code=500, detail=str(e))
