@@ -264,7 +264,7 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {[
           { label: 'Total', value: jobStats.total, color: 'text-slate-900' },
-          { label: pendingCount !== undefined ? 'Pending 📡' : 'Pending', value: jobStats.pending, color: 'text-yellow-600' },
+          { label: pendingCount !== undefined ? 'Pending' : 'Pending', value: jobStats.pending, color: 'text-yellow-600' },
           { label: 'Queued', value: jobStats.queued, color: 'text-blue-600' },
           { label: 'Running', value: jobStats.running, color: 'text-emerald-600' },
           { label: 'Completed', value: jobStats.completed, color: 'text-slate-500' },

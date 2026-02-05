@@ -40,7 +40,7 @@ export function RealtimeJobFeed({
   error = null,
   onRefresh
 }: RealtimeJobFeedProps) {
-  const [statusFilter, setStatusFilter] = useState<string[]>(['PENDING', 'QUEUED', 'RUNNING']);
+  const [statusFilter, setStatusFilter] = useState<string[]>(['PENDING', 'QUEUED', 'RUNNING', 'COMPLETED']);
   const [sortBy, setSortBy] = useState<'created' | 'priority' | 'deadline'>('created');
   const [isExpanded, setIsExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -57,6 +57,7 @@ export function RealtimeJobFeed({
       pendingJobs: filtered.filter(j => j.status === 'PENDING').length,
       queuedJobs: filtered.filter(j => j.status === 'QUEUED').length,
       runningJobs: filtered.filter(j => j.status === 'RUNNING').length,
+      completedJobs: filtered.filter(j => j.status === 'COMPLETED').length,
       hotLots: filtered.filter(j => j.is_hot_lot).length,
       recentArrivals: filtered.filter(j => new Date(j.created_at).getTime() > recentThreshold).length,
     };
@@ -138,7 +139,7 @@ export function RealtimeJobFeed({
         {/* Filters */}
         {showFilters && (
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            {(['PENDING', 'QUEUED', 'RUNNING'] as const).map((status) => (
+            {(['PENDING', 'QUEUED', 'RUNNING', 'COMPLETED'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => {
@@ -151,7 +152,8 @@ export function RealtimeJobFeed({
                 className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${statusFilter.includes(status)
                     ? status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
                       status === 'QUEUED' ? 'bg-blue-100 text-blue-700' :
-                        'bg-emerald-100 text-emerald-700'
+                      status === 'RUNNING' ? 'bg-emerald-100 text-emerald-700' :
+                        'bg-slate-200 text-slate-700'
                     : 'bg-slate-100 text-slate-400'
                   }`}
               >
@@ -159,7 +161,8 @@ export function RealtimeJobFeed({
                 <span className="ml-1 opacity-75">
                   {status === 'PENDING' ? stats.pendingJobs :
                     status === 'QUEUED' ? stats.queuedJobs :
-                      stats.runningJobs}
+                    status === 'RUNNING' ? stats.runningJobs :
+                      stats.completedJobs || 0}
                 </span>
               </button>
             ))}

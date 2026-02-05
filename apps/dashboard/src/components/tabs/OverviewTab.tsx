@@ -321,7 +321,7 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
         <KpiCard label="Efficiency" value={`${(stats.avgEfficiency * 100).toFixed(1)}%`} subtext="Avg. performance" icon={TrendingUp} trend="+1.2%" color="indigo" />
         <KpiCard label="Wafers In Process" value={stats.totalWafers} subtext={`${stats.totalProcessed.toLocaleString()} total`} icon={Layers} trend="+12" color="amber" />
         <KpiCard 
-          label={jobStreamStats ? "📡 Live Jobs" : "Active Jobs"} 
+          label={jobStreamStats ? "Live Jobs" : "Active Jobs"} 
           value={jobStreamStats ? jobStreamStats.totalJobs : stats.runningJobs + stats.queuedJobs} 
           subtext={jobStreamStats 
             ? `${jobStreamStats.pendingJobs} pending • ${jobStreamStats.hotLots} hot` 

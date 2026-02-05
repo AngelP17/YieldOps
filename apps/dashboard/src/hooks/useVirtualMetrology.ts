@@ -41,18 +41,34 @@ interface UseVirtualMetrologyOptions {
   enabled?: boolean;
 }
 
-// Generate mock VM status for demo mode
-const generateMockVMStatus = (machineId: string): VMStatus => ({
-  machine_id: machineId,
-  has_prediction: true,
-  predicted_thickness_nm: 50 + Math.random() * 5,
-  confidence_score: 0.85 + Math.random() * 0.1,
-  r2r_correction: (Math.random() - 0.5) * 2,
-  ewma_error: (Math.random() - 0.5) * 1.5,
-  needs_correction: Math.random() > 0.7,
-  last_updated: new Date().toISOString(),
-  message: 'Demo mode - mock prediction',
-});
+// Cache for mock VM values to prevent flickering
+const mockVMCache = new Map<string, VMStatus>();
+
+// Generate mock VM status for demo mode (cached per machine)
+const generateMockVMStatus = (machineId: string): VMStatus => {
+  // Return cached value if exists
+  if (mockVMCache.has(machineId)) {
+    const cached = mockVMCache.get(machineId)!;
+    // Only update last_updated timestamp
+    return { ...cached, last_updated: new Date().toISOString() };
+  }
+  
+  // Generate new value and cache it
+  const newStatus: VMStatus = {
+    machine_id: machineId,
+    has_prediction: true,
+    predicted_thickness_nm: 50 + Math.random() * 5,
+    confidence_score: 0.85 + Math.random() * 0.1,
+    r2r_correction: (Math.random() - 0.5) * 2,
+    ewma_error: (Math.random() - 0.5) * 1.5,
+    needs_correction: Math.random() > 0.7,
+    last_updated: new Date().toISOString(),
+    message: 'Demo mode - mock prediction',
+  };
+  
+  mockVMCache.set(machineId, newStatus);
+  return newStatus;
+};
 
 // Generate mock VM history for demo mode
 const generateMockVMHistory = (): VMHistoryPoint[] => {
