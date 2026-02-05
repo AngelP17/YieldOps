@@ -410,9 +410,7 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-mono text-slate-400">#{i + 1}</span>
                         <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
-                        {job.is_hot_lot && (
-                          <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
-                        )}
+
                       </div>
                       <span className="flex items-center gap-1 text-xs text-slate-500">
                         <Clock className="w-3 h-3" />
@@ -468,9 +466,7 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
-                        {job.is_hot_lot && (
-                          <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
-                        )}
+
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">{job.customer_tag} &middot; {job.recipe_type}</p>
                     </div>

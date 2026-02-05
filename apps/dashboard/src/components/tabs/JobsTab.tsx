@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Clock, Layers, X, Flame, AlertTriangle, MoreHorizontal, Play, CheckCircle, RotateCcw } from 'lucide-react';
+import { Plus, Search, Clock, Layers, X, AlertTriangle, MoreHorizontal, Play, CheckCircle, RotateCcw } from 'lucide-react';
 import { JobStatusBadge } from '../ui/StatusBadge';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
@@ -269,7 +269,7 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
           { label: 'Running', value: jobStats.running, color: 'text-emerald-600' },
           { label: 'Completed', value: jobStats.completed, color: 'text-slate-500' },
           { label: 'Failed', value: jobStats.failed, color: 'text-rose-600' },
-          { label: hotLotCount !== undefined ? 'Hot Lots 🔥' : 'Hot Lots', value: jobStats.hotLots, color: 'text-rose-600' },
+          { label: 'Hot Lots', value: jobStats.hotLots, color: 'text-rose-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-3 text-center">
             <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -332,7 +332,6 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            <Flame className="w-3.5 h-3.5" />
             Hot Lots
           </button>
         </div>
@@ -347,9 +346,7 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-semibold text-slate-900">{job.job_name}</span>
-                    {job.is_hot_lot && (
-                      <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT LOT</span>
-                    )}
+
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                       job.priority_level <= 2 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                     }`}>

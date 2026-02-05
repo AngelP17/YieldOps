@@ -12,7 +12,6 @@ import {
   Package, 
   X, 
   Bell,
-  Flame,
   Clock,
   CheckCircle2
 } from 'lucide-react';
@@ -70,7 +69,7 @@ export function JobArrivalNotifications({
     setNotifications(prev => [notification, ...prev].slice(0, maxNotifications));
   }, [isPaused, maxNotifications]);
 
-  const { pendingCount, hotLotCount } = useJobArrivals({
+  const { pendingCount } = useJobArrivals({
     enabled,
     onHotLot: handleHotLot,
     onStandardJob: handleStandardJob,
@@ -123,11 +122,7 @@ export function JobArrivalNotifications({
               {pendingCount}
             </span>
           )}
-          {hotLotCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[10px]">
-              {hotLotCount}H
-            </span>
-          )}
+
         </button>
       </div>
     );
@@ -214,7 +209,7 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
                 ? 'bg-gradient-to-br from-red-500 to-orange-500 text-white shadow-red-200' 
                 : 'bg-blue-100 text-blue-600'
             }`}>
-              {isHotLot ? <Flame className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+              <Package className="w-5 h-5" />
             </div>
             
             <div>
@@ -222,11 +217,7 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
                 <h4 className={`font-semibold text-sm ${isHotLot ? 'text-red-900' : 'text-slate-900'}`}>
                   {job.job_name}
                 </h4>
-                {isHotLot && (
-                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
-                    HOT
-                  </span>
-                )}
+
               </div>
               
               <p className="text-xs text-slate-500 mt-0.5">
@@ -278,7 +269,7 @@ export function JobArrivalBadge({
   onClick?: () => void;
   className?: string;
 }) {
-  const { recentArrivals, pendingCount, hotLotCount, isConnected } = useJobArrivals({
+  const { recentArrivals, pendingCount, isConnected } = useJobArrivals({
     enabled: true,
   });
 
@@ -312,12 +303,7 @@ export function JobArrivalBadge({
         </span>
       )}
       
-      {hotLotCount > 0 && (
-        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[10px]">
-          <Flame className="w-2.5 h-2.5" />
-          {hotLotCount}
-        </span>
-      )}
+
       
       {hasNew && (
         <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />

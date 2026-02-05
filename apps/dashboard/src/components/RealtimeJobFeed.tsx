@@ -8,7 +8,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Clock,
-  Flame,
   Package,
   Play,
   CheckCircle2,
@@ -117,12 +116,7 @@ export function RealtimeJobFeed({
               <h3 className="font-semibold text-slate-900 text-sm">Live Job Feed</h3>
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span>{stats.totalJobs} active</span>
-                {stats.hotLots > 0 && (
-                  <span className="flex items-center gap-1 text-red-600">
-                    <Flame className="w-3 h-3" />
-                    {stats.hotLots} hot
-                  </span>
-                )}
+
               </div>
             </div>
           </div>
@@ -289,11 +283,7 @@ function JobFeedItem({ job, isNew }: JobFeedItemProps) {
             <h4 className="font-medium text-slate-900 text-sm truncate">
               {job.job_name}
             </h4>
-            {job.is_hot_lot && (
-              <span className="flex-shrink-0 px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
-                HOT
-              </span>
-            )}
+
             {isNew && (
               <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
             )}
