@@ -2,10 +2,13 @@ import { useState, useMemo, createContext, useContext, useCallback, useEffect } 
 import { Machine, ProductionJob } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
 import { useAutonomousSimulation } from './hooks/useAutonomousSimulation';
+import { useJobStream, useJobArrivals } from './hooks/useJobStream';
 import { isApiConfigured, isSupabaseConfigured } from './services/apiClient';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { MachinesTab } from './components/tabs/MachinesTab';
 import { JobsTab } from './components/tabs/JobsTab';
+import { JobArrivalNotifications, JobArrivalBadge } from './components/JobArrivalNotifications';
+import { RealtimeJobFeed } from './components/RealtimeJobFeed';
 import {
   Factory,
   BarChart3,
@@ -17,7 +20,8 @@ import {
   AlertTriangle,
   Play,
   Pause,
-  LayoutDashboard
+  LayoutDashboard,
+  Bell
 } from 'lucide-react';
 
 // =====================================================
@@ -153,6 +157,8 @@ interface AppConfigContextType {
   recoverAllMachines: () => number;
   simulationEnabled: boolean;
   setSimulationEnabled: (enabled: boolean) => void;
+  simulationSpeed: 1 | 10 | 100;
+  setSimulationSpeed: (speed: 1 | 10 | 100) => void;
 }
 
 const AppConfigContext = createContext<AppConfigContextType>({
@@ -168,6 +174,8 @@ const AppConfigContext = createContext<AppConfigContextType>({
   recoverAllMachines: () => 0,
   simulationEnabled: true,
   setSimulationEnabled: () => {},
+  simulationSpeed: 1,
+  setSimulationSpeed: () => {},
 });
 
 export const useAppConfig = () => useContext(AppConfigContext);
@@ -177,10 +185,28 @@ function App() {
   const { sensorData } = useLatestSensorData();
   const { jobs: realtimeJobs, refresh: refreshJobs } = useRealtimeJobs();
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs'>('overview');
+  const [showJobFeed, setShowJobFeed] = useState(false);
 
   const hasSupabase = isSupabaseConfigured();
   const hasApi = isApiConfigured();
   const isUsingMockData = !hasSupabase;
+
+  // Real-time job stream for Supabase mode
+  const { 
+    jobs: streamJobs, 
+    stats: jobStreamStats, 
+    isConnected: isJobStreamConnected 
+  } = useJobStream({
+    enabled: hasSupabase,
+    statusFilter: ['PENDING', 'QUEUED', 'RUNNING', 'COMPLETED'],
+    batchUpdates: true,
+    batchInterval: 100,
+  });
+
+  // Job arrival notifications
+  const { recentArrivals, pendingCount, hotLotCount } = useJobArrivals({
+    enabled: hasSupabase,
+  });
 
   // Local state for mock data (allows modifications in demo mode)
   const [, setLocalMachines] = useState<Machine[]>(MOCK_MACHINES);
@@ -190,21 +216,58 @@ function App() {
   const [displayMachines, setDisplayMachines] = useState<Machine[]>(MOCK_MACHINES);
   const [displayJobs, setDisplayJobs] = useState<ProductionJob[]>(MOCK_JOBS);
 
-  // Sync display data with source data
+  // =====================================================
+  // DATA SOURCE SELECTION - REAL SUPABASE DATA ONLY
+  // When Supabase is connected, ONLY use real data from database
+  // Mock data is ONLY used as fallback when Supabase is NOT configured
+  // =====================================================
+
+  // Sync machines - REAL DATA ONLY when Supabase is connected
   useEffect(() => {
     if (hasSupabase) {
+      // ALWAYS use realtime data from Supabase - never mock data
       setDisplayMachines(realtimeMachines);
     } else {
-      // In demo mode, ALWAYS use MOCK_MACHINES directly
+      // Demo mode fallback - only use mock when no Supabase
       setDisplayMachines(MOCK_MACHINES);
       setLocalMachines(MOCK_MACHINES);
     }
   }, [hasSupabase, realtimeMachines]);
 
-  // Ensure mock data is loaded on initial mount in demo mode
+  // Sync jobs - PRIORITIZE REAL-TIME STREAM from Supabase
+  useEffect(() => {
+    if (hasSupabase) {
+      // Use job stream for real-time updates (more responsive than polling)
+      if (streamJobs.length > 0) {
+        setDisplayJobs(streamJobs);
+      } else if (realtimeJobs.length > 0) {
+        // Fallback to realtimeJobs if stream is empty (initial load)
+        setDisplayJobs(realtimeJobs);
+      }
+    } else {
+      // Demo mode fallback - only use mock when no Supabase
+      setDisplayJobs(MOCK_JOBS);
+      setLocalJobs(MOCK_JOBS);
+    }
+  }, [hasSupabase, streamJobs, realtimeJobs]);
+
+  // Safety check - ensure mock data is never used when Supabase is connected
+  useEffect(() => {
+    if (hasSupabase) {
+      // If somehow display data is mock data (by ID check), force reset to real data
+      const hasMockMachine = displayMachines.some(m => 
+        MOCK_MACHINES.some(mm => mm.machine_id === m.machine_id)
+      );
+      if (hasMockMachine && realtimeMachines.length > 0) {
+        console.warn('[YieldOps] Detected mock machine data while Supabase is connected - resetting to real data');
+        setDisplayMachines(realtimeMachines);
+      }
+    }
+  }, [hasSupabase, displayMachines, realtimeMachines]);
+
+  // Demo mode only - ensure mock data is loaded
   useEffect(() => {
     if (!hasSupabase) {
-      // Force reset to mock data on every render in demo mode
       if (displayMachines.length !== MOCK_MACHINES.length || 
           displayMachines[0]?.name !== MOCK_MACHINES[0]?.name) {
         setDisplayMachines(MOCK_MACHINES);
@@ -217,16 +280,6 @@ function App() {
       }
     }
   }, [hasSupabase, displayMachines.length, displayJobs.length]);
-
-  useEffect(() => {
-    if (hasSupabase) {
-      setDisplayJobs(realtimeJobs);
-    } else {
-      // In demo mode, ALWAYS use MOCK_JOBS directly
-      setDisplayJobs(MOCK_JOBS);
-      setLocalJobs(MOCK_JOBS);
-    }
-  }, [hasSupabase, realtimeJobs]);
 
   const machinesWithSensorData = useMemo(() => {
     return displayMachines.map((m) => ({
@@ -295,14 +348,15 @@ function App() {
 
   // Autonomous simulation toggle - works in both demo and Supabase modes
   const [simulationEnabled, setSimulationEnabled] = useState(true);
+  const [simulationSpeed, setSimulationSpeed] = useState<1 | 10 | 100>(1);
   
-  // Start autonomous simulation
+  // Start autonomous simulation with speed-adjusted intervals
   useAutonomousSimulation({
     enabled: simulationEnabled,
-    jobProgressionInterval: 5000,
-    machineEventInterval: 8000,
-    newJobInterval: 15000,
-    sensorDataInterval: 3000,
+    jobProgressionInterval: Math.max(50, 5000 / simulationSpeed),
+    machineEventInterval: Math.max(80, 8000 / simulationSpeed),
+    newJobInterval: Math.max(150, 15000 / simulationSpeed),
+    sensorDataInterval: Math.max(30, 3000 / simulationSpeed),
   });
 
   // Recover all broken machines at once
@@ -327,6 +381,8 @@ function App() {
     recoverAllMachines,
     simulationEnabled,
     setSimulationEnabled,
+    simulationSpeed,
+    setSimulationSpeed,
   };
 
   return (
@@ -367,8 +423,7 @@ function App() {
               </nav>
 
               <div className="flex items-center gap-1.5 sm:gap-3">
-                {/* Mock Data Badge */}
-                {/* Demo Mode Badge */}
+                {/* Demo Mode Badge - only shown when using mock data */}
                 {isUsingMockData && (
                   <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
                     <AlertTriangle className="w-3.5 h-3.5" />
@@ -376,19 +431,50 @@ function App() {
                   </div>
                 )}
                 
-                {/* Simulation Toggle - Always visible */}
-                <button
-                  onClick={() => setSimulationEnabled(!simulationEnabled)}
-                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                    simulationEnabled 
-                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                  title="Toggle autonomous simulation"
-                >
-                  {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                  <span className="hidden sm:inline">{simulationEnabled ? 'Simulating' : 'Paused'}</span>
-                </button>
+                {/* Simulation Controls - ONLY shown in demo mode (mock data) */}
+                {isUsingMockData && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setSimulationEnabled(!simulationEnabled)}
+                      className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                        simulationEnabled 
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                      title="Toggle demo simulation"
+                    >
+                      {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                      <span className="hidden sm:inline">{simulationEnabled ? 'Sim' : 'Paused'}</span>
+                    </button>
+                    
+                    {simulationEnabled && (
+                      <div className="flex items-center gap-0.5 sm:gap-1 ml-1">
+                        {([1, 10, 100] as const).map((speed) => (
+                          <button
+                            key={speed}
+                            onClick={() => setSimulationSpeed(speed)}
+                            className={`px-1.5 sm:px-2 py-1 text-[10px] sm:text-xs font-medium rounded transition-colors ${
+                              simulationSpeed === speed
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title={`${speed}x speed`}
+                          >
+                            {speed}x
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Live Data Indicator - shown when connected to Supabase */}
+                {!isUsingMockData && isSupabaseConnected && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="hidden sm:inline text-xs font-medium">Live Data</span>
+                  </div>
+                )}
                 
                 <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-slate-100 rounded-full">
                   {isSupabaseConnected ? (
@@ -403,6 +489,11 @@ function App() {
                     </>
                   )}
                 </div>
+                {/* Job Stream Badge - shows in Supabase mode */}
+                {hasSupabase && (
+                  <JobArrivalBadge onClick={() => setShowJobFeed(!showJobFeed)} />
+                )}
+
                 <button 
                   onClick={refreshData}
                   className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -414,15 +505,35 @@ function App() {
           </div>
         </header>
 
+        {/* Job Arrival Notifications */}
+        {hasSupabase && <JobArrivalNotifications enabled={true} />}
+
         <main className="px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
+          {/* Real-time Job Feed - Collapsible in Supabase mode */}
+          {hasSupabase && showJobFeed && (
+            <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
+              <RealtimeJobFeed maxItems={15} className="shadow-lg" />
+            </div>
+          )}
+
           {activeTab === 'overview' && (
-            <OverviewTab machines={machinesWithSensorData} jobs={displayJobs} />
+            <OverviewTab 
+              machines={machinesWithSensorData} 
+              jobs={displayJobs}
+              jobStreamStats={hasSupabase ? jobStreamStats : undefined}
+            />
           )}
           {activeTab === 'machines' && (
             <MachinesTab machines={machinesWithSensorData} />
           )}
           {activeTab === 'jobs' && (
-            <JobsTab jobs={displayJobs} machines={machinesWithSensorData} />
+            <JobsTab 
+              jobs={displayJobs} 
+              machines={machinesWithSensorData}
+              isRealTime={hasSupabase}
+              pendingCount={hasSupabase ? pendingCount : undefined}
+              hotLotCount={hasSupabase ? hotLotCount : undefined}
+            />
           )}
         </main>
 

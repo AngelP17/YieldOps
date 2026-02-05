@@ -87,27 +87,83 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   const sensorDataRef = useRef<Record<string, SensorData>>({});
 
   /**
-   * Simulate job progression
-   * - QUEUED jobs with assigned machines -> RUNNING
-   * - RUNNING jobs progress wafer count -> COMPLETED when done
+   * Simulate job progression (full autonomous lifecycle)
+   * - PENDING -> QUEUED (auto-queue by priority, hot lots first)
+   * - QUEUED without machine -> assign idle machine (ToC dispatch)
+   * - QUEUED with machine -> RUNNING (when machine is idle)
+   * - RUNNING -> COMPLETED (5%) or FAILED (2%)
    */
   const simulateJobProgression = useCallback(() => {
     if (!isUsingMockData) return;
-    
-    // Process RUNNING jobs - increment wafer progress
+
+    // Track which machines are being assigned this cycle to avoid double-assignment
+    const assignedThisCycle = new Set<string>();
+
+    // 1. PENDING -> QUEUED (auto-queue pending jobs, prioritized)
+    const pendingJobs = [...jobs]
+      .filter(j => j.status === 'PENDING')
+      .sort((a, b) => a.priority_level - b.priority_level); // lower priority_level = higher priority
+
+    pendingJobs.forEach(job => {
+      // Hot lots queue immediately, others have a 30% chance per cycle
+      if (job.is_hot_lot || Math.random() > 0.7) {
+        updateJob(job.job_id, {
+          status: 'QUEUED',
+          updated_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    // 2. Assign idle machines to QUEUED jobs without assigned_machine_id (ToC dispatch)
+    const queuedUnassigned = [...jobs]
+      .filter(j => j.status === 'QUEUED' && !j.assigned_machine_id)
+      .sort((a, b) => {
+        // Hot lots first, then by priority level
+        if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+        return a.priority_level - b.priority_level;
+      });
+
+    const idleMachines = machines.filter(m => m.status === 'IDLE');
+
+    queuedUnassigned.forEach(job => {
+      const available = idleMachines.find(m => !assignedThisCycle.has(m.machine_id));
+      if (available) {
+        assignedThisCycle.add(available.machine_id);
+        updateJob(job.job_id, {
+          assigned_machine_id: available.machine_id,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    // 3. Process RUNNING jobs - complete or fail
     jobs.forEach(job => {
       if (job.status === 'RUNNING' && job.assigned_machine_id) {
-        // Randomly complete jobs
+        // 2% chance of job failure
+        if (Math.random() > 0.98) {
+          updateJob(job.job_id, {
+            status: 'FAILED',
+            actual_end_time: new Date().toISOString(),
+          });
+          const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
+          if (machine) {
+            updateMachine(machine.machine_id, {
+              status: 'IDLE',
+              current_wafer_count: 0,
+            });
+          }
+          return;
+        }
+
+        // 5% chance of completion
         if (Math.random() > 0.95) {
-          updateJob(job.job_id, { 
+          updateJob(job.job_id, {
             status: 'COMPLETED',
             actual_end_time: new Date().toISOString(),
           });
-          
-          // Free up the machine
           const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
           if (machine) {
-            updateMachine(machine.machine_id, { 
+            updateMachine(machine.machine_id, {
               status: 'IDLE',
               current_wafer_count: 0,
             });
@@ -115,17 +171,17 @@ export function useAutonomousSimulation(config: SimulationConfig) {
         }
       }
     });
-    
-    // Process QUEUED jobs - start them if machine is available
+
+    // 4. QUEUED with assigned machine -> RUNNING (when machine is idle)
     jobs.forEach(job => {
       if (job.status === 'QUEUED' && job.assigned_machine_id) {
         const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
         if (machine && machine.status === 'IDLE') {
-          updateJob(job.job_id, { 
+          updateJob(job.job_id, {
             status: 'RUNNING',
             actual_start_time: new Date().toISOString(),
           });
-          updateMachine(machine.machine_id, { 
+          updateMachine(machine.machine_id, {
             status: 'RUNNING',
             current_wafer_count: job.wafer_count,
           });

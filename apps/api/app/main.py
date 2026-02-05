@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import routers
-from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm, scheduler
+from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm, scheduler, job_generator
 
 
 @asynccontextmanager
@@ -41,7 +41,29 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not initialize VM model: {e}")
 
+    # Start autonomous job generator
+    try:
+        from app.core.dynamic_job_generator import get_job_generator
+        from app.services.supabase_service import supabase_service
+        generator = get_job_generator(supabase_service.client)
+        await generator.load_config()
+        if generator.config.enabled:
+            generator.start()
+            logger.info("Autonomous job generator started")
+    except Exception as e:
+        logger.warning(f"Could not start job generator: {e}")
+
     yield
+    
+    # Shutdown: Stop job generator
+    try:
+        from app.core.dynamic_job_generator import get_job_generator
+        from app.services.supabase_service import supabase_service
+        generator = get_job_generator(supabase_service.client)
+        generator.stop()
+        logger.info("Autonomous job generator stopped")
+    except Exception as e:
+        logger.warning(f"Error stopping job generator: {e}")
     
     logger.info("Shutting down YieldOps API...")
 
@@ -78,6 +100,7 @@ app.include_router(chaos.router, prefix="/api/v1/chaos", tags=["chaos"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(vm.router, prefix="/api/v1/vm", tags=["virtual-metrology"])
 app.include_router(scheduler.router, prefix="/api/v1", tags=["scheduler"])
+app.include_router(job_generator.router, prefix="/api/v1", tags=["job-generator"])
 
 
 @app.get("/health")
@@ -105,7 +128,8 @@ async def root():
             "chaos": "/api/v1/chaos",
             "analytics": "/api/v1/analytics",
             "vm": "/api/v1/vm",
-            "scheduler": "/api/v1/scheduler"
+            "scheduler": "/api/v1/scheduler",
+            "job-generator": "/api/v1/job-generator"
         }
     }
 

@@ -14,11 +14,15 @@ Intelligent Manufacturing & IIoT Portfolio Project
 ### Key Capabilities
 
 - **Real-time Monitoring**: Live machine status via WebSockets/Supabase Realtime
-- **Intelligent Dispatching**: Automated job routing based on efficiency and priority (ToC)
-- **Predictive Maintenance**: Anomaly detection using Isolation Forest
-- **Virtual Metrology**: Predict film thickness and enable Run-to-Run control
+- **Intelligent Dispatching**: Automated job routing based on efficiency and priority (Theory of Constraints)
+- **Predictive Maintenance**: Anomaly detection using Isolation Forest with SPC control charts
+- **Virtual Metrology**: Predict film thickness and enable Run-to-Run (R2R) control
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
 - **Chaos Engineering**: Controlled failure injection for resilience testing
+- **Process Capability (CPK)**: Statistical process control with CPK calculation and rating
+- **Job Lifecycle Management**: Full job status control with manual and autonomous transitions
+- **Simulation Speed Control**: 1x/10x/100x speed toggle for accelerated testing
+- **Mobile-Responsive Design**: Full dashboard functionality across all device sizes
 - **Demo Mode**: Full functionality without backend configuration
 
 ---
@@ -41,11 +45,14 @@ flowchart TB
             MachineNode["Machine Node Cards"]
             KpiCard["KPI Cards"]
             Modals["Modals & Forms"]
+            SPCCharts["SPC Control Charts"]
+            SpeedControl["Simulation Speed Control"]
         end
         
         subgraph Hooks["Custom Hooks"]
             useRealtime["useRealtime"]
             useVirtualMetrology["useVirtualMetrology"]
+            useAutonomousSimulation["useAutonomousSimulation"]
             usePolling["usePolling"]
         end
         
@@ -148,6 +155,8 @@ flowchart TB
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
 | **ML** | Scikit-Learn | Anomaly Detection & VM | - |
 | **Rust** | PyO3 + rayon | High-performance compute | - |
+| **SPC** | Custom Engine | Statistical Process Control | - |
+| **Charts** | Recharts | Data visualization with SPC | - |
 
 ### Why This Stack?
 
@@ -383,6 +392,19 @@ CREATE TABLE recipe_adjustments (
 | `seed.sql` | 16KB | 48 machines, 25 jobs, sensor readings |
 | `reset_and_seed.sql` | 27KB | **Full reset + seed** - Use this for Supabase migration |
 | `migrations/002_virtual_metrology.sql` | 4KB | VM tables (if not in schema) |
+
+### Core Tables
+
+#### Production Jobs Status Enum
+
+| Status | Description | Transitions |
+|--------|-------------|-------------|
+| `PENDING` | Awaiting dispatch | → QUEUED, CANCELLED |
+| `QUEUED` | Assigned to machine | → RUNNING, CANCELLED |
+| `RUNNING` | Actively processing | → COMPLETED, FAILED, CANCELLED |
+| `COMPLETED` | Successfully finished | (terminal) |
+| `FAILED` | Processing failed | → QUEUED (retry) |
+| `CANCELLED` | Manually cancelled | → QUEUED (retry) |
 
 ---
 

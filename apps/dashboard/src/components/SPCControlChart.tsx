@@ -17,6 +17,8 @@ interface SPCControlChartProps {
   title: string;
   unit?: string;
   height?: number;
+  usl?: number;  // Upper Specification Limit
+  lsl?: number;  // Lower Specification Limit
 }
 
 interface ChartDataPoint {
@@ -50,13 +52,21 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   );
 }
 
-export function SPCControlChart({ data, title, unit = '', height = 240 }: SPCControlChartProps) {
+export function SPCControlChart({ data, title, unit = '', height = 240, usl, lsl }: SPCControlChartProps) {
   const spcResult: SPCResult = useMemo(
-    () => analyzeSPC(data.map(d => d.value)),
-    [data]
+    () => analyzeSPC(data.map(d => d.value), { usl, lsl }),
+    [data, usl, lsl]
   );
 
-  const { stats, violations } = spcResult;
+  const { stats, violations, cpk } = spcResult;
+  
+  // CPK color based on rating
+  const cpkColorClass = cpk ? {
+    excellent: 'bg-emerald-100 text-emerald-700',
+    good: 'bg-blue-100 text-blue-700',
+    marginal: 'bg-amber-100 text-amber-700',
+    poor: 'bg-rose-100 text-rose-700',
+  }[cpk.rating] : '';
 
   const chartData = useMemo(() => {
     return spcResult.data.map(point => ({
@@ -81,7 +91,12 @@ export function SPCControlChart({ data, title, unit = '', height = 240 }: SPCCon
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {cpk && (
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${cpkColorClass}`} title={`CPK: ${cpk.cpk.toFixed(2)} (CPU: ${cpk.cpu.toFixed(2)}, CPL: ${cpk.cpl.toFixed(2)})`}>
+              CPK {cpk.cpk.toFixed(2)}
+            </span>
+          )}
           {criticalCount > 0 && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
               {criticalCount} Critical
@@ -92,7 +107,7 @@ export function SPCControlChart({ data, title, unit = '', height = 240 }: SPCCon
               {warningCount} Warning
             </span>
           )}
-          {criticalCount === 0 && warningCount === 0 && (
+          {criticalCount === 0 && warningCount === 0 && !cpk && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
               In Control
             </span>
@@ -139,6 +154,26 @@ export function SPCControlChart({ data, title, unit = '', height = 240 }: SPCCon
           <ReferenceLine y={stats.lcl2} stroke="#f97316" strokeWidth={0.5} strokeDasharray="4 4" />
           <ReferenceLine y={stats.ucl1} stroke="#94a3b8" strokeWidth={0.5} strokeDasharray="2 4" />
           <ReferenceLine y={stats.lcl1} stroke="#94a3b8" strokeWidth={0.5} strokeDasharray="2 4" />
+          
+          {/* Specification Limits (USL/LSL) */}
+          {usl !== undefined && (
+            <ReferenceLine
+              y={usl}
+              stroke="#a855f7"
+              strokeWidth={1.5}
+              strokeDasharray="8 4"
+              label={{ value: `USL ${usl.toFixed(1)}`, position: 'right', fontSize: 9, fill: '#a855f7' }}
+            />
+          )}
+          {lsl !== undefined && (
+            <ReferenceLine
+              y={lsl}
+              stroke="#a855f7"
+              strokeWidth={1.5}
+              strokeDasharray="8 4"
+              label={{ value: `LSL ${lsl.toFixed(1)}`, position: 'right', fontSize: 9, fill: '#a855f7' }}
+            />
+          )}
 
           <XAxis
             dataKey="index"

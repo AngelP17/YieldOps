@@ -15,6 +15,14 @@ import type { Machine, ProductionJob } from '../../types';
 interface OverviewTabProps {
   machines: Machine[];
   jobs: ProductionJob[];
+  jobStreamStats?: {
+    totalJobs: number;
+    pendingJobs: number;
+    queuedJobs: number;
+    runningJobs: number;
+    hotLots: number;
+    recentArrivals: number;
+  };
 }
 
 // Mock dispatch data for demo mode
@@ -97,7 +105,7 @@ function runToCDispatch(
   return decisions;
 }
 
-export function OverviewTab({ machines, jobs }: OverviewTabProps) {
+export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps) {
   const { toast } = useToast();
   const { isUsingMockData, updateMachine, updateJob, recoverAllMachines } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
@@ -312,7 +320,17 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         <KpiCard label="Running" value={stats.running} subtext={`${stats.total > 0 ? ((stats.running / stats.total) * 100).toFixed(0) : 0}% uptime`} icon={Activity} trend="+5%" color="emerald" />
         <KpiCard label="Efficiency" value={`${(stats.avgEfficiency * 100).toFixed(1)}%`} subtext="Avg. performance" icon={TrendingUp} trend="+1.2%" color="indigo" />
         <KpiCard label="Wafers In Process" value={stats.totalWafers} subtext={`${stats.totalProcessed.toLocaleString()} total`} icon={Layers} trend="+12" color="amber" />
-        <KpiCard label="Active Jobs" value={stats.runningJobs + stats.queuedJobs} subtext={`${stats.hotLots} hot lots`} icon={Package} trend="+3" color="purple" />
+        <KpiCard 
+          label={jobStreamStats ? "📡 Live Jobs" : "Active Jobs"} 
+          value={jobStreamStats ? jobStreamStats.totalJobs : stats.runningJobs + stats.queuedJobs} 
+          subtext={jobStreamStats 
+            ? `${jobStreamStats.pendingJobs} pending • ${jobStreamStats.hotLots} hot` 
+            : `${stats.hotLots} hot lots`
+          } 
+          icon={Package} 
+          trend={jobStreamStats && jobStreamStats.recentArrivals > 0 ? `+${jobStreamStats.recentArrivals}` : "+3"} 
+          color="purple" 
+        />
         <KpiCard label="Alerts" value={stats.down + stats.maintenance} subtext="Require attention" icon={Shield} trend="-1" color="rose" />
       </div>
 
