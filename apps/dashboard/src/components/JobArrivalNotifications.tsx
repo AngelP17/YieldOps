@@ -302,7 +302,7 @@ export function JobArrivalBadge({
       )}
       
       <span className="hidden sm:inline">
-        {hasNew ? `${recentArrivals.length} new` : isConnected ? 'Live' : 'Paused'}
+        {hasNew ? `${recentArrivals.length} new` : isConnected ? 'Jobs' : 'Updates'}
       </span>
       
       {pendingCount > 0 && (

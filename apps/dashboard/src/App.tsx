@@ -184,7 +184,8 @@ function App() {
   const { sensorData } = useLatestSensorData();
   const { jobs: realtimeJobs, refresh: refreshJobs } = useRealtimeJobs();
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs'>('overview');
-  const [showJobFeed, setShowJobFeed] = useState(false);
+  // Job feed visible by default when Supabase is connected
+  const [showJobFeed, setShowJobFeed] = useState(true);
 
   const hasSupabase = isSupabaseConfigured();
   const hasApi = isApiConfigured();
@@ -344,13 +345,13 @@ function App() {
     // For demo mode, just keep current state
   }, [hasSupabase, refreshMachines, refreshJobs]);
 
-  // Autonomous simulation toggle - works in both demo and Supabase modes
-  const [simulationEnabled, setSimulationEnabled] = useState(true);
+  // Autonomous simulation toggle - DISABLED when Supabase is connected
+  const [simulationEnabled, setSimulationEnabled] = useState(false);
   const [simulationSpeed, setSimulationSpeed] = useState<1 | 10 | 100>(1);
 
-  // Start autonomous simulation with speed-adjusted intervals
+  // Start autonomous simulation ONLY in demo mode (not with Supabase)
   useAutonomousSimulation({
-    enabled: simulationEnabled,
+    enabled: simulationEnabled && !hasSupabase,
     jobProgressionInterval: Math.max(50, 5000 / simulationSpeed),
     machineEventInterval: Math.max(80, 8000 / simulationSpeed),
     newJobInterval: Math.max(150, 15000 / simulationSpeed),
@@ -463,27 +464,23 @@ function App() {
                   </div>
                 )}
 
-                {/* Live Data Indicator - shown when connected to Supabase */}
-                {!isUsingMockData && isSupabaseConnected && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="hidden sm:inline text-xs font-medium">Live Data</span>
+                {/* Connection Status - Simplified to just show Connected/Offline */}
+                {!isUsingMockData && (
+                  <div className={`flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-full ${isSupabaseConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {isSupabaseConnected ? (
+                      <>
+                        <Wifi className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline text-xs font-medium">Connected</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline text-xs font-medium">Offline</span>
+                      </>
+                    )}
                   </div>
                 )}
-
-                <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-slate-100 rounded-full">
-                  {isSupabaseConnected ? (
-                    <>
-                      <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="hidden sm:inline text-xs font-medium text-slate-600">Live</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="hidden sm:inline text-xs font-medium text-slate-500">Offline</span>
-                    </>
-                  )}
-                </div>
+                
                 {/* Job Stream Badge - shows in Supabase mode */}
                 {hasSupabase && (
                   <JobArrivalBadge onClick={() => setShowJobFeed(!showJobFeed)} />
@@ -507,7 +504,14 @@ function App() {
           {/* Real-time Job Feed - Collapsible in Supabase mode */}
           {hasSupabase && showJobFeed && (
             <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
-              <RealtimeJobFeed maxItems={15} className="shadow-lg" />
+              <RealtimeJobFeed 
+                jobs={streamJobs}
+                maxItems={15} 
+                className="shadow-lg"
+                isConnected={isSupabaseConnected}
+                isLoading={false}
+                onRefresh={refreshJobs}
+              />
             </div>
           )}
 

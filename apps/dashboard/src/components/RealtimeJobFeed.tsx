@@ -5,7 +5,7 @@
  * Shows live job status changes as they happen
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Clock,
   Flame,
@@ -17,49 +17,64 @@ import {
   RefreshCw,
   ChevronDown
 } from 'lucide-react';
-import { useJobStream } from '../hooks/useJobStream';
 import type { ProductionJob } from '../types';
 
 interface RealtimeJobFeedProps {
+  jobs: ProductionJob[];
   maxItems?: number;
   showFilters?: boolean;
   className?: string;
+  isConnected?: boolean;
+  isLoading?: boolean;
+  error?: Error | null;
+  onRefresh?: () => void;
 }
 
 export function RealtimeJobFeed({
+  jobs,
   maxItems = 20,
   showFilters = true,
-  className = ''
+  className = '',
+  isConnected = true,
+  isLoading = false,
+  error = null,
+  onRefresh
 }: RealtimeJobFeedProps) {
   const [statusFilter, setStatusFilter] = useState<string[]>(['PENDING', 'QUEUED', 'RUNNING']);
   const [sortBy, setSortBy] = useState<'created' | 'priority' | 'deadline'>('created');
   const [isExpanded, setIsExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hasNewItems, setHasNewItems] = useState(false);
+  const prevJobsLength = useRef(jobs.length);
 
-  const {
-    jobs,
-    events,
-    stats,
-    isConnected,
-    isLoading,
-    error,
-    refresh
-  } = useJobStream({
-    enabled: true,
-    statusFilter: statusFilter as ('PENDING' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED')[],
-    batchUpdates: true,
-    batchInterval: 150,
-    onJobArrival: () => {
-      // Show new items indicator if not at top
+  // Calculate stats from provided jobs
+  const stats = useMemo(() => {
+    const filtered = jobs.filter(j => statusFilter.includes(j.status));
+    const now = Date.now();
+    const recentThreshold = now - 5 * 60 * 1000; // 5 minutes
+    return {
+      totalJobs: filtered.length,
+      pendingJobs: filtered.filter(j => j.status === 'PENDING').length,
+      queuedJobs: filtered.filter(j => j.status === 'QUEUED').length,
+      runningJobs: filtered.filter(j => j.status === 'RUNNING').length,
+      hotLots: filtered.filter(j => j.is_hot_lot).length,
+      recentArrivals: filtered.filter(j => new Date(j.created_at).getTime() > recentThreshold).length,
+    };
+  }, [jobs, statusFilter]);
+
+  // Show new items indicator when jobs change
+  useEffect(() => {
+    if (jobs.length > prevJobsLength.current) {
       if (scrollRef.current) {
         const { scrollTop } = scrollRef.current;
         if (scrollTop > 50) {
           setHasNewItems(true);
         }
       }
-    },
-  });
+    }
+    prevJobsLength.current = jobs.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs.length]);
 
   // Clear new items indicator when scrolled to top
   const handleScroll = () => {
@@ -68,8 +83,9 @@ export function RealtimeJobFeed({
     }
   };
 
-  // Sort jobs
-  const sortedJobs = [...jobs].sort((a, b) => {
+  // Filter and sort jobs
+  const filteredJobs = jobs.filter(j => statusFilter.includes(j.status));
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
     switch (sortBy) {
       case 'priority':
         if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
@@ -111,7 +127,7 @@ export function RealtimeJobFeed({
           </div>
 
           <button
-            onClick={refresh}
+            onClick={onRefresh}
             disabled={isLoading}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
           >
@@ -191,7 +207,7 @@ export function RealtimeJobFeed({
           <div className="text-center py-8 text-red-500">
             <p className="text-sm">Failed to load jobs</p>
             <button
-              onClick={refresh}
+              onClick={onRefresh}
               className="mt-2 text-xs text-blue-500 hover:underline"
             >
               Retry
@@ -233,14 +249,7 @@ export function RealtimeJobFeed({
         )}
       </div>
 
-      {/* Recent activity footer */}
-      {events.length > 0 && (
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100">
-          <p className="text-xs text-slate-500">
-            Last activity: {getTimeAgo(events[0].timestamp)}
-          </p>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -345,9 +354,13 @@ function getTimeAgo(timestamp: number, future = false): string {
 export function MobileJobFeedSheet({
   isOpen,
   onClose,
+  jobs,
+  isConnected = true,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  jobs: ProductionJob[];
+  isConnected?: boolean;
 }) {
   if (!isOpen) return null;
 
@@ -378,7 +391,12 @@ export function MobileJobFeedSheet({
         </div>
 
         <div className="overflow-y-auto max-h-[calc(80vh-60px)]">
-          <RealtimeJobFeed showFilters={false} className="border-0 rounded-none" />
+          <RealtimeJobFeed 
+            jobs={jobs}
+            showFilters={false} 
+            className="border-0 rounded-none"
+            isConnected={isConnected}
+          />
         </div>
       </div>
     </>
