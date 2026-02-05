@@ -38,14 +38,6 @@ export interface SPCResult {
   stats: SPCStats;
   violations: SPCViolation[];
   data: SPCDataPoint[];
-  cpk?: CPKResult;
-}
-
-export interface CPKResult {
-  cpk: number;
-  cpu: number;  // (USL - mean) / (3σ)
-  cpl: number;  // (mean - LSL) / (3σ)
-  rating: 'excellent' | 'good' | 'marginal' | 'poor';
 }
 
 function calculateStats(values: number[]): SPCStats {
@@ -205,41 +197,10 @@ function checkRule4(values: number[], stats: SPCStats): SPCViolation[] {
 }
 
 /**
- * Calculate CPK (Process Capability Index)
- * CPK = min(CPU, CPL) where:
- *   CPU = (USL - mean) / (3 * std)
- *   CPL = (mean - LSL) / (3 * std)
- * 
- * Rating thresholds:
- *   >= 1.67: excellent
- *   >= 1.33: good
- *   >= 1.00: marginal
- *   <  1.00: poor
- */
-export function calculateCpk(mean: number, std: number, usl: number, lsl: number): CPKResult {
-  const cpu = (usl - mean) / (3 * std);
-  const cpl = (mean - lsl) / (3 * std);
-  const cpk = Math.min(cpu, cpl);
-  
-  let rating: CPKResult['rating'];
-  if (cpk >= 1.67) rating = 'excellent';
-  else if (cpk >= 1.33) rating = 'good';
-  else if (cpk >= 1.0) rating = 'marginal';
-  else rating = 'poor';
-  
-  return { cpk, cpu, cpl, rating };
-}
-
-export interface AnalyzeSPCOptions {
-  usl?: number;  // Upper Specification Limit
-  lsl?: number;  // Lower Specification Limit
-}
-
-/**
  * Analyze a time series using SPC Western Electric rules.
  * Requires at least 10 data points for meaningful statistics.
  */
-export function analyzeSPC(values: number[], options: AnalyzeSPCOptions = {}): SPCResult {
+export function analyzeSPC(values: number[]): SPCResult {
   if (values.length < 2) {
     const mean = values[0] ?? 0;
     return {
@@ -274,11 +235,5 @@ export function analyzeSPC(values: number[], options: AnalyzeSPCOptions = {}): S
     violations: violationsByIndex.get(index) ?? [],
   }));
 
-  // Calculate CPK if spec limits provided
-  let cpk: CPKResult | undefined;
-  if (options.usl !== undefined && options.lsl !== undefined && stats.std > 0) {
-    cpk = calculateCpk(stats.mean, stats.std, options.usl, options.lsl);
-  }
-
-  return { stats, violations: allViolations, data, cpk };
+  return { stats, violations: allViolations, data };
 }

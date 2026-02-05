@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import routers
-from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm, scheduler, job_generator
+from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm, scheduler
 
 
 @asynccontextmanager
@@ -41,49 +41,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not initialize VM model: {e}")
 
-    # Start autonomous job generator
-    try:
-        from app.core.dynamic_job_generator import get_job_generator
-        from app.services.supabase_service import supabase_service
-        generator = get_job_generator(supabase_service.client)
-        await generator.load_config()
-        if generator.config.enabled:
-            generator.start()
-            logger.info("Autonomous job generator started")
-    except Exception as e:
-        logger.warning(f"Could not start job generator: {e}")
-
-    # Start job lifecycle processor (handles QUEUED → RUNNING → COMPLETED)
-    try:
-        from app.core.job_lifecycle_processor import get_lifecycle_processor
-        from app.services.supabase_service import supabase_service
-        processor = get_lifecycle_processor(supabase_service.client)
-        processor.start()
-        logger.info("Job lifecycle processor started")
-    except Exception as e:
-        logger.warning(f"Could not start job lifecycle processor: {e}")
-
     yield
-    
-    # Shutdown: Stop job generator
-    try:
-        from app.core.dynamic_job_generator import get_job_generator
-        from app.services.supabase_service import supabase_service
-        generator = get_job_generator(supabase_service.client)
-        generator.stop()
-        logger.info("Autonomous job generator stopped")
-    except Exception as e:
-        logger.warning(f"Error stopping job generator: {e}")
-
-    # Shutdown: Stop job lifecycle processor
-    try:
-        from app.core.job_lifecycle_processor import get_lifecycle_processor
-        from app.services.supabase_service import supabase_service
-        processor = get_lifecycle_processor(supabase_service.client)
-        processor.stop()
-        logger.info("Job lifecycle processor stopped")
-    except Exception as e:
-        logger.warning(f"Error stopping job lifecycle processor: {e}")
     
     logger.info("Shutting down YieldOps API...")
 
@@ -106,7 +64,7 @@ app.add_middleware(
         "http://localhost:5173",  # Vite dev server
         "http://localhost:3000",  # React dev server
     ],
-    allow_origin_regex=r"https://yield-ops.*\.vercel\.app",
+    allow_origin_regex=r"https://yield-ops-dashboard-.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -120,7 +78,6 @@ app.include_router(chaos.router, prefix="/api/v1/chaos", tags=["chaos"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(vm.router, prefix="/api/v1/vm", tags=["virtual-metrology"])
 app.include_router(scheduler.router, prefix="/api/v1", tags=["scheduler"])
-app.include_router(job_generator.router, prefix="/api/v1", tags=["job-generator"])
 
 
 @app.get("/health")
@@ -148,8 +105,7 @@ async def root():
             "chaos": "/api/v1/chaos",
             "analytics": "/api/v1/analytics",
             "vm": "/api/v1/vm",
-            "scheduler": "/api/v1/scheduler",
-            "job-generator": "/api/v1/job-generator"
+            "scheduler": "/api/v1/scheduler"
         }
     }
 

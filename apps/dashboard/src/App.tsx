@@ -2,13 +2,10 @@ import { useState, useMemo, createContext, useContext, useCallback, useEffect } 
 import { Machine, ProductionJob } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
 import { useAutonomousSimulation } from './hooks/useAutonomousSimulation';
-import { useJobStream } from './hooks/useJobStream';
 import { isApiConfigured, isSupabaseConfigured } from './services/apiClient';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { MachinesTab } from './components/tabs/MachinesTab';
 import { JobsTab } from './components/tabs/JobsTab';
-import { JobArrivalBadge } from './components/JobArrivalNotifications';
-import { RealtimeJobFeed } from './components/RealtimeJobFeed';
 import {
   Factory,
   BarChart3,
@@ -156,8 +153,6 @@ interface AppConfigContextType {
   recoverAllMachines: () => number;
   simulationEnabled: boolean;
   setSimulationEnabled: (enabled: boolean) => void;
-  simulationSpeed: 1 | 10 | 100;
-  setSimulationSpeed: (speed: 1 | 10 | 100) => void;
 }
 
 const AppConfigContext = createContext<AppConfigContextType>({
@@ -166,15 +161,13 @@ const AppConfigContext = createContext<AppConfigContextType>({
   isApiConfigured: false,
   machines: MOCK_MACHINES,
   jobs: MOCK_JOBS,
-  updateMachine: () => { },
-  addJob: () => { },
-  updateJob: () => { },
-  refreshData: () => { },
+  updateMachine: () => {},
+  addJob: () => {},
+  updateJob: () => {},
+  refreshData: () => {},
   recoverAllMachines: () => 0,
   simulationEnabled: true,
-  setSimulationEnabled: () => { },
-  simulationSpeed: 1,
-  setSimulationSpeed: () => { },
+  setSimulationEnabled: () => {},
 });
 
 export const useAppConfig = () => useContext(AppConfigContext);
@@ -184,25 +177,10 @@ function App() {
   const { sensorData } = useLatestSensorData();
   const { jobs: realtimeJobs, refresh: refreshJobs } = useRealtimeJobs();
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs'>('overview');
-  // Job feed visible by default when Supabase is connected
-  const [showJobFeed, setShowJobFeed] = useState(true);
 
   const hasSupabase = isSupabaseConfigured();
   const hasApi = isApiConfigured();
   const isUsingMockData = !hasSupabase;
-
-  // Real-time job stream for Supabase mode (SINGLE instance - all other
-  // components should receive data via props/context, not create their own hooks)
-  const {
-    jobs: streamJobs,
-    stats: jobStreamStats,
-    isConnected: jobStreamConnected,
-  } = useJobStream({
-    enabled: hasSupabase,
-    statusFilter: ['PENDING', 'QUEUED', 'RUNNING', 'COMPLETED'],
-    batchUpdates: true,
-    batchInterval: 100,
-  });
 
   // Local state for mock data (allows modifications in demo mode)
   const [, setLocalMachines] = useState<Machine[]>(MOCK_MACHINES);
@@ -212,70 +190,43 @@ function App() {
   const [displayMachines, setDisplayMachines] = useState<Machine[]>(MOCK_MACHINES);
   const [displayJobs, setDisplayJobs] = useState<ProductionJob[]>(MOCK_JOBS);
 
-  // =====================================================
-  // DATA SOURCE SELECTION - REAL SUPABASE DATA ONLY
-  // When Supabase is connected, ONLY use real data from database
-  // Mock data is ONLY used as fallback when Supabase is NOT configured
-  // =====================================================
-
-  // Sync machines - REAL DATA ONLY when Supabase is connected
+  // Sync display data with source data
   useEffect(() => {
     if (hasSupabase) {
-      // ALWAYS use realtime data from Supabase - never mock data
       setDisplayMachines(realtimeMachines);
     } else {
-      // Demo mode fallback - only use mock when no Supabase
+      // In demo mode, ALWAYS use MOCK_MACHINES directly
       setDisplayMachines(MOCK_MACHINES);
       setLocalMachines(MOCK_MACHINES);
     }
   }, [hasSupabase, realtimeMachines]);
 
-  // Sync jobs - PRIORITIZE REAL-TIME STREAM from Supabase
-  useEffect(() => {
-    if (hasSupabase) {
-      // Use job stream for real-time updates (more responsive than polling)
-      if (streamJobs.length > 0) {
-        setDisplayJobs(streamJobs);
-      } else if (realtimeJobs.length > 0) {
-        // Fallback to realtimeJobs if stream is empty (initial load)
-        setDisplayJobs(realtimeJobs);
-      }
-    } else {
-      // Demo mode fallback - only use mock when no Supabase
-      setDisplayJobs(MOCK_JOBS);
-      setLocalJobs(MOCK_JOBS);
-    }
-  }, [hasSupabase, streamJobs, realtimeJobs]);
-
-  // Safety check - ensure mock data is never used when Supabase is connected
-  useEffect(() => {
-    if (hasSupabase) {
-      // If somehow display data is mock data (by ID check), force reset to real data
-      const hasMockMachine = displayMachines.some(m =>
-        MOCK_MACHINES.some(mm => mm.machine_id === m.machine_id)
-      );
-      if (hasMockMachine && realtimeMachines.length > 0) {
-        console.warn('[YieldOps] Detected mock machine data while Supabase is connected - resetting to real data');
-        setDisplayMachines(realtimeMachines);
-      }
-    }
-  }, [hasSupabase, displayMachines, realtimeMachines]);
-
-  // Demo mode only - ensure mock data is loaded
+  // Ensure mock data is loaded on initial mount in demo mode
   useEffect(() => {
     if (!hasSupabase) {
-      if (displayMachines.length !== MOCK_MACHINES.length ||
-        displayMachines[0]?.name !== MOCK_MACHINES[0]?.name) {
+      // Force reset to mock data on every render in demo mode
+      if (displayMachines.length !== MOCK_MACHINES.length || 
+          displayMachines[0]?.name !== MOCK_MACHINES[0]?.name) {
         setDisplayMachines(MOCK_MACHINES);
         setLocalMachines(MOCK_MACHINES);
       }
-      if (displayJobs.length !== MOCK_JOBS.length ||
-        displayJobs[0]?.job_name !== MOCK_JOBS[0]?.job_name) {
+      if (displayJobs.length !== MOCK_JOBS.length || 
+          displayJobs[0]?.job_name !== MOCK_JOBS[0]?.job_name) {
         setDisplayJobs(MOCK_JOBS);
         setLocalJobs(MOCK_JOBS);
       }
     }
   }, [hasSupabase, displayMachines.length, displayJobs.length]);
+
+  useEffect(() => {
+    if (hasSupabase) {
+      setDisplayJobs(realtimeJobs);
+    } else {
+      // In demo mode, ALWAYS use MOCK_JOBS directly
+      setDisplayJobs(MOCK_JOBS);
+      setLocalJobs(MOCK_JOBS);
+    }
+  }, [hasSupabase, realtimeJobs]);
 
   const machinesWithSensorData = useMemo(() => {
     return displayMachines.map((m) => ({
@@ -288,17 +239,17 @@ function App() {
   // Update machine - works for both real and mock data with immediate UI update
   const updateMachine = useCallback((machineId: string, updates: Partial<Machine>) => {
     const updatedMachine = { ...updates, updated_at: new Date().toISOString() };
-
+    
     // Always update local state for immediate UI feedback
-    setLocalMachines(prev => prev.map(m =>
+    setLocalMachines(prev => prev.map(m => 
       m.machine_id === machineId ? { ...m, ...updatedMachine } : m
     ));
-
+    
     // Also update display machines immediately
-    setDisplayMachines(prev => prev.map(m =>
+    setDisplayMachines(prev => prev.map(m => 
       m.machine_id === machineId ? { ...m, ...updatedMachine } : m
     ));
-
+    
     // If using Supabase, the realtime subscription will eventually sync the real data
   }, []);
 
@@ -306,10 +257,10 @@ function App() {
   const addJob = useCallback((job: ProductionJob) => {
     // Always add to local state for immediate UI feedback
     setLocalJobs(prev => [job, ...prev]);
-
+    
     // Also update display jobs immediately
     setDisplayJobs(prev => [job, ...prev]);
-
+    
     // If using Supabase, refresh to get the real data
     if (hasSupabase) {
       setTimeout(() => refreshJobs(), 500);
@@ -319,17 +270,17 @@ function App() {
   // Update job - works for both real and mock data with immediate UI update
   const updateJob = useCallback((jobId: string, updates: Partial<ProductionJob>) => {
     const updatedJob = { ...updates, updated_at: new Date().toISOString() };
-
+    
     // Always update local state for immediate UI feedback
-    setLocalJobs(prev => prev.map(j =>
+    setLocalJobs(prev => prev.map(j => 
       j.job_id === jobId ? { ...j, ...updatedJob } : j
     ));
-
+    
     // Also update display jobs immediately
-    setDisplayJobs(prev => prev.map(j =>
+    setDisplayJobs(prev => prev.map(j => 
       j.job_id === jobId ? { ...j, ...updatedJob } : j
     ));
-
+    
     // If using Supabase, the realtime subscription will eventually sync the real data
   }, []);
 
@@ -342,17 +293,16 @@ function App() {
     // For demo mode, just keep current state
   }, [hasSupabase, refreshMachines, refreshJobs]);
 
-  // Autonomous simulation toggle - DISABLED when Supabase is connected
-  const [simulationEnabled, setSimulationEnabled] = useState(false);
-  const [simulationSpeed, setSimulationSpeed] = useState<1 | 10 | 100>(1);
-
-  // Start autonomous simulation ONLY in demo mode (not with Supabase)
+  // Autonomous simulation toggle - works in both demo and Supabase modes
+  const [simulationEnabled, setSimulationEnabled] = useState(true);
+  
+  // Start autonomous simulation
   useAutonomousSimulation({
-    enabled: simulationEnabled && !hasSupabase,
-    jobProgressionInterval: Math.max(50, 5000 / simulationSpeed),
-    machineEventInterval: Math.max(80, 8000 / simulationSpeed),
-    newJobInterval: Math.max(150, 15000 / simulationSpeed),
-    sensorDataInterval: Math.max(30, 3000 / simulationSpeed),
+    enabled: simulationEnabled,
+    jobProgressionInterval: 5000,
+    machineEventInterval: 8000,
+    newJobInterval: 15000,
+    sensorDataInterval: 3000,
   });
 
   // Recover all broken machines at once
@@ -377,8 +327,6 @@ function App() {
     recoverAllMachines,
     simulationEnabled,
     setSimulationEnabled,
-    simulationSpeed,
-    setSimulationSpeed,
   };
 
   return (
@@ -406,10 +354,11 @@ function App() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab.id
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      activeTab === tab.id
                         ? 'bg-white text-slate-900 shadow-sm'
                         : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                    }`}
                   >
                     <tab.icon className="w-4 h-4" />
                     {tab.label}
@@ -418,76 +367,43 @@ function App() {
               </nav>
 
               <div className="flex items-center gap-1.5 sm:gap-3">
-                {/* Demo Mode Badge - only shown when using mock data */}
+                {/* Mock Data Badge */}
+                {/* Demo Mode Badge */}
                 {isUsingMockData && (
                   <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span className="text-xs font-medium">Demo Mode</span>
                   </div>
                 )}
-
-                {/* Simulation Controls - ONLY shown in demo mode (mock data) */}
-                {isUsingMockData && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setSimulationEnabled(!simulationEnabled)}
-                      className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${simulationEnabled
-                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      title="Toggle demo simulation"
-                    >
-                      {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                      <span className="hidden sm:inline">{simulationEnabled ? 'Sim' : 'Paused'}</span>
-                    </button>
-
-                    {simulationEnabled && (
-                      <div className="flex items-center gap-0.5 sm:gap-1 ml-1">
-                        {([1, 10, 100] as const).map((speed) => (
-                          <button
-                            key={speed}
-                            onClick={() => setSimulationSpeed(speed)}
-                            className={`px-1.5 sm:px-2 py-1 text-[10px] sm:text-xs font-medium rounded transition-colors ${simulationSpeed === speed
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                              }`}
-                            title={`${speed}x speed`}
-                          >
-                            {speed}x
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Connection Status - Simplified to just show Connected/Offline */}
-                {!isUsingMockData && (
-                  <div className={`flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-full ${isSupabaseConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {isSupabaseConnected ? (
-                      <>
-                        <Wifi className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline text-xs font-medium">Connected</span>
-                      </>
-                    ) : (
-                      <>
-                        <WifiOff className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline text-xs font-medium">Offline</span>
-                      </>
-                    )}
-                  </div>
-                )}
                 
-                {/* Job Stream Badge - shows in Supabase mode */}
-                {hasSupabase && (
-                  <JobArrivalBadge
-                    onClick={() => setShowJobFeed(!showJobFeed)}
-                    pendingCount={jobStreamStats.pendingJobs}
-                    isConnected={jobStreamConnected}
-                  />
-                )}
-
+                {/* Simulation Toggle - Always visible */}
                 <button
+                  onClick={() => setSimulationEnabled(!simulationEnabled)}
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    simulationEnabled 
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  title="Toggle autonomous simulation"
+                >
+                  {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                  <span className="hidden sm:inline">{simulationEnabled ? 'Simulating' : 'Paused'}</span>
+                </button>
+                
+                <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-slate-100 rounded-full">
+                  {isSupabaseConnected ? (
+                    <>
+                      <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="hidden sm:inline text-xs font-medium text-slate-600">Live</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="hidden sm:inline text-xs font-medium text-slate-500">Offline</span>
+                    </>
+                  )}
+                </div>
+                <button 
                   onClick={refreshData}
                   className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
@@ -499,37 +415,14 @@ function App() {
         </header>
 
         <main className="px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
-          {/* Real-time Job Feed - Collapsible in Supabase mode */}
-          {hasSupabase && showJobFeed && (
-            <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
-              <RealtimeJobFeed 
-                jobs={streamJobs}
-                maxItems={15} 
-                className="shadow-lg"
-                isConnected={isSupabaseConnected}
-                isLoading={false}
-                onRefresh={refreshJobs}
-              />
-            </div>
-          )}
-
           {activeTab === 'overview' && (
-            <OverviewTab
-              machines={machinesWithSensorData}
-              jobs={displayJobs}
-              jobStreamStats={hasSupabase ? jobStreamStats : undefined}
-            />
+            <OverviewTab machines={machinesWithSensorData} jobs={displayJobs} />
           )}
           {activeTab === 'machines' && (
             <MachinesTab machines={machinesWithSensorData} />
           )}
           {activeTab === 'jobs' && (
-            <JobsTab
-              jobs={displayJobs}
-              machines={machinesWithSensorData}
-              isRealTime={hasSupabase}
-              pendingCount={hasSupabase ? jobStreamStats.pendingJobs : undefined}
-            />
+            <JobsTab jobs={displayJobs} machines={machinesWithSensorData} />
           )}
         </main>
 
@@ -544,10 +437,11 @@ function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs')}
-                className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 min-h-[48px] transition-colors ${activeTab === tab.id
+                className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 min-h-[48px] transition-colors ${
+                  activeTab === tab.id
                     ? 'text-blue-600'
                     : 'text-slate-400'
-                  }`}
+                }`}
               >
                 <tab.icon className="w-5 h-5" />
                 <span className="text-xs font-medium">{tab.label}</span>

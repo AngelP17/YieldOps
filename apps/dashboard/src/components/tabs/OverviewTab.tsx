@@ -15,13 +15,6 @@ import type { Machine, ProductionJob } from '../../types';
 interface OverviewTabProps {
   machines: Machine[];
   jobs: ProductionJob[];
-  jobStreamStats?: {
-    totalJobs: number;
-    pendingJobs: number;
-    queuedJobs: number;
-    runningJobs: number;
-    recentArrivals: number;
-  };
 }
 
 // Mock dispatch data for demo mode
@@ -30,7 +23,7 @@ const MOCK_DISPATCH_QUEUE: DispatchQueueResponse = {
   available_machines: 2,
   queued_jobs: 5,
   next_dispatch: [
-    { job_id: '3', job_name: 'WF-2024-0849', priority_level: 1, is_hot_lot: false },
+    { job_id: '3', job_name: 'WF-2024-0849', priority_level: 1, is_hot_lot: true },
     { job_id: '4', job_name: 'WF-2024-0850', priority_level: 3, is_hot_lot: false },
     { job_id: '5', job_name: 'WF-2024-0851', priority_level: 2, is_hot_lot: false },
   ]
@@ -95,7 +88,7 @@ function runToCDispatch(
       job_name: job.job_name,
       machine_id: bestMachine.machine_id,
       machine_name: bestMachine.name,
-      reason: `ToC Dispatch | Job: ${job.job_name} (P${job.priority_level}) | Machine: ${bestMachine.name} | Efficiency: ${(bestMachine.efficiency_rating * 100).toFixed(0)}%`
+      reason: `ToC Dispatch | Job: ${job.job_name} (P${job.priority_level})${job.is_hot_lot ? ' | HOT LOT' : ''} | Machine: ${bestMachine.name} | Efficiency: ${(bestMachine.efficiency_rating * 100).toFixed(0)}%`
     });
     
     assignedMachines.add(bestMachine.machine_id);
@@ -104,7 +97,7 @@ function runToCDispatch(
   return decisions;
 }
 
-export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps) {
+export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
   const { isUsingMockData, updateMachine, updateJob, recoverAllMachines } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
@@ -139,7 +132,9 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
     const pendingJobs = jobs.filter((j) => j.status === 'PENDING').length;
     const queuedJobs = jobs.filter((j) => j.status === 'QUEUED').length;
     const runningJobs = jobs.filter((j) => j.status === 'RUNNING').length;
-    return { total, running, idle, down, maintenance, avgEfficiency, totalWafers, totalProcessed, pendingJobs, queuedJobs, runningJobs };
+    const hotLots = jobs.filter((j) => j.is_hot_lot && (j.status === 'PENDING' || j.status === 'QUEUED')).length;
+
+    return { total, running, idle, down, maintenance, avgEfficiency, totalWafers, totalProcessed, pendingJobs, queuedJobs, runningJobs, hotLots };
   }, [machines, jobs]);
 
   // Fetch dispatch data
@@ -317,17 +312,7 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
         <KpiCard label="Running" value={stats.running} subtext={`${stats.total > 0 ? ((stats.running / stats.total) * 100).toFixed(0) : 0}% uptime`} icon={Activity} trend="+5%" color="emerald" />
         <KpiCard label="Efficiency" value={`${(stats.avgEfficiency * 100).toFixed(1)}%`} subtext="Avg. performance" icon={TrendingUp} trend="+1.2%" color="indigo" />
         <KpiCard label="Wafers In Process" value={stats.totalWafers} subtext={`${stats.totalProcessed.toLocaleString()} total`} icon={Layers} trend="+12" color="amber" />
-        <KpiCard 
-          label={jobStreamStats ? "Live Jobs" : "Active Jobs"} 
-          value={jobStreamStats ? jobStreamStats.totalJobs : stats.runningJobs + stats.queuedJobs} 
-          subtext={jobStreamStats
-            ? `${jobStreamStats.pendingJobs} pending`
-            : `${stats.pendingJobs} pending`
-          } 
-          icon={Package} 
-          trend={jobStreamStats && jobStreamStats.recentArrivals > 0 ? `+${jobStreamStats.recentArrivals}` : "+3"} 
-          color="purple" 
-        />
+        <KpiCard label="Active Jobs" value={stats.runningJobs + stats.queuedJobs} subtext={`${stats.hotLots} hot lots`} icon={Package} trend="+3" color="purple" />
         <KpiCard label="Alerts" value={stats.down + stats.maintenance} subtext="Require attention" icon={Shield} trend="-1" color="rose" />
       </div>
 
@@ -407,7 +392,9 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-mono text-slate-400">#{i + 1}</span>
                         <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
-
+                        {job.is_hot_lot && (
+                          <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
+                        )}
                       </div>
                       <span className="flex items-center gap-1 text-xs text-slate-500">
                         <Clock className="w-3 h-3" />
@@ -463,7 +450,9 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
-
+                        {job.is_hot_lot && (
+                          <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
+                        )}
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">{job.customer_tag} &middot; {job.recipe_type}</p>
                     </div>

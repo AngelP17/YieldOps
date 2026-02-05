@@ -209,37 +209,4 @@ export const api = {
       avg_thickness: number;
       std_thickness: number;
     }>(`/api/v1/vm/history/${machineId}?hours=${hours}`),
-
-  // Job Generator
-  getJobGeneratorConfig: () =>
-    request<{
-      enabled: boolean;
-      generation_interval_seconds: number;
-      min_jobs: number;
-      max_jobs: number;
-      hot_lot_probability: number;
-      priority_distribution: Record<string, number>;
-      customer_weights: Record<string, number>;
-      recipe_types: string[];
-    }>('/api/v1/job-generator/config'),
-  
-  updateJobGeneratorConfig: (config: Record<string, unknown>) =>
-    request('/api/v1/job-generator/config', { method: 'POST', body: JSON.stringify(config) }),
-  
-  getJobGeneratorStatus: () =>
-    request<{
-      running: boolean;
-      total_generated: number;
-      last_generation: string | null;
-      config: Record<string, unknown>;
-    }>('/api/v1/job-generator/status'),
-  
-  startJobGenerator: () =>
-    request('/api/v1/job-generator/start', { method: 'POST' }),
-  
-  stopJobGenerator: () =>
-    request('/api/v1/job-generator/stop', { method: 'POST' }),
-  
-  generateTestJob: () =>
-    request<{ success: boolean; job: unknown; message: string }>('/api/v1/job-generator/generate', { method: 'POST' }),
 };

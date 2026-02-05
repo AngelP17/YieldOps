@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Clock, Layers, X, AlertTriangle, MoreHorizontal, Play, CheckCircle, RotateCcw } from 'lucide-react';
+import { Plus, Search, Clock, Layers, X, Flame, AlertTriangle } from 'lucide-react';
 import { JobStatusBadge } from '../ui/StatusBadge';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
@@ -10,20 +10,19 @@ import type { Machine, ProductionJob, JobStatus } from '../../types';
 interface JobsTabProps {
   jobs: ProductionJob[];
   machines: Machine[];
-  isRealTime?: boolean;
-  pendingCount?: number;
 }
 
 const RECIPE_TYPES = ['ADVANCED_LOGIC', '5NM_FINFE', 'STANDARD_LOGIC', 'MEMORY_DRAM', 'IO_CONTROLLER', 'POWER_MANAGEMENT', 'ANALOG_MIXER', 'TEST_CHIPS'];
 
-export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabProps) {
+export function JobsTab({ jobs, machines }: JobsTabProps) {
   const { toast } = useToast();
   const { isUsingMockData, addJob, updateJob } = useAppConfig();
   const [statusFilter, setStatusFilter] = useState<JobStatus | 'ALL'>('ALL');
+  const [hotLotOnly, setHotLotOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'priority' | 'created' | 'deadline'>('priority');
   const [showCreate, setShowCreate] = useState(false);
-  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const apiAvailable = isApiConfigured();
 
   // Form state
@@ -47,6 +46,7 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
     let result = [...jobs];
 
     if (statusFilter !== 'ALL') result = result.filter((j) => j.status === statusFilter);
+    if (hotLotOnly) result = result.filter((j) => j.is_hot_lot);
     if (search) result = result.filter((j) =>
       j.job_name.toLowerCase().includes(search.toLowerCase()) ||
       (j.customer_tag || '').toLowerCase().includes(search.toLowerCase())
@@ -97,17 +97,18 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
     });
 
     return result;
-  }, [jobs, statusFilter, search, sortBy]);
+  }, [jobs, statusFilter, hotLotOnly, search, sortBy]);
 
-  // Job stats - use real-time counts when available
+  // Job stats
   const jobStats = useMemo(() => ({
     total: jobs.length,
-    pending: pendingCount ?? jobs.filter((j) => j.status === 'PENDING').length,
+    pending: jobs.filter((j) => j.status === 'PENDING').length,
     queued: jobs.filter((j) => j.status === 'QUEUED').length,
     running: jobs.filter((j) => j.status === 'RUNNING').length,
     completed: jobs.filter((j) => j.status === 'COMPLETED').length,
     failed: jobs.filter((j) => j.status === 'FAILED').length,
-  }), [jobs, pendingCount]);
+    hotLots: jobs.filter((j) => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED').length,
+  }), [jobs]);
 
   const handleCreateJob = async () => {
     if (!form.job_name || !form.recipe_type) {
@@ -167,71 +168,22 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
     }
   };
 
-  // Get available actions based on job status
-  const getAvailableActions = (status: JobStatus) => {
-    switch (status) {
-      case 'PENDING':
-        return [
-          { value: 'QUEUED', label: 'Queue', icon: Layers },
-          { value: 'CANCELLED', label: 'Cancel', icon: X },
-        ];
-      case 'QUEUED':
-        return [
-          { value: 'RUNNING', label: 'Start', icon: Play },
-          { value: 'CANCELLED', label: 'Cancel', icon: X },
-        ];
-      case 'RUNNING':
-        return [
-          { value: 'COMPLETED', label: 'Complete', icon: CheckCircle },
-          { value: 'FAILED', label: 'Fail', icon: AlertTriangle },
-          { value: 'CANCELLED', label: 'Cancel', icon: X },
-        ];
-      case 'FAILED':
-        return [
-          { value: 'QUEUED', label: 'Retry', icon: RotateCcw },
-        ];
-      case 'CANCELLED':
-        return [
-          { value: 'QUEUED', label: 'Retry', icon: RotateCcw },
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const handleJobAction = async (job: ProductionJob, newStatus: JobStatus) => {
-    setActionMenuOpen(null);
-    
-    // Build updates object
-    const updates: { status: JobStatus; actual_start_time?: string } = { status: newStatus };
-    
-    // Add timestamps based on status transition
-    if (newStatus === 'RUNNING') {
-      updates.actual_start_time = new Date().toISOString();
-    }
-    
+  const handleCancelJob = async (jobId: string, jobName: string) => {
     if (!apiAvailable || isUsingMockData) {
-      updateJob(job.job_id, updates);
-      const actionLabel = newStatus === 'CANCELLED' ? 'cancelled' : 
-                         newStatus === 'FAILED' ? 'marked as failed' :
-                         newStatus === 'COMPLETED' ? 'completed' :
-                         newStatus === 'QUEUED' ? 'queued' :
-                         newStatus === 'RUNNING' ? 'started' : 'updated';
-      toast(`Job "${job.job_name}" ${actionLabel} (Demo Mode)`, 'success');
+      updateJob(jobId, { status: 'CANCELLED' });
+      toast(`Job "${jobName}" cancelled (Demo Mode)`, 'success');
       return;
     }
 
+    setCancellingId(jobId);
     try {
-      await api.updateJob(job.job_id, { status: newStatus });
-      const actionLabel = newStatus === 'CANCELLED' ? 'cancelled' : 
-                         newStatus === 'FAILED' ? 'marked as failed' :
-                         newStatus === 'COMPLETED' ? 'completed' :
-                         newStatus === 'QUEUED' ? 'queued' :
-                         newStatus === 'RUNNING' ? 'started' : 'updated';
-      toast(`Job "${job.job_name}" ${actionLabel}`, 'success');
+      await api.cancelJob(jobId);
+      toast(`Job "${jobName}" cancelled`, 'success');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update job';
+      const message = err instanceof Error ? err.message : 'Failed to cancel job';
       toast(message, 'error');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -248,16 +200,8 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
         </div>
       )}
 
-      {/* Real-time Indicator */}
-      {isRealTime && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg w-fit">
-          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-          <span className="text-xs font-medium">Real-time updates active</span>
-        </div>
-      )}
-
       {/* Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {[
           { label: 'Total', value: jobStats.total, color: 'text-slate-900' },
           { label: 'Pending', value: jobStats.pending, color: 'text-yellow-600' },
@@ -265,6 +209,7 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
           { label: 'Running', value: jobStats.running, color: 'text-emerald-600' },
           { label: 'Completed', value: jobStats.completed, color: 'text-slate-500' },
           { label: 'Failed', value: jobStats.failed, color: 'text-rose-600' },
+          { label: 'Hot Lots', value: jobStats.hotLots, color: 'text-rose-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-3 text-center">
             <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -319,6 +264,17 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
             <option value="deadline">Sort: Deadline</option>
           </select>
 
+          <button
+            onClick={() => setHotLotOnly(!hotLotOnly)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              hotLotOnly
+                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            Hot Lots
+          </button>
         </div>
       </div>
 
@@ -331,7 +287,9 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-semibold text-slate-900">{job.job_name}</span>
-
+                    {job.is_hot_lot && (
+                      <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT LOT</span>
+                    )}
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                       job.priority_level <= 2 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                     }`}>
@@ -361,56 +319,17 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabPro
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 ml-2 sm:ml-4 shrink-0 relative">
-                  {(() => {
-                    const actions = getAvailableActions(job.status);
-                    if (actions.length === 0) return null;
-                    
-                    return (
-                      <div className="relative">
-                        <button
-                          onClick={() => setActionMenuOpen(actionMenuOpen === job.job_id ? null : job.job_id)}
-                          className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
-                          title="Job actions"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                          <span className="hidden sm:inline">Actions</span>
-                        </button>
-                        
-                        {actionMenuOpen === job.job_id && (
-                          <>
-                            {/* Backdrop to close menu */}
-                            <div 
-                              className="fixed inset-0 z-40"
-                              onClick={() => setActionMenuOpen(null)}
-                            />
-                            {/* Dropdown menu */}
-                            <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50">
-                              {actions.map((action) => {
-                                const ActionIcon = action.icon;
-                                const colorClass = action.value === 'CANCELLED' || action.value === 'FAILED'
-                                  ? 'text-rose-600 hover:bg-rose-50'
-                                  : action.value === 'COMPLETED'
-                                  ? 'text-emerald-600 hover:bg-emerald-50'
-                                  : 'text-slate-700 hover:bg-slate-50';
-                                
-                                return (
-                                  <button
-                                    key={action.value}
-                                    onClick={() => handleJobAction(job, action.value as JobStatus)}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left ${colorClass} transition-colors`}
-                                  >
-                                    <ActionIcon className="w-3.5 h-3.5" />
-                                    {action.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })()}
+                <div className="flex items-center gap-2 ml-2 sm:ml-4 shrink-0">
+                  {(job.status === 'PENDING' || job.status === 'QUEUED') && (
+                    <button
+                      onClick={() => handleCancelJob(job.job_id, job.job_name)}
+                      disabled={cancellingId === job.job_id}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

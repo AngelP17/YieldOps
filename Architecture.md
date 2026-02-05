@@ -14,17 +14,11 @@ Intelligent Manufacturing & IIoT Portfolio Project
 ### Key Capabilities
 
 - **Real-time Monitoring**: Live machine status via WebSockets/Supabase Realtime
-- **Autonomous Job Generation**: Backend dynamically creates jobs based on queue depth with weighted probability
-- **Real-time Job Streaming**: Instant job arrival notifications via WebSocket across web/mobile
-- **Intelligent Dispatching**: Automated job routing based on efficiency and priority (Theory of Constraints)
-- **Predictive Maintenance**: Anomaly detection using Isolation Forest with SPC control charts
-- **Virtual Metrology**: Predict film thickness and enable Run-to-Run (R2R) control
+- **Intelligent Dispatching**: Automated job routing based on efficiency and priority (ToC)
+- **Predictive Maintenance**: Anomaly detection using Isolation Forest
+- **Virtual Metrology**: Predict film thickness and enable Run-to-Run control
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
 - **Chaos Engineering**: Controlled failure injection for resilience testing
-- **Process Capability (CPK)**: Statistical process control with CPK calculation and rating
-- **Job Lifecycle Management**: Full job status control with manual and autonomous transitions
-- **Simulation Speed Control**: 1x/10x/100x speed toggle for accelerated testing
-- **Mobile-Responsive Design**: Full dashboard functionality across all device sizes
 - **Demo Mode**: Full functionality without backend configuration
 
 ---
@@ -47,15 +41,11 @@ flowchart TB
             MachineNode["Machine Node Cards"]
             KpiCard["KPI Cards"]
             Modals["Modals & Forms"]
-            SPCCharts["SPC Control Charts"]
-            SpeedControl["Simulation Speed Control"]
         end
         
         subgraph Hooks["Custom Hooks"]
             useRealtime["useRealtime"]
-            useJobStream["useJobStream"]
             useVirtualMetrology["useVirtualMetrology"]
-            useAutonomousSimulation["useAutonomousSimulation"]
             usePolling["usePolling"]
         end
         
@@ -79,7 +69,6 @@ flowchart TB
             MachinesAPI["/machines"]
             JobsAPI["/jobs"]
             DispatchAPI["/dispatch"]
-            JobGeneratorAPI["/job-generator"]
             ChaosAPI["/chaos"]
             AnalyticsAPI["/analytics"]
             VMAPI["/vm"]
@@ -131,8 +120,6 @@ flowchart TB
             MaintenanceLogs[(maintenance_logs)]
             AnomalyAlerts[(anomaly_alerts)]
             CapacitySimulations[(capacity_simulations)]
-            JobGenConfig[(job_generation_config)]
-            JobGenLog[(job_generation_log)]
         end
         
         PostgreSQL --> Tables
@@ -161,8 +148,6 @@ flowchart TB
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
 | **ML** | Scikit-Learn | Anomaly Detection & VM | - |
 | **Rust** | PyO3 + rayon | High-performance compute | - |
-| **SPC** | Custom Engine | Statistical Process Control | - |
-| **Charts** | Recharts | Data visualization with SPC | - |
 
 ### Why This Stack?
 
@@ -399,19 +384,6 @@ CREATE TABLE recipe_adjustments (
 | `reset_and_seed.sql` | 27KB | **Full reset + seed** - Use this for Supabase migration |
 | `migrations/002_virtual_metrology.sql` | 4KB | VM tables (if not in schema) |
 
-### Core Tables
-
-#### Production Jobs Status Enum
-
-| Status | Description | Transitions |
-|--------|-------------|-------------|
-| `PENDING` | Awaiting dispatch | → QUEUED, CANCELLED |
-| `QUEUED` | Assigned to machine | → RUNNING, CANCELLED |
-| `RUNNING` | Actively processing | → COMPLETED, FAILED, CANCELLED |
-| `COMPLETED` | Successfully finished | (terminal) |
-| `FAILED` | Processing failed | → QUEUED (retry) |
-| `CANCELLED` | Manually cancelled | → QUEUED (retry) |
-
 ---
 
 ## Repository Structure
@@ -607,52 +579,6 @@ flowchart LR
 
 **Purpose**: Test system resilience under failures
 
-### 7. Autonomous Job Generator
-
-```mermaid
-flowchart TD
-    A[System Check] --> B{Jobs < Minimum?}
-    B -->|Yes| C[Generate Autonomous Job]
-    B -->|No| D[Wait Interval]
-    C --> E[Select Customer by Weight]
-    E --> F[Select Priority by Distribution]
-    F --> G[Select Recipe Randomly]
-    G --> H[Insert to Database]
-    H --> I[Log Generation]
-    I --> J[Broadcast via Realtime]
-    J --> K[Frontend Notification]
-    D --> A
-```
-
-**Backend Service (`DynamicJobGenerator`):**
-
-- **Monitors**: Current job queue depth every 30s (configurable)
-- **Generates**: New jobs when below minimum threshold
-- **Weighted Selection**:
-  - Customers: Apple (1.5x), NVIDIA (1.4x), AMD (1.3x), etc.
-  - Priorities: P1 (15%), P2 (25%), P3 (30%), P4 (20%), P5 (10%)
-  - Hot Lots: 15% probability
-- **Creates**: Real jobs in Supabase database with proper naming
-
-**API Endpoints:**
-
-| Endpoint | Description |
-|----------|-------------|
-| `POST /api/v1/job-generator/start` | Enable autonomous generation |
-| `POST /api/v1/job-generator/stop` | Disable generation |
-| `GET /api/v1/job-generator/config` | Get configuration |
-| `POST /api/v1/job-generator/config` | Update configuration |
-| `POST /api/v1/job-generator/generate` | Manually trigger one job |
-| `GET /api/v1/job-generator/status` | Get stats and status |
-
-**Frontend Real-time Streaming:**
-
-- `useJobStream` hook subscribes to Supabase Realtime
-- Instant INSERT/UPDATE/DELETE notifications via WebSocket
-- Job arrival notifications for hot lots
-- Real-time job feed component
-- Batch updates for performance
-
 ---
 
 ## Frontend State Management
@@ -721,7 +647,6 @@ flowchart TB
         Config["AppConfigContext"]
         MockData["Mock Data Mode"]
         Realtime["Supabase Realtime"]
-        JobStream["useJobStream Hook"]
     end
     
     subgraph Tabs["Tab Components"]
@@ -736,8 +661,6 @@ flowchart TB
         Dispatch["Dispatch Queue"]
         History["Dispatch History"]
         Chaos["Chaos Injection"]
-        JobFeed["Realtime Job Feed"]
-        Notifications["Job Arrival Notifications"]
     end
     
     subgraph MachinesFeatures["Machines Features"]
@@ -754,11 +677,9 @@ flowchart TB
         Create["Create Job"]
         Cancel["Cancel Job"]
         Stats["Job Stats"]
-        AutoConfig["Autonomous Job Config"]
     end
     
     Config --> Tabs
-    JobStream --> OverviewFeatures
     Overview --> OverviewFeatures
     Machines --> MachinesFeatures
     Jobs --> JobsFeatures
@@ -975,24 +896,16 @@ flowchart TD
     B -->|Yes| C[Connect to Supabase]
     C --> D[Enable Realtime Subscriptions]
     D --> E[Load Live Data]
-    E --> F[Start useJobStream Hook]
-    F --> G[Backend Job Generator]
-    G --> H[New Jobs → Database]
-    H --> I[Supabase Realtime Broadcast]
-    I --> J[Frontend Notifications]
-    J --> K[Update Job Feed]
-    K --> L[All Tabs Sync Instantly]
-    B -->|No| M[Fall Back to Demo Mode]
-    M --> N[Local Simulation Only]
+    E --> F[Autonomous Simulation]
+    F --> G[Real-time Updates Across All Tabs]
+    B -->|No| H[Fall Back to Demo Mode]
 ```
 
 **Live Mode Features:**
 
 - ✅ Real-time data sync via Supabase Realtime
-- ✅ **Real-time job streaming** - New jobs appear instantly via WebSocket
-- ✅ **Autonomous job generation** - Backend creates jobs dynamically based on queue depth
-- ✅ **Job arrival notifications** - Hot lot alerts and new job notifications
 - ✅ Persistent data storage
+- ✅ Autonomous simulation (jobs progress automatically)
 - ✅ Live VM predictions using sensor data
 - ✅ Multi-user support (all users see same data)
 - ✅ Changes propagate instantly without page refresh
@@ -1000,21 +913,15 @@ flowchart TD
 ### Setting Up Live Mode
 
 1. **Create Supabase Project** at [supabase.com](https://supabase.com)
-2. **Run Database Migrations** in Supabase SQL Editor (in order):
+2. **Run Database Migration** in Supabase SQL Editor:
 
    ```sql
-   -- 1. Copy contents of database/reset_and_seed.sql
-   -- 2. Copy contents of database/migrations/003_autonomous_jobs.sql
+   -- Copy contents of database/reset_and_seed.sql
    ```
 
 3. **Configure Environment Variables** in Vercel:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-
-4. **Start the Autonomous Job Generator** (optional):
-   ```bash
-   curl -X POST https://your-api.com/api/v1/job-generator/start
-   ```
 
 ---
 

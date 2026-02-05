@@ -366,16 +366,12 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
                     title="Temperature SPC (24h)"
                     unit="°"
                     height={200}
-                    usl={machine.max_temperature}
-                    lsl={machine.max_temperature * 0.2}
                   />
                   <SPCControlChart
                     data={historyData.map((d, i) => ({ index: i, value: d.vibration }))}
                     title="Vibration SPC (24h)"
                     unit=" mm/s"
                     height={200}
-                    usl={machine.max_vibration}
-                    lsl={0}
                   />
                 </div>
               </>
