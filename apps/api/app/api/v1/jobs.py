@@ -224,7 +224,7 @@ async def start_job(job_id: str):
         # Update job to RUNNING
         supabase_service.client.table("production_jobs").update({
             "status": "RUNNING",
-            "started_at": now.isoformat(),
+            "actual_start_time": now.isoformat(),
             "updated_at": now.isoformat()
         }).eq("job_id", job_id).execute()
         
@@ -278,7 +278,7 @@ async def complete_job(job_id: str):
         # Update job to COMPLETED
         supabase_service.client.table("production_jobs").update({
             "status": "COMPLETED",
-            "completed_at": now.isoformat(),
+            "actual_end_time": now.isoformat(),
             "updated_at": now.isoformat()
         }).eq("job_id", job_id).execute()
         

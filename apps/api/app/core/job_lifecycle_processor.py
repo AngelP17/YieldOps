@@ -203,7 +203,7 @@ class JobLifecycleProcessor:
                     await self._complete_job(job_id, machine_id)
             else:
                 # Job is running but not tracked - add to tracking
-                started_at = job.get("started_at")
+                started_at = job.get("actual_start_time")
                 if started_at:
                     try:
                         # Parse the started_at time
