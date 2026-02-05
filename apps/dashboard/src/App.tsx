@@ -2,12 +2,12 @@ import { useState, useMemo, createContext, useContext, useCallback, useEffect } 
 import { Machine, ProductionJob } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
 import { useAutonomousSimulation } from './hooks/useAutonomousSimulation';
-import { useJobStream, useJobArrivals } from './hooks/useJobStream';
+import { useJobStream } from './hooks/useJobStream';
 import { isApiConfigured, isSupabaseConfigured } from './services/apiClient';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { MachinesTab } from './components/tabs/MachinesTab';
 import { JobsTab } from './components/tabs/JobsTab';
-import { JobArrivalNotifications, JobArrivalBadge } from './components/JobArrivalNotifications';
+import { JobArrivalBadge } from './components/JobArrivalNotifications';
 import { RealtimeJobFeed } from './components/RealtimeJobFeed';
 import {
   Factory,
@@ -191,20 +191,17 @@ function App() {
   const hasApi = isApiConfigured();
   const isUsingMockData = !hasSupabase;
 
-  // Real-time job stream for Supabase mode
+  // Real-time job stream for Supabase mode (SINGLE instance - all other
+  // components should receive data via props/context, not create their own hooks)
   const {
     jobs: streamJobs,
-    stats: jobStreamStats
+    stats: jobStreamStats,
+    isConnected: jobStreamConnected,
   } = useJobStream({
     enabled: hasSupabase,
     statusFilter: ['PENDING', 'QUEUED', 'RUNNING', 'COMPLETED'],
     batchUpdates: true,
     batchInterval: 100,
-  });
-
-  // Job arrival notifications
-  const { pendingCount, hotLotCount } = useJobArrivals({
-    enabled: hasSupabase,
   });
 
   // Local state for mock data (allows modifications in demo mode)
@@ -483,7 +480,11 @@ function App() {
                 
                 {/* Job Stream Badge - shows in Supabase mode */}
                 {hasSupabase && (
-                  <JobArrivalBadge onClick={() => setShowJobFeed(!showJobFeed)} />
+                  <JobArrivalBadge
+                    onClick={() => setShowJobFeed(!showJobFeed)}
+                    pendingCount={jobStreamStats.pendingJobs}
+                    isConnected={jobStreamConnected}
+                  />
                 )}
 
                 <button
@@ -496,9 +497,6 @@ function App() {
             </div>
           </div>
         </header>
-
-        {/* Job Arrival Notifications */}
-        {hasSupabase && <JobArrivalNotifications enabled={true} />}
 
         <main className="px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
           {/* Real-time Job Feed - Collapsible in Supabase mode */}
@@ -530,8 +528,7 @@ function App() {
               jobs={displayJobs}
               machines={machinesWithSensorData}
               isRealTime={hasSupabase}
-              pendingCount={hasSupabase ? pendingCount : undefined}
-              hotLotCount={hasSupabase ? hotLotCount : undefined}
+              pendingCount={hasSupabase ? jobStreamStats.pendingJobs : undefined}
             />
           )}
         </main>

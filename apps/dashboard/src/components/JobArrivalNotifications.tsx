@@ -262,51 +262,42 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
 }
 
 // Compact version for mobile bottom sheet or header
-export function JobArrivalBadge({ 
+// Accepts data via props instead of creating its own useJobStream instance
+export function JobArrivalBadge({
   onClick,
-  className = '' 
-}: { 
+  pendingCount = 0,
+  isConnected = true,
+  className = ''
+}: {
   onClick?: () => void;
+  pendingCount?: number;
+  isConnected?: boolean;
   className?: string;
 }) {
-  const { recentArrivals, pendingCount, isConnected } = useJobArrivals({
-    enabled: true,
-  });
-
-  const hasNew = recentArrivals.length > 0;
-
   return (
     <button
       onClick={onClick}
       className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-        hasNew 
-          ? 'bg-blue-100 text-blue-700 animate-pulse' 
-          : isConnected
-            ? 'bg-slate-100 text-slate-600'
-            : 'bg-amber-100 text-amber-700'
+        isConnected
+          ? 'bg-slate-100 text-slate-600'
+          : 'bg-amber-100 text-amber-700'
       } ${className}`}
     >
       {isConnected ? (
-        <Zap className={`w-3.5 h-3.5 ${hasNew ? 'fill-current' : ''}`} />
+        <Zap className="w-3.5 h-3.5" />
       ) : (
         <Clock className="w-3.5 h-3.5" />
       )}
-      
+
       <span className="hidden sm:inline">
-        {hasNew ? `${recentArrivals.length} new` : isConnected ? 'Jobs' : 'Updates'}
+        {isConnected ? 'Jobs' : 'Updates'}
       </span>
-      
+
       {pendingCount > 0 && (
         <span className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500 text-white rounded-full text-[10px]">
           <Package className="w-2.5 h-2.5" />
           {pendingCount}
         </span>
-      )}
-      
-
-      
-      {hasNew && (
-        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
       )}
     </button>
   );

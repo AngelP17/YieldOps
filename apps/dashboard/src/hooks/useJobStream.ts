@@ -16,6 +16,9 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { supabase, type DatabaseProductionJob } from '../services/supabaseClient';
 import type { ProductionJob } from '../types';
 
+// Default status filters (stable references to prevent re-render loops)
+const DEFAULT_STATUS_FILTER: readonly string[] = ['PENDING', 'QUEUED', 'RUNNING'] as const;
+
 export interface JobStreamEvent {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
   job: ProductionJob;
@@ -67,7 +70,7 @@ function mapDatabaseJob(dbJob: DatabaseProductionJob): ProductionJob {
 export function useJobStream(options: UseJobStreamOptions = {}) {
   const {
     enabled = true,
-    statusFilter = ['PENDING', 'QUEUED', 'RUNNING'],
+    statusFilter: statusFilterProp,
     includeHistory = true,
     historyHours = 24,
     onJobArrival,
@@ -75,6 +78,22 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
     batchUpdates = false,
     batchInterval = 100,
   } = options;
+
+  // Stabilize statusFilter to prevent infinite re-render loops.
+  // Array props create new references each render, which would cascade
+  // through useCallback deps → useEffect deps → channel teardown/rebuild.
+  const statusFilterKey = (statusFilterProp ?? DEFAULT_STATUS_FILTER).slice().sort().join(',');
+  const statusFilter = useMemo(
+    () => (statusFilterProp ?? DEFAULT_STATUS_FILTER) as string[],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [statusFilterKey]
+  );
+
+  // Stable refs for callbacks that shouldn't trigger effect re-runs
+  const onJobArrivalRef = useRef(onJobArrival);
+  onJobArrivalRef.current = onJobArrival;
+  const onJobCompleteRef = useRef(onJobComplete);
+  onJobCompleteRef.current = onJobComplete;
 
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [events, setEvents] = useState<JobStreamEvent[]>([]);
@@ -86,6 +105,7 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
   const pendingUpdatesRef = useRef<ProductionJob[]>([]);
   const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Calculate stats
   const stats: JobStreamStats = useMemo(() => {
@@ -167,7 +187,7 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
         }
 
         // Trigger arrival callback
-        onJobArrival?.(job);
+        onJobArrivalRef.current?.(job);
 
         const event: JobStreamEvent = {
           type: 'INSERT' as const,
@@ -180,7 +200,7 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
     } else if (eventType === 'UPDATE') {
       // Check for completion
       if (oldRecord.status !== 'COMPLETED' && newRecord.status === 'COMPLETED') {
-        onJobComplete?.(job);
+        onJobCompleteRef.current?.(job);
       }
 
       if (matchesFilter) {
@@ -210,16 +230,20 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
         setJobs(prev => prev.filter(j => j.job_id !== job.job_id));
       }
     }
-  }, [statusFilter, batchUpdates, scheduleBatchUpdate, onJobArrival, onJobComplete]);
+  }, [statusFilter, batchUpdates, scheduleBatchUpdate]);
 
   // Fetch initial jobs
   const fetchJobs = useCallback(async () => {
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // Debug: console.log('[JobStream] Fetching jobs with filter:', statusFilter);
-      
       let query = supabase
         .from('production_jobs')
         .select('*')
@@ -236,17 +260,21 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
         query = query.gte('created_at', cutoff);
       }
 
-      const { data, error: queryError } = await query;
+      const { data, error: queryError } = await query.abortSignal(abortControllerRef.current.signal);
 
       if (queryError) {
+        // Ignore abort errors
+        if (queryError.message?.includes('abort')) return;
         console.error('[JobStream] Query error:', queryError);
         throw queryError;
       }
 
-      // Debug: console.log('[JobStream] Fetched jobs:', data?.length || 0);
       const mappedJobs = (data || []).map(mapDatabaseJob);
       setJobs(mappedJobs);
     } catch (err) {
+      // Ignore abort errors silently
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (err instanceof Error && err.message?.includes('abort')) return;
       setError(err instanceof Error ? err : new Error('Failed to fetch jobs'));
       console.error('[JobStream] Error fetching jobs:', err);
     } finally {
@@ -290,7 +318,9 @@ export function useJobStream(options: UseJobStreamOptions = {}) {
       });
 
     return () => {
-      // Debug: console.log('[JobStream] Cleaning up subscription');
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }

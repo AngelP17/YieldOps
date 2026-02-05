@@ -12,16 +12,14 @@ interface JobsTabProps {
   machines: Machine[];
   isRealTime?: boolean;
   pendingCount?: number;
-  hotLotCount?: number;
 }
 
 const RECIPE_TYPES = ['ADVANCED_LOGIC', '5NM_FINFE', 'STANDARD_LOGIC', 'MEMORY_DRAM', 'IO_CONTROLLER', 'POWER_MANAGEMENT', 'ANALOG_MIXER', 'TEST_CHIPS'];
 
-export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount }: JobsTabProps) {
+export function JobsTab({ jobs, machines, isRealTime, pendingCount }: JobsTabProps) {
   const { toast } = useToast();
   const { isUsingMockData, addJob, updateJob } = useAppConfig();
   const [statusFilter, setStatusFilter] = useState<JobStatus | 'ALL'>('ALL');
-  const [hotLotOnly, setHotLotOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'priority' | 'created' | 'deadline'>('priority');
   const [showCreate, setShowCreate] = useState(false);
@@ -49,7 +47,6 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
     let result = [...jobs];
 
     if (statusFilter !== 'ALL') result = result.filter((j) => j.status === statusFilter);
-    if (hotLotOnly) result = result.filter((j) => j.is_hot_lot);
     if (search) result = result.filter((j) =>
       j.job_name.toLowerCase().includes(search.toLowerCase()) ||
       (j.customer_tag || '').toLowerCase().includes(search.toLowerCase())
@@ -100,7 +97,7 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
     });
 
     return result;
-  }, [jobs, statusFilter, hotLotOnly, search, sortBy]);
+  }, [jobs, statusFilter, search, sortBy]);
 
   // Job stats - use real-time counts when available
   const jobStats = useMemo(() => ({
@@ -110,8 +107,7 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
     running: jobs.filter((j) => j.status === 'RUNNING').length,
     completed: jobs.filter((j) => j.status === 'COMPLETED').length,
     failed: jobs.filter((j) => j.status === 'FAILED').length,
-    hotLots: hotLotCount ?? jobs.filter((j) => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED').length,
-  }), [jobs, pendingCount, hotLotCount]);
+  }), [jobs, pendingCount]);
 
   const handleCreateJob = async () => {
     if (!form.job_name || !form.recipe_type) {
@@ -261,15 +257,14 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
       )}
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
         {[
           { label: 'Total', value: jobStats.total, color: 'text-slate-900' },
-          { label: pendingCount !== undefined ? 'Pending' : 'Pending', value: jobStats.pending, color: 'text-yellow-600' },
+          { label: 'Pending', value: jobStats.pending, color: 'text-yellow-600' },
           { label: 'Queued', value: jobStats.queued, color: 'text-blue-600' },
           { label: 'Running', value: jobStats.running, color: 'text-emerald-600' },
           { label: 'Completed', value: jobStats.completed, color: 'text-slate-500' },
           { label: 'Failed', value: jobStats.failed, color: 'text-rose-600' },
-          { label: 'Hot Lots', value: jobStats.hotLots, color: 'text-rose-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-3 text-center">
             <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -324,16 +319,6 @@ export function JobsTab({ jobs, machines, isRealTime, pendingCount, hotLotCount 
             <option value="deadline">Sort: Deadline</option>
           </select>
 
-          <button
-            onClick={() => setHotLotOnly(!hotLotOnly)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
-              hotLotOnly
-                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Hot Lots
-          </button>
         </div>
       </div>
 

@@ -86,7 +86,7 @@ app.add_middleware(
         "http://localhost:5173",  # Vite dev server
         "http://localhost:3000",  # React dev server
     ],
-    allow_origin_regex=r"https://yield-ops-dashboard-.*\.vercel\.app",
+    allow_origin_regex=r"https://yield-ops.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

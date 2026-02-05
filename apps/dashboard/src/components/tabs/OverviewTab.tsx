@@ -20,7 +20,6 @@ interface OverviewTabProps {
     pendingJobs: number;
     queuedJobs: number;
     runningJobs: number;
-    hotLots: number;
     recentArrivals: number;
   };
 }
@@ -31,7 +30,7 @@ const MOCK_DISPATCH_QUEUE: DispatchQueueResponse = {
   available_machines: 2,
   queued_jobs: 5,
   next_dispatch: [
-    { job_id: '3', job_name: 'WF-2024-0849', priority_level: 1, is_hot_lot: true },
+    { job_id: '3', job_name: 'WF-2024-0849', priority_level: 1, is_hot_lot: false },
     { job_id: '4', job_name: 'WF-2024-0850', priority_level: 3, is_hot_lot: false },
     { job_id: '5', job_name: 'WF-2024-0851', priority_level: 2, is_hot_lot: false },
   ]
@@ -96,7 +95,7 @@ function runToCDispatch(
       job_name: job.job_name,
       machine_id: bestMachine.machine_id,
       machine_name: bestMachine.name,
-      reason: `ToC Dispatch | Job: ${job.job_name} (P${job.priority_level})${job.is_hot_lot ? ' | HOT LOT' : ''} | Machine: ${bestMachine.name} | Efficiency: ${(bestMachine.efficiency_rating * 100).toFixed(0)}%`
+      reason: `ToC Dispatch | Job: ${job.job_name} (P${job.priority_level}) | Machine: ${bestMachine.name} | Efficiency: ${(bestMachine.efficiency_rating * 100).toFixed(0)}%`
     });
     
     assignedMachines.add(bestMachine.machine_id);
@@ -140,9 +139,7 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
     const pendingJobs = jobs.filter((j) => j.status === 'PENDING').length;
     const queuedJobs = jobs.filter((j) => j.status === 'QUEUED').length;
     const runningJobs = jobs.filter((j) => j.status === 'RUNNING').length;
-    const hotLots = jobs.filter((j) => j.is_hot_lot && (j.status === 'PENDING' || j.status === 'QUEUED')).length;
-
-    return { total, running, idle, down, maintenance, avgEfficiency, totalWafers, totalProcessed, pendingJobs, queuedJobs, runningJobs, hotLots };
+    return { total, running, idle, down, maintenance, avgEfficiency, totalWafers, totalProcessed, pendingJobs, queuedJobs, runningJobs };
   }, [machines, jobs]);
 
   // Fetch dispatch data
@@ -323,9 +320,9 @@ export function OverviewTab({ machines, jobs, jobStreamStats }: OverviewTabProps
         <KpiCard 
           label={jobStreamStats ? "Live Jobs" : "Active Jobs"} 
           value={jobStreamStats ? jobStreamStats.totalJobs : stats.runningJobs + stats.queuedJobs} 
-          subtext={jobStreamStats 
-            ? `${jobStreamStats.pendingJobs} pending • ${jobStreamStats.hotLots} hot` 
-            : `${stats.hotLots} hot lots`
+          subtext={jobStreamStats
+            ? `${jobStreamStats.pendingJobs} pending`
+            : `${stats.pendingJobs} pending`
           } 
           icon={Package} 
           trend={jobStreamStats && jobStreamStats.recentArrivals > 0 ? `+${jobStreamStats.recentArrivals}` : "+3"} 

@@ -57,7 +57,6 @@ export function RealtimeJobFeed({
       queuedJobs: filtered.filter(j => j.status === 'QUEUED').length,
       runningJobs: filtered.filter(j => j.status === 'RUNNING').length,
       completedJobs: filtered.filter(j => j.status === 'COMPLETED').length,
-      hotLots: filtered.filter(j => j.is_hot_lot).length,
       recentArrivals: filtered.filter(j => new Date(j.created_at).getTime() > recentThreshold).length,
     };
   }, [jobs, statusFilter]);
