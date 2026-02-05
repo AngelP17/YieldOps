@@ -13,8 +13,8 @@ export const isSupabaseConfigured = (): boolean => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   return (
-    supabaseUrl !== undefined && 
-    supabaseUrl !== '' && 
+    supabaseUrl !== undefined &&
+    supabaseUrl !== '' &&
     supabaseUrl !== 'your_supabase_url' &&
     supabaseKey !== undefined &&
     supabaseKey !== '' &&
@@ -25,13 +25,13 @@ export const isSupabaseConfigured = (): boolean => {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   console.log(`API Request: ${options?.method || 'GET'} ${url}`);
-  
+
   try {
     const res = await fetch(url, {
       headers: { 'Content-Type': 'application/json' },
       ...options,
     });
-    
+
     if (!res.ok) {
       let errorDetail = res.statusText;
       try {
@@ -43,7 +43,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       console.error(`API Error ${res.status}: ${errorDetail}`);
       throw new Error(errorDetail);
     }
-    
+
     return res.json();
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -209,4 +209,31 @@ export const api = {
       avg_thickness: number;
       std_thickness: number;
     }>(`/api/v1/vm/history/${machineId}?hours=${hours}`),
+
+  // Simulation (Autonomous Job Progression)
+  simulationTick: () =>
+    request<{
+      pending_dispatched: number;
+      queued_started: number;
+      running_completed: number;
+      running_failed: number;
+      new_jobs_created: number;
+      timestamp: string;
+    }>(`/api/v1/simulation/tick`, { method: 'POST' }),
+
+  simulationFast: (ticks = 5) =>
+    request<{ ticks_executed: number; results: unknown[] }>(
+      `/api/v1/simulation/fast?ticks=${ticks}`,
+      { method: 'POST' }
+    ),
+
+  simulationStatus: () =>
+    request<{
+      jobs: { pending: number; queued: number; running: number; completed: number; failed: number; total: number };
+      machines: { idle: number; running: number; down: number; maintenance: number; total: number };
+      timestamp: string;
+    }>(`/api/v1/simulation/status`),
+
+  simulationReset: () =>
+    request<{ message: string; status: string }>(`/api/v1/simulation/reset`, { method: 'POST' }),
 };

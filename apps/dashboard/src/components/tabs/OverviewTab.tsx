@@ -49,29 +49,29 @@ function runToCDispatch(
   maxDispatches: number = 5
 ): DispatchDecision[] {
   const decisions: DispatchDecision[] = [];
-  
+
   // Sort jobs by ToC priority: hot lots first, then priority level, then FIFO
   const sortedJobs = [...pendingJobs].sort((a, b) => {
     if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
     if (a.priority_level !== b.priority_level) return a.priority_level - b.priority_level;
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
-  
+
   // Track assigned machines
   const assignedMachines = new Set<string>();
-  
+
   for (const job of sortedJobs) {
     if (decisions.length >= maxDispatches) break;
-    
+
     // Find best available machine (IDLE status preferred, highest efficiency)
-    const eligibleMachines = availableMachines.filter(m => 
-      !assignedMachines.has(m.machine_id) && 
-      m.status !== 'DOWN' && 
+    const eligibleMachines = availableMachines.filter(m =>
+      !assignedMachines.has(m.machine_id) &&
+      m.status !== 'DOWN' &&
       m.status !== 'MAINTENANCE'
     );
-    
+
     if (eligibleMachines.length === 0) continue;
-    
+
     // Score machines: IDLE gets bonus, then by efficiency
     const scoredMachines = eligibleMachines.map(m => {
       let score = m.efficiency_rating;
@@ -79,10 +79,10 @@ function runToCDispatch(
       if (m.status === 'RUNNING') score += 0.2;
       return { machine: m, score };
     });
-    
+
     scoredMachines.sort((a, b) => b.score - a.score);
     const bestMachine = scoredMachines[0].machine;
-    
+
     decisions.push({
       job_id: job.job_id,
       job_name: job.job_name,
@@ -90,10 +90,10 @@ function runToCDispatch(
       machine_name: bestMachine.name,
       reason: `ToC Dispatch | Job: ${job.job_name} (P${job.priority_level})${job.is_hot_lot ? ' | HOT LOT' : ''} | Machine: ${bestMachine.name} | Efficiency: ${(bestMachine.efficiency_rating * 100).toFixed(0)}%`
     });
-    
+
     assignedMachines.add(bestMachine.machine_id);
   }
-  
+
   return decisions;
 }
 
@@ -132,7 +132,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
     const pendingJobs = jobs.filter((j) => j.status === 'PENDING').length;
     const queuedJobs = jobs.filter((j) => j.status === 'QUEUED').length;
     const runningJobs = jobs.filter((j) => j.status === 'RUNNING').length;
-    const hotLots = jobs.filter((j) => j.is_hot_lot && (j.status === 'PENDING' || j.status === 'QUEUED')).length;
+    const hotLots = jobs.filter((j) => j.is_hot_lot && (j.status === 'PENDING' || j.status === 'QUEUED' || j.status === 'RUNNING')).length;
 
     return { total, running, idle, down, maintenance, avgEfficiency, totalWafers, totalProcessed, pendingJobs, queuedJobs, runningJobs, hotLots };
   }, [machines, jobs]);
@@ -153,7 +153,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         toast('Using offline data - API unavailable', 'info');
         setDispatchQueue(MOCK_DISPATCH_QUEUE);
       });
-    
+
     api.getDispatchHistory(10)
       .then((data: unknown) => {
         const historyData = Array.isArray(data) ? data : (data as { data?: DispatchHistoryItem[] })?.data || [];
@@ -167,42 +167,42 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
 
   const handleRunDispatch = async () => {
     setDispatching(true);
-    
+
     try {
       if (!apiAvailable || isUsingMockData) {
         // Run ToC dispatch algorithm locally
         const pendingJobs = jobs.filter(j => j.status === 'PENDING');
         const availableMachines = machines.filter(m => m.status === 'IDLE' || m.status === 'RUNNING');
-        
+
         if (pendingJobs.length === 0) {
           toast('No pending jobs to dispatch', 'warning');
           setDispatching(false);
           return;
         }
-        
+
         if (availableMachines.length === 0) {
           toast('No available machines for dispatch', 'warning');
           setDispatching(false);
           return;
         }
-        
+
         const decisions = runToCDispatch(pendingJobs, availableMachines, 5);
-        
+
         // Apply decisions - update jobs and machines
         decisions.forEach(decision => {
           // Update job to QUEUED status and assign machine
-          updateJob(decision.job_id, { 
-            status: 'QUEUED', 
-            assigned_machine_id: decision.machine_id 
+          updateJob(decision.job_id, {
+            status: 'QUEUED',
+            assigned_machine_id: decision.machine_id
           });
-          
+
           // Update machine status to RUNNING if it was IDLE
           const machine = machines.find(m => m.machine_id === decision.machine_id);
           if (machine && machine.status === 'IDLE') {
             updateMachine(decision.machine_id, { status: 'RUNNING' });
           }
         });
-        
+
         // Add to local dispatch history
         const newDecisions = decisions.map((d, i) => ({
           decision_id: `local-${Date.now()}-${i}`,
@@ -211,24 +211,24 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
           machines: { name: d.machine_name },
           dispatched_at: new Date().toISOString()
         }));
-        
+
         setLocalDecisions(prev => [...decisions, ...prev]);
         setDispatchHistory(prev => [...newDecisions, ...prev]);
-        
+
         toast(`ToC Dispatch complete: ${decisions.length} jobs assigned (Demo Mode)`, 'success');
         setDispatching(false);
         return;
       }
-      
+
       // API mode
       const result = await api.runDispatch({ max_dispatches: 10 });
       toast(`Dispatch complete: ${result.total_dispatched} jobs assigned`, 'success');
       // Refresh dispatch data
-      api.getDispatchQueue().then(setDispatchQueue).catch(() => {});
+      api.getDispatchQueue().then(setDispatchQueue).catch(() => { });
       api.getDispatchHistory(10).then((data: unknown) => {
         const historyData = Array.isArray(data) ? data : (data as { data?: DispatchHistoryItem[] })?.data || [];
         setDispatchHistory(historyData as DispatchHistoryItem[]);
-      }).catch(() => {});
+      }).catch(() => { });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Dispatch failed';
       toast(message, 'error');
@@ -239,7 +239,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
 
   const handleInjectChaos = async (type: 'machine_down' | 'sensor_spike' | 'efficiency_drop') => {
     setChaosLoading(true);
-    
+
     // Pick a random running machine to affect
     const runningMachines = machines.filter(m => m.status === 'RUNNING');
     if (runningMachines.length === 0) {
@@ -247,9 +247,9 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
       setChaosLoading(false);
       return;
     }
-    
+
     const targetMachine = runningMachines[Math.floor(Math.random() * runningMachines.length)];
-    
+
     if (!apiAvailable || isUsingMockData) {
       // Apply chaos directly to local state
       if (type === 'machine_down') {
