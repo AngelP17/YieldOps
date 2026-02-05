@@ -31,6 +31,7 @@ function generateSensorData(machine: Machine) {
     vibration: baseVibration + (Math.random() - 0.5) * 2,
     pressure: 100 + Math.random() * 50,
     power_consumption: 500 + Math.random() * 300,
+    recorded_at: new Date().toISOString(),
   };
 }
 
@@ -79,6 +80,8 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   interface SensorData {
     temperature: number;
     vibration: number;
+    pressure: number;
+    power_consumption: number;
     recorded_at: string;
   }
   const sensorDataRef = useRef<Record<string, SensorData>>({});

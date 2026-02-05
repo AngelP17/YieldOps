@@ -7,7 +7,13 @@ export interface RealtimeConfig {
   filter?: string;
 }
 
-export function useRealtime<T>(config: RealtimeConfig) {
+interface RealtimeRecord {
+  machine_id?: string;
+  job_id?: string;
+  reading_id?: string;
+}
+
+export function useRealtime<T extends RealtimeRecord>(config: RealtimeConfig) {
   const [data, setData] = useState<T[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
