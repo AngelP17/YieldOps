@@ -53,6 +53,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not start job generator: {e}")
 
+    # Start job lifecycle processor (handles QUEUED → RUNNING → COMPLETED)
+    try:
+        from app.core.job_lifecycle_processor import get_lifecycle_processor
+        from app.services.supabase_service import supabase_service
+        processor = get_lifecycle_processor(supabase_service.client)
+        processor.start()
+        logger.info("Job lifecycle processor started")
+    except Exception as e:
+        logger.warning(f"Could not start job lifecycle processor: {e}")
+
     yield
     
     # Shutdown: Stop job generator
@@ -64,6 +74,16 @@ async def lifespan(app: FastAPI):
         logger.info("Autonomous job generator stopped")
     except Exception as e:
         logger.warning(f"Error stopping job generator: {e}")
+
+    # Shutdown: Stop job lifecycle processor
+    try:
+        from app.core.job_lifecycle_processor import get_lifecycle_processor
+        from app.services.supabase_service import supabase_service
+        processor = get_lifecycle_processor(supabase_service.client)
+        processor.stop()
+        logger.info("Job lifecycle processor stopped")
+    except Exception as e:
+        logger.warning(f"Error stopping job lifecycle processor: {e}")
     
     logger.info("Shutting down YieldOps API...")
 
