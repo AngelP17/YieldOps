@@ -14,6 +14,8 @@ Intelligent Manufacturing & IIoT Portfolio Project
 ### Key Capabilities
 
 - **Real-time Monitoring**: Live machine status via WebSockets/Supabase Realtime
+- **Autonomous Job Generation**: Backend dynamically creates jobs based on queue depth with weighted probability
+- **Real-time Job Streaming**: Instant job arrival notifications via WebSocket across web/mobile
 - **Intelligent Dispatching**: Automated job routing based on efficiency and priority (Theory of Constraints)
 - **Predictive Maintenance**: Anomaly detection using Isolation Forest with SPC control charts
 - **Virtual Metrology**: Predict film thickness and enable Run-to-Run (R2R) control
@@ -51,6 +53,7 @@ flowchart TB
         
         subgraph Hooks["Custom Hooks"]
             useRealtime["useRealtime"]
+            useJobStream["useJobStream"]
             useVirtualMetrology["useVirtualMetrology"]
             useAutonomousSimulation["useAutonomousSimulation"]
             usePolling["usePolling"]
@@ -718,6 +721,7 @@ flowchart TB
         Config["AppConfigContext"]
         MockData["Mock Data Mode"]
         Realtime["Supabase Realtime"]
+        JobStream["useJobStream Hook"]
     end
     
     subgraph Tabs["Tab Components"]
@@ -732,6 +736,8 @@ flowchart TB
         Dispatch["Dispatch Queue"]
         History["Dispatch History"]
         Chaos["Chaos Injection"]
+        JobFeed["Realtime Job Feed"]
+        Notifications["Job Arrival Notifications"]
     end
     
     subgraph MachinesFeatures["Machines Features"]
@@ -748,9 +754,11 @@ flowchart TB
         Create["Create Job"]
         Cancel["Cancel Job"]
         Stats["Job Stats"]
+        AutoConfig["Autonomous Job Config"]
     end
     
     Config --> Tabs
+    JobStream --> OverviewFeatures
     Overview --> OverviewFeatures
     Machines --> MachinesFeatures
     Jobs --> JobsFeatures
@@ -967,16 +975,24 @@ flowchart TD
     B -->|Yes| C[Connect to Supabase]
     C --> D[Enable Realtime Subscriptions]
     D --> E[Load Live Data]
-    E --> F[Autonomous Simulation]
-    F --> G[Real-time Updates Across All Tabs]
-    B -->|No| H[Fall Back to Demo Mode]
+    E --> F[Start useJobStream Hook]
+    F --> G[Backend Job Generator]
+    G --> H[New Jobs → Database]
+    H --> I[Supabase Realtime Broadcast]
+    I --> J[Frontend Notifications]
+    J --> K[Update Job Feed]
+    K --> L[All Tabs Sync Instantly]
+    B -->|No| M[Fall Back to Demo Mode]
+    M --> N[Local Simulation Only]
 ```
 
 **Live Mode Features:**
 
 - ✅ Real-time data sync via Supabase Realtime
+- ✅ **Real-time job streaming** - New jobs appear instantly via WebSocket
+- ✅ **Autonomous job generation** - Backend creates jobs dynamically based on queue depth
+- ✅ **Job arrival notifications** - Hot lot alerts and new job notifications
 - ✅ Persistent data storage
-- ✅ Autonomous simulation (jobs progress automatically)
 - ✅ Live VM predictions using sensor data
 - ✅ Multi-user support (all users see same data)
 - ✅ Changes propagate instantly without page refresh
@@ -984,15 +1000,21 @@ flowchart TD
 ### Setting Up Live Mode
 
 1. **Create Supabase Project** at [supabase.com](https://supabase.com)
-2. **Run Database Migration** in Supabase SQL Editor:
+2. **Run Database Migrations** in Supabase SQL Editor (in order):
 
    ```sql
-   -- Copy contents of database/reset_and_seed.sql
+   -- 1. Copy contents of database/reset_and_seed.sql
+   -- 2. Copy contents of database/migrations/003_autonomous_jobs.sql
    ```
 
 3. **Configure Environment Variables** in Vercel:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
+
+4. **Start the Autonomous Job Generator** (optional):
+   ```bash
+   curl -X POST https://your-api.com/api/v1/job-generator/start
+   ```
 
 ---
 
