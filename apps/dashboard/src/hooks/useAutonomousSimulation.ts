@@ -76,7 +76,12 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   const sensorIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Track sensor data for VM
-  const sensorDataRef = useRef<Record<string, any>>({});
+  interface SensorData {
+    temperature: number;
+    vibration: number;
+    recorded_at: string;
+  }
+  const sensorDataRef = useRef<Record<string, SensorData>>({});
 
   /**
    * Simulate job progression

@@ -160,8 +160,9 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
         is_hot_lot: false,
         customer_tag: '',
       });
-    } catch (err: any) {
-      toast(err.message || 'Failed to create job', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create job';
+      toast(message, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -178,8 +179,9 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
     try {
       await api.cancelJob(jobId);
       toast(`Job "${jobName}" cancelled`, 'success');
-    } catch (err: any) {
-      toast(err.message || 'Failed to cancel job', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to cancel job';
+      toast(message, 'error');
     } finally {
       setCancellingId(null);
     }
@@ -199,7 +201,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       )}
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {[
           { label: 'Total', value: jobStats.total, color: 'text-slate-900' },
           { label: 'Pending', value: jobStats.pending, color: 'text-yellow-600' },
@@ -227,7 +229,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
             Create Job
           </button>
 
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-0 order-first basis-full sm:basis-auto sm:order-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
@@ -280,7 +282,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="divide-y divide-slate-100">
           {filtered.map((job) => (
-            <div key={job.job_id} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+            <div key={job.job_id} className="px-4 sm:px-6 py-4 hover:bg-slate-50 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -295,7 +297,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                     </span>
                     <JobStatusBadge status={job.status} />
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-slate-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                     <span>{job.customer_tag || 'No customer'}</span>
                     <span>&middot;</span>
                     <span>{job.recipe_type}</span>
@@ -317,7 +319,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-2 ml-2 sm:ml-4 shrink-0">
                   {(job.status === 'PENDING' || job.status === 'QUEUED') && (
                     <button
                       onClick={() => handleCancelJob(job.job_id, job.job_name)}
@@ -359,7 +361,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-slate-700 mb-1 block">Wafer Count *</label>
               <input

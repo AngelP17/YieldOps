@@ -58,17 +58,13 @@ const generateMockJobHistory = () => {
 };
 
 export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: AnalyticsModalProps) {
-  if (!isOpen || !machine) return null;
-
-  // VM data
+  // All hooks must be called before any early return
   const { status: vmStatus, history: vmHistory, isLoading: vmLoading } = useVirtualMetrology(
-    machine.machine_id,
-    { enabled: enableVM && isOpen, pollingInterval: 30000 }
+    machine?.machine_id ?? '',
+    { enabled: enableVM && isOpen && !!machine, pollingInterval: 30000 }
   );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const historyData = useMemo(() => generateMockHistory(), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const jobHistory = useMemo(() => generateMockJobHistory(), []);
 
   // Calculate stats
@@ -80,7 +76,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
   const totalWafersProcessed = jobHistory.reduce((acc, j) => acc + j.wafers, 0);
   const avgJobDuration = jobHistory
     .filter(j => j.status === 'COMPLETED')
-    .reduce((acc, j) => acc + j.duration, 0) / completedJobs;
+    .reduce((acc, j) => acc + j.duration, 0) / (completedJobs || 1);
 
   // Trend calculation (compare last 6 hours vs previous 6 hours)
   const recentEfficiency = historyData.slice(-6).reduce((acc, d) => acc + d.efficiency, 0) / 6;
@@ -114,8 +110,10 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
     };
   }, [vmHistory]);
 
+  if (!isOpen || !machine) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
@@ -123,9 +121,9 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full sm:max-w-4xl h-full sm:h-auto max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/50">
+        <div className="flex items-center justify-between gap-2 px-6 py-4 border-b border-slate-200 bg-slate-50/50">
           <div className="flex items-center gap-4">
             <div className={`w-3 h-3 rounded-full ${
               machine.status === 'RUNNING' ? 'bg-emerald-500 animate-pulse' :
@@ -135,7 +133,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
             }`} />
             <div>
               <h2 className="text-lg font-semibold text-slate-900">{machine.name}</h2>
-              <p className="text-sm text-slate-500">{machine.type} • {machine.machine_id}</p>
+              <p className="text-sm text-slate-500">{machine.type} • <span className="hidden sm:inline">{machine.machine_id}</span></p>
             </div>
           </div>
           <button
@@ -147,7 +145,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <MetricCard
@@ -323,7 +321,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
                   </div>
                   
                   {/* Trend Stats */}
-                  <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 pt-4 border-t border-slate-100">
                     <div>
                       <span className="text-xs text-slate-400">Avg Thickness</span>
                       <p className="text-sm font-semibold text-slate-700">

@@ -204,7 +204,7 @@ export function SPCControlChart({ data, title, unit = '', height = 240 }: SPCCon
       </ResponsiveContainer>
 
       {/* Zone legend */}
-      <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-slate-500">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mt-2 text-[10px] text-slate-500">
         <div className="flex items-center gap-1">
           <div className="w-3 h-2 rounded-sm" style={{ backgroundColor: ZONE_COLORS.C, opacity: 0.6 }} />
           <span>Zone C (1σ)</span>

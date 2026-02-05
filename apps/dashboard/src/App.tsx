@@ -16,7 +16,8 @@ import {
   RefreshCw,
   AlertTriangle,
   Play,
-  Pause
+  Pause,
+  LayoutDashboard
 } from 'lucide-react';
 
 // =====================================================
@@ -332,15 +333,15 @@ function App() {
     <AppConfigContext.Provider value={appConfigValue}>
       <div className="min-h-screen bg-slate-50">
         <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-          <div className="px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-14 md:h-16">
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg shadow-blue-200">
                   <Factory className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h1 className="text-lg font-bold text-slate-900 tracking-tight">YieldOps</h1>
-                  <p className="text-xs text-slate-500 font-medium">Smart Manufacturing Platform</p>
+                  <p className="text-xs text-slate-500 font-medium hidden sm:block">Smart Manufacturing Platform</p>
                 </div>
               </div>
 
@@ -352,7 +353,7 @@ function App() {
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       activeTab === tab.id
                         ? 'bg-white text-slate-900 shadow-sm'
@@ -365,11 +366,11 @@ function App() {
                 ))}
               </nav>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-3">
                 {/* Mock Data Badge */}
                 {/* Demo Mode Badge */}
                 {isUsingMockData && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span className="text-xs font-medium">Demo Mode</span>
                   </div>
@@ -378,7 +379,7 @@ function App() {
                 {/* Simulation Toggle - Always visible */}
                 <button
                   onClick={() => setSimulationEnabled(!simulationEnabled)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
                     simulationEnabled 
                       ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -386,19 +387,19 @@ function App() {
                   title="Toggle autonomous simulation"
                 >
                   {simulationEnabled ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                  {simulationEnabled ? 'Simulating' : 'Paused'}
+                  <span className="hidden sm:inline">{simulationEnabled ? 'Simulating' : 'Paused'}</span>
                 </button>
                 
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
+                <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-slate-100 rounded-full">
                   {isSupabaseConnected ? (
                     <>
                       <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-xs font-medium text-slate-600">Live</span>
+                      <span className="hidden sm:inline text-xs font-medium text-slate-600">Live</span>
                     </>
                   ) : (
                     <>
                       <WifiOff className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="text-xs font-medium text-slate-500">Offline</span>
+                      <span className="hidden sm:inline text-xs font-medium text-slate-500">Offline</span>
                     </>
                   )}
                 </div>
@@ -413,7 +414,7 @@ function App() {
           </div>
         </header>
 
-        <main className="px-6 lg:px-8 py-8">
+        <main className="px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
           {activeTab === 'overview' && (
             <OverviewTab machines={machinesWithSensorData} jobs={displayJobs} />
           )}
@@ -424,6 +425,30 @@ function App() {
             <JobsTab jobs={displayJobs} machines={machinesWithSensorData} />
           )}
         </main>
+
+        {/* Mobile Bottom Tab Bar */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 md:hidden">
+          <div className="flex items-center justify-around">
+            {[
+              { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+              { id: 'machines', label: 'Machines', icon: Cpu },
+              { id: 'jobs', label: 'Jobs', icon: Layers },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs')}
+                className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 min-h-[48px] transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-blue-600'
+                    : 'text-slate-400'
+                }`}
+              >
+                <tab.icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
       </div>
     </AppConfigContext.Provider>
   );

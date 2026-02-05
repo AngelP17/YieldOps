@@ -309,7 +309,7 @@ export const DecisionLog: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total Decisions</p>
           <p className="text-2xl font-bold text-slate-900">1,247</p>
@@ -334,7 +334,7 @@ export const DecisionLog: React.FC = () => {
 
       {/* Decision List */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
               <Brain className="w-4 h-4 text-white" />
@@ -347,7 +347,7 @@ export const DecisionLog: React.FC = () => {
           <div className="flex items-center gap-2">
             <select 
               value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
+              onChange={(e) => setFilter(e.target.value as 'all' | 'executed' | 'approved' | 'rejected')}
               className="text-xs font-medium text-slate-600 bg-slate-100 rounded-lg px-3 py-2 border-0 focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">All Decisions</option>
@@ -379,7 +379,7 @@ export const DecisionLog: React.FC = () => {
                 {/* Summary Row */}
                 <button
                   onClick={() => setExpandedDecision(isExpanded ? null : decision.id)}
-                  className="w-full px-6 py-4 text-left"
+                  className="w-full px-4 sm:px-6 py-4 text-left"
                 >
                   <div className="flex items-start gap-4">
                     {/* Type Icon */}
@@ -402,9 +402,9 @@ export const DecisionLog: React.FC = () => {
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                             <span className="text-xs font-medium text-slate-400">{decision.id}</span>
                             <span className="text-sm font-semibold text-slate-900">{decision.title}</span>
                           </div>
@@ -447,8 +447,8 @@ export const DecisionLog: React.FC = () => {
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="px-6 pb-6">
-                    <div className="pl-14 grid grid-cols-2 gap-6">
+                  <div className="px-4 sm:px-6 pb-6">
+                    <div className="pl-0 sm:pl-14 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                       {/* Left Column - Context & Reasoning */}
                       <div className="space-y-4">
                         {/* Trigger Event */}
@@ -517,24 +517,24 @@ export const DecisionLog: React.FC = () => {
                           <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3">
                             Estimated Impact
                           </h4>
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="text-center p-3 bg-slate-50 rounded-lg">
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                            <div className="text-center p-2 sm:p-3 bg-slate-50 rounded-lg">
                               <p className="text-xs text-slate-500 mb-1">Efficiency</p>
-                              <p className={`text-lg font-bold ${decision.context.estimatedImpact.efficiency >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              <p className={`text-base sm:text-lg font-bold ${decision.context.estimatedImpact.efficiency >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {decision.context.estimatedImpact.efficiency > 0 ? '+' : ''}
                                 {(decision.context.estimatedImpact.efficiency * 100).toFixed(0)}%
                               </p>
                             </div>
                             <div className="text-center p-3 bg-slate-50 rounded-lg">
                               <p className="text-xs text-slate-500 mb-1">Throughput</p>
-                              <p className={`text-lg font-bold ${decision.context.estimatedImpact.throughput >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              <p className={`text-base sm:text-lg font-bold ${decision.context.estimatedImpact.throughput >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {decision.context.estimatedImpact.throughput > 0 ? '+' : ''}
                                 {decision.context.estimatedImpact.throughput}
                               </p>
                             </div>
                             <div className="text-center p-3 bg-slate-50 rounded-lg">
                               <p className="text-xs text-slate-500 mb-1">Cost</p>
-                              <p className="text-lg font-bold text-slate-900">
+                              <p className="text-base sm:text-lg font-bold text-slate-900">
                                 ${decision.context.estimatedImpact.cost.toLocaleString()}
                               </p>
                             </div>

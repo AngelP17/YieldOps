@@ -86,8 +86,9 @@ export function MachinesTab({ machines }: MachinesTabProps) {
       if (selectedMachine?.machine_id === machineId) {
         setSelectedMachine({ ...selectedMachine, status });
       }
-    } catch (err: any) {
-      toast(err.message || 'Failed to update status', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update status';
+      toast(message, 'error');
     } finally {
       setActionLoading('');
     }
@@ -110,8 +111,9 @@ export function MachinesTab({ machines }: MachinesTabProps) {
       if (selectedMachine?.machine_id === machineId) {
         setSelectedMachine({ ...selectedMachine, status: 'IDLE' });
       }
-    } catch (err: any) {
-      toast(err.message || 'Recovery failed', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Recovery failed';
+      toast(message, 'error');
     } finally {
       setActionLoading('');
     }
@@ -143,10 +145,11 @@ export function MachinesTab({ machines }: MachinesTabProps) {
 
     setActionLoading('chaos');
     try {
-      const result: any = await api.injectChaos({ failure_type: type, machine_id: machineId, severity: 'medium' });
+      const result = await api.injectChaos({ failure_type: type, machine_id: machineId, severity: 'medium' }) as { scenario?: string };
       toast(`Chaos injected: ${result.scenario || type}`, 'info');
-    } catch (err: any) {
-      toast(err.message || 'Chaos injection failed', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Chaos injection failed';
+      toast(message, 'error');
     } finally {
       setActionLoading('');
     }
@@ -158,7 +161,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
       <div className="bg-white rounded-2xl border border-slate-200 p-4">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
@@ -208,7 +211,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
             <option value="type">Sort: Type</option>
           </select>
 
-          <span className="text-sm text-slate-500">{filtered.length} machines</span>
+          <span className="text-sm text-slate-500 whitespace-nowrap">{filtered.length} machines</span>
         </div>
       </div>
 

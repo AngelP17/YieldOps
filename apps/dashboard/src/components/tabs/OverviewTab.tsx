@@ -103,7 +103,14 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
   const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
-  const [dispatchHistory, setDispatchHistory] = useState<Array<Record<string, any>>>([]);
+  interface DispatchHistoryItem {
+    decision_id: string;
+    job_id: string;
+    production_jobs?: { job_name: string };
+    machines?: { name: string };
+    dispatched_at: string;
+  }
+  const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryItem[]>([]);
   const [, setLocalDecisions] = useState<DispatchDecision[]>([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const apiAvailable = isApiConfigured();
@@ -148,8 +155,9 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
       });
     
     api.getDispatchHistory(10)
-      .then((data: any) => {
-        setDispatchHistory(Array.isArray(data) ? data : data?.data || []);
+      .then((data: unknown) => {
+        const historyData = Array.isArray(data) ? data : (data as { data?: DispatchHistoryItem[] })?.data || [];
+        setDispatchHistory(historyData as DispatchHistoryItem[]);
       })
       .catch((err) => {
         console.error('Failed to fetch dispatch history:', err);
@@ -217,11 +225,13 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
       toast(`Dispatch complete: ${result.total_dispatched} jobs assigned`, 'success');
       // Refresh dispatch data
       api.getDispatchQueue().then(setDispatchQueue).catch(() => {});
-      api.getDispatchHistory(10).then((data: any) => {
-        setDispatchHistory(Array.isArray(data) ? data : data?.data || []);
+      api.getDispatchHistory(10).then((data: unknown) => {
+        const historyData = Array.isArray(data) ? data : (data as { data?: DispatchHistoryItem[] })?.data || [];
+        setDispatchHistory(historyData as DispatchHistoryItem[]);
       }).catch(() => {});
-    } catch (err: any) {
-      toast(err.message || 'Dispatch failed', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Dispatch failed';
+      toast(message, 'error');
     } finally {
       setDispatching(false);
     }
@@ -257,10 +267,11 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
     }
 
     try {
-      const result: any = await api.injectChaos({ failure_type: type, machine_id: targetMachine.machine_id, severity: 'medium' });
+      const result = await api.injectChaos({ failure_type: type, machine_id: targetMachine.machine_id, severity: 'medium' }) as { scenario?: string };
       toast(`Chaos injected: ${result.scenario || type} on ${targetMachine.name}`, 'info');
-    } catch (err: any) {
-      toast(err.message || 'Chaos injection failed', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Chaos injection failed';
+      toast(message, 'error');
     } finally {
       setChaosLoading(false);
     }
@@ -276,8 +287,9 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
     try {
       await api.recoverMachine(machineId);
       toast(`${machineName} recovered`, 'success');
-    } catch (err: any) {
-      toast(err.message || 'Recovery failed', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Recovery failed';
+      toast(message, 'error');
     }
   };
 
@@ -306,11 +318,11 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
 
       {/* Action Bar */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={handleRunDispatch}
             disabled={dispatching}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {dispatching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             Run ToC Dispatch
@@ -336,10 +348,10 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
           >
             <BarChart3 className="w-4 h-4" />
-            System Analytics
+            <span className="hidden sm:inline">System </span>Analytics
           </button>
 
-          <div className="ml-auto flex items-center gap-4 text-sm text-slate-500">
+          <div className="hidden sm:flex ml-auto items-center gap-4 text-sm text-slate-500">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-yellow-400" />
               {stats.pendingJobs} pending
@@ -403,7 +415,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
               <h3 className="text-sm font-semibold text-slate-900">Recent Dispatch Decisions</h3>
             </div>
             <div className="divide-y divide-slate-100">
-              {dispatchHistory.slice(0, 8).map((d: any, i) => (
+              {dispatchHistory.slice(0, 8).map((d, i) => (
                 <div key={d.decision_id || i} className="px-6 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <ArrowRight className="w-3.5 h-3.5 text-blue-500" />

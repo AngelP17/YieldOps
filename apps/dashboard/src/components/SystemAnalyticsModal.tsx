@@ -83,6 +83,7 @@ function generateRealisticMockJobs(): ProductionJob[] {
 }
 
 // Check if data appears to be empty/unrealistic (all zeros or very few machines)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function isDataUnrealistic(machines: Machine[], _jobs: ProductionJob[]): boolean {
   if (machines.length === 0) return true;
   
@@ -275,9 +276,9 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full sm:max-w-5xl h-full sm:h-auto max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900">System Analytics & Export</h3>
@@ -290,7 +291,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
         </div>
         
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Export Button */}
           <div className="flex justify-end">
             <button
@@ -375,7 +376,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
               <Layers className="w-4 h-4" />
               Job Queue Status
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
               {[
                 { label: 'Total', value: analytics.jobs.total, color: 'text-slate-900' },
                 { label: 'Pending', value: analytics.jobs.pending, color: 'text-yellow-600' },
@@ -400,7 +401,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
           {/* Performance Summary */}
           <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-4 text-white">
             <h3 className="text-sm font-semibold mb-4">Performance Summary</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <div>
                 <p className="text-2xl font-bold">{analytics.performance.utilizationRate.toFixed(1)}%</p>
                 <p className="text-xs text-slate-400">Machine Utilization</p>

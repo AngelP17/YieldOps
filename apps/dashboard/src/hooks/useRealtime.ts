@@ -31,7 +31,7 @@ export function useRealtime<T>(config: RealtimeConfig) {
               return [...prev, payload.new as T];
             }
             if (payload.eventType === 'UPDATE') {
-              return prev.map((item: any) =>
+              return prev.map((item: T) =>
                 item.machine_id === payload.new.machine_id ||
                 item.job_id === payload.new.job_id ||
                 item.reading_id === payload.new.reading_id
@@ -40,7 +40,7 @@ export function useRealtime<T>(config: RealtimeConfig) {
               );
             }
             if (payload.eventType === 'DELETE') {
-              return prev.filter((item: any) =>
+              return prev.filter((item: T) =>
                 item.machine_id !== payload.old.machine_id &&
                 item.job_id !== payload.old.job_id &&
                 item.reading_id !== payload.old.reading_id
