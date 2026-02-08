@@ -102,7 +102,7 @@ function runToCDispatch(
 
 export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
-  const { isUsingMockData, updateMachine, updateJob, addJob, recoverAllMachines } = useAppConfig();
+  const { isUsingMockData, updateMachine, updateJob, recoverAllMachines } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
   const [, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
@@ -168,43 +168,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
       });
   }, [apiAvailable, toast]);
 
-  // Auto-generate pending jobs in demo mode only if explicitly empty after load
-  useEffect(() => {
-    // Only run in demo mode, after initial load, and if truly empty
-    if (apiAvailable || !isUsingMockData || jobs.length === 0) return;
-    
-    const pendingJobs = jobs.filter(j => j.status === 'PENDING');
-    
-    // Only generate if we have jobs but none are pending (they were all dispatched)
-    if (pendingJobs.length === 0 && jobs.length > 10) {
-      // Generate a few pending jobs dynamically
-      const customers = ['Apple', 'NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Samsung', 'MediaTek', 'Broadcom'];
-      const recipes = ['N5-STD', 'N7-EXP', 'N3-ADV', 'N5-HOT', 'N7-STD', 'N3-EXP'];
-      
-      for (let i = 0; i < 3; i++) {
-        const customer = customers[Math.floor(Math.random() * customers.length)];
-        const recipe = recipes[Math.floor(Math.random() * recipes.length)];
-        const isHot = i < 1; // Ensure at least 1 hot lot
-        
-        const newJob: ProductionJob = {
-          job_id: `job-${Date.now()}-${i}`,
-          job_name: `WF-${new Date().getFullYear()}-${String(1000 + i).slice(-4)}`,
-          wafer_count: 20 + Math.floor(Math.random() * 40),
-          priority_level: isHot ? 1 : Math.floor(Math.random() * 3) + 2,
-          status: 'PENDING',
-          recipe_type: recipe,
-          is_hot_lot: isHot,
-          customer_tag: customer,
-          estimated_duration_minutes: 90 + Math.floor(Math.random() * 120),
-          deadline: new Date(Date.now() + 86400000 * (2 + Math.floor(Math.random() * 5))).toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        
-        addJob(newJob);
-      }
-    }
-  }, [jobs.length, apiAvailable, isUsingMockData, addJob]); // Use jobs.length to prevent constant re-runs
+
 
   const handleRunDispatch = async () => {
     setDispatching(true);
@@ -635,10 +599,18 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
           {/* Dispatch Queue */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-900">Dispatch Queue</h3>
-              <p className="text-xs text-slate-500">
-                {jobs.filter(j => j.status === 'PENDING').length} pending jobs, {machines.filter(m => m.status === 'IDLE').length} available machines
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Dispatch Queue</h3>
+                  <p className="text-xs text-slate-500">
+                    {jobs.filter(j => j.status === 'PENDING').length} pending jobs, {machines.filter(m => m.status === 'IDLE').length} available machines
+                  </p>
+                </div>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-medium rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Autonomous
+                </span>
+              </div>
             </div>
             <div className="divide-y divide-slate-100">
               {jobs
@@ -664,44 +636,12 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                   </div>
                 ))}
               {jobs.filter(j => j.status === 'PENDING').length === 0 && (
-                <div className="px-6 py-8 text-center">
-                  <IconPackage className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-500 mb-1">No pending jobs</p>
-                  <p className="text-xs text-slate-400 mb-3">All jobs have been dispatched</p>
-                  <button
-                    onClick={() => {
-                      // Generate pending jobs dynamically
-                      const customers = ['Apple', 'NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Samsung', 'MediaTek', 'Broadcom'];
-                      const recipes = ['N5-STD', 'N7-EXP', 'N3-ADV', 'N5-HOT', 'N7-STD', 'N3-EXP'];
-                      
-                      for (let i = 0; i < 3; i++) {
-                        const customer = customers[Math.floor(Math.random() * customers.length)];
-                        const recipe = recipes[Math.floor(Math.random() * recipes.length)];
-                        const isHot = Math.random() > 0.7;
-                        
-                        const newJob: ProductionJob = {
-                          job_id: `job-${Date.now()}-${i}`,
-                          job_name: `WF-${new Date().getFullYear()}-${String(1000 + i).slice(-4)}`,
-                          wafer_count: 20 + Math.floor(Math.random() * 40),
-                          priority_level: isHot ? 1 : Math.floor(Math.random() * 3) + 2,
-                          status: 'PENDING',
-                          recipe_type: recipe,
-                          is_hot_lot: isHot,
-                          customer_tag: customer,
-                          estimated_duration_minutes: 90 + Math.floor(Math.random() * 120),
-                          deadline: new Date(Date.now() + 86400000 * (2 + Math.floor(Math.random() * 5))).toISOString(),
-                          created_at: new Date().toISOString(),
-                          updated_at: new Date().toISOString(),
-                        };
-                        
-                        addJob(newJob);
-                      }
-                      toast('Generated 3 new pending jobs', 'success');
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Generate Jobs
-                  </button>
+                <div className="px-6 py-6 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <IconActivity className="w-4 h-4 text-emerald-500 animate-spin" />
+                    <span className="text-sm font-medium text-slate-700">Autonomous generation active</span>
+                  </div>
+                  <p className="text-xs text-slate-500">New jobs are being created automatically</p>
                 </div>
               )}
             </div>
