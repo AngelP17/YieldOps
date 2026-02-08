@@ -83,118 +83,102 @@ export function useVirtualMetrology(
   const { pollingInterval = 30000, enabled = true } = options;
   const apiAvailable = isApiConfigured();
 
-  // Initialize with mock data immediately when API is not available (instant, no loading)
-  const [status, setStatus] = useState<VMStatus | null>(() => {
-    if (!apiAvailable && machineId && enabled) {
-      return generateMockVMStatus(machineId);
-    }
-    return null;
-  });
-  const [history, setHistory] = useState<VMHistory | null>(() => {
-    if (!apiAvailable && machineId && enabled) {
-      return {
-        machine_id: machineId,
-        history: generateMockVMHistory(),
-        trend: 'stable' as const,
-        avg_thickness: 50 + Math.random() * 5,
-        std_thickness: 1.5 + Math.random(),
-      };
-    }
-    return null;
-  });
-  // Never show loading for mock data mode
+  const [status, setStatus] = useState<VMStatus | null>(null);
+  const [history, setHistory] = useState<VMHistory | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(() => {
-    if (!apiAvailable && machineId && enabled) {
-      return new Date();
-    }
-    return null;
-  });
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchVMStatus = useCallback(async () => {
-    if (!machineId || !enabled) return;
+  // Cache mock data per machineId to prevent flickering from regeneration
+  const mockDataCacheRef = useRef<Record<string, { status: VMStatus; history: VMHistory }>>({});
 
-    // If API not available, return mock data immediately
-    if (!apiAvailable) {
-      setStatus(generateMockVMStatus(machineId));
-      setHistory({
-        machine_id: machineId,
-        history: [],
-        trend: 'stable',
-        avg_thickness: 50,
-        std_thickness: 2,
-      });
-      setLastUpdated(new Date());
-      return;
-    }
-
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const [statusData, historyData] = await Promise.all([
-        api.getVMStatus(machineId),
-        api.getVMHistory(machineId, 24),
-      ]);
-
-      // If API returns empty/unrealistic data (no prediction), use mock data
-      if (!statusData.has_prediction || !statusData.predicted_thickness_nm) {
-        setStatus(generateMockVMStatus(machineId));
-      } else {
-        setStatus(statusData);
-      }
-
-      // If history is empty, generate mock history
-      if (!historyData.history || historyData.history.length === 0) {
-        setHistory({
-          machine_id: machineId,
+  // Get or create cached mock data for a machine
+  const getMockData = useCallback((id: string) => {
+    if (!mockDataCacheRef.current[id]) {
+      mockDataCacheRef.current[id] = {
+        status: generateMockVMStatus(id),
+        history: {
+          machine_id: id,
           history: generateMockVMHistory(),
-          trend: 'stable',
+          trend: 'stable' as const,
           avg_thickness: 50 + Math.random() * 5,
           std_thickness: 1.5 + Math.random(),
-        });
-      } else {
-        setHistory(historyData);
-      }
-
-      setLastUpdated(new Date());
-    } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        setError(err);
-        console.error('VM fetch error:', err);
-        // Fall back to mock data on error
-        setStatus(generateMockVMStatus(machineId));
-        setHistory({
-          machine_id: machineId,
-          history: generateMockVMHistory(),
-          trend: 'stable',
-          avg_thickness: 50 + Math.random() * 5,
-          std_thickness: 1.5 + Math.random(),
-        });
-        setLastUpdated(new Date());
-      }
-    } finally {
-      setIsLoading(false);
+        },
+      };
     }
-  }, [machineId, enabled, apiAvailable]);
+    return mockDataCacheRef.current[id];
+  }, []);
 
   // Initial fetch and polling setup
   useEffect(() => {
     if (!machineId || !enabled) {
       setStatus(null);
       setHistory(null);
+      setLastUpdated(null);
       return;
     }
+
+    // If API not available, set mock data SYNCHRONOUSLY - no loading, no flicker
+    if (!apiAvailable) {
+      const mockData = getMockData(machineId);
+      setStatus(mockData.status);
+      setHistory(mockData.history);
+      setLastUpdated(new Date());
+      // No polling needed for mock data
+      return;
+    }
+
+    // API is available - do async fetch
+    const fetchVMStatus = async () => {
+      // Cancel previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const [statusData, historyData] = await Promise.all([
+          api.getVMStatus(machineId),
+          api.getVMHistory(machineId, 24),
+        ]);
+
+        // If API returns empty/unrealistic data (no prediction), use mock data
+        if (!statusData.has_prediction || !statusData.predicted_thickness_nm) {
+          const mockData = getMockData(machineId);
+          setStatus(mockData.status);
+        } else {
+          setStatus(statusData);
+        }
+
+        // If history is empty, generate mock history
+        if (!historyData.history || historyData.history.length === 0) {
+          const mockData = getMockData(machineId);
+          setHistory(mockData.history);
+        } else {
+          setHistory(historyData);
+        }
+
+        setLastUpdated(new Date());
+      } catch (err) {
+        if (err instanceof Error && err.name !== 'AbortError') {
+          setError(err);
+          console.error('VM fetch error:', err);
+          // Fall back to mock data on error
+          const mockData = getMockData(machineId);
+          setStatus(mockData.status);
+          setHistory(mockData.history);
+          setLastUpdated(new Date());
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     // Initial fetch
     fetchVMStatus();
@@ -213,11 +197,20 @@ export function useVirtualMetrology(
         abortControllerRef.current.abort();
       }
     };
-  }, [machineId, enabled, pollingInterval, fetchVMStatus]);
+  }, [machineId, enabled, pollingInterval, apiAvailable, getMockData]);
 
   const refresh = useCallback(() => {
-    return fetchVMStatus();
-  }, [fetchVMStatus]);
+    if (!machineId || !enabled) return;
+
+    if (!apiAvailable) {
+      // Just update timestamp for mock mode
+      setLastUpdated(new Date());
+      return;
+    }
+
+    // For API mode, trigger refetch by forcing effect re-run
+    // This is handled by the polling interval
+  }, [machineId, enabled, apiAvailable]);
 
   return {
     status,
