@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { 
-  Brain, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Zap,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Cpu,
-  ArrowRight,
-  Sparkles,
-  Download
-} from 'lucide-react';
+  IconBrain, 
+  IconClock, 
+  IconCircleCheckFilled, 
+  IconCircleX, 
+  IconAlertTriangle,
+  IconChevronDown,
+  IconChevronUp,
+  IconBolt,
+  IconTrendingUp,
+  IconTrendingDown,
+  IconMinus,
+  IconCpu,
+  IconArrowRight,
+  IconSparkles,
+  IconDownload
+} from '@tabler/icons-react';
 import { useToast } from './ui/Toast';
 
 interface Decision {
@@ -222,11 +222,11 @@ const MOCK_DECISIONS: Decision[] = [
 ];
 
 const DECISION_TYPES = {
-  job_dispatch: { label: 'Job Dispatch', icon: Zap, color: 'blue' },
-  machine_routing: { label: 'Routing', icon: ArrowRight, color: 'indigo' },
-  maintenance_scheduling: { label: 'Maintenance', icon: Clock, color: 'amber' },
-  anomaly_response: { label: 'Anomaly', icon: AlertTriangle, color: 'rose' },
-  load_balancing: { label: 'Load Balance', icon: TrendingUp, color: 'emerald' },
+  job_dispatch: { label: 'Job Dispatch', icon: IconBolt, color: 'blue' },
+  machine_routing: { label: 'Routing', icon: IconArrowRight, color: 'indigo' },
+  maintenance_scheduling: { label: 'Maintenance', icon: IconClock, color: 'amber' },
+  anomaly_response: { label: 'Anomaly', icon: IconAlertTriangle, color: 'rose' },
+  load_balancing: { label: 'Load Balance', icon: IconTrendingUp, color: 'emerald' },
 };
 
 export const DecisionLog: React.FC = () => {
@@ -281,15 +281,15 @@ export const DecisionLog: React.FC = () => {
   const getStatusIcon = (status: Decision['status']) => {
     switch (status) {
       case 'executed':
-        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+        return <IconCircleCheckFilled className="w-4 h-4 text-emerald-500" />;
       case 'approved':
-        return <CheckCircle2 className="w-4 h-4 text-blue-500" />;
+        return <IconCircleCheckFilled className="w-4 h-4 text-blue-500" />;
       case 'rejected':
-        return <XCircle className="w-4 h-4 text-slate-400" />;
+        return <IconCircleX className="w-4 h-4 text-slate-400" />;
       case 'pending':
-        return <Clock className="w-4 h-4 text-amber-500" />;
+        return <IconClock className="w-4 h-4 text-amber-500" />;
       case 'failed':
-        return <XCircle className="w-4 h-4 text-rose-500" />;
+        return <IconCircleX className="w-4 h-4 text-rose-500" />;
     }
   };
 
@@ -301,9 +301,9 @@ export const DecisionLog: React.FC = () => {
   };
 
   const getTrendIcon = (delta: number) => {
-    if (delta > 0) return <TrendingUp className="w-3 h-3 text-emerald-500" />;
-    if (delta < 0) return <TrendingDown className="w-3 h-3 text-rose-500" />;
-    return <Minus className="w-3 h-3 text-slate-400" />;
+    if (delta > 0) return <IconTrendingUp className="w-3 h-3 text-emerald-500" />;
+    if (delta < 0) return <IconTrendingDown className="w-3 h-3 text-rose-500" />;
+    return <IconMinus className="w-3 h-3 text-slate-400" />;
   };
 
   return (
@@ -337,7 +337,7 @@ export const DecisionLog: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
-              <Brain className="w-4 h-4 text-white" />
+              <IconBrain className="w-4 h-4 text-white" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-slate-900">AI Decision Log</h3>
@@ -360,7 +360,7 @@ export const DecisionLog: React.FC = () => {
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
               title="Export to CSV"
             >
-              <Download className="w-4 h-4" />
+              <IconDownload className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -414,7 +414,7 @@ export const DecisionLog: React.FC = () => {
                               {(decision.confidence * 100).toFixed(0)}% confidence
                             </span>
                             <span className="flex items-center gap-1 text-xs text-slate-400">
-                              <Cpu className="w-3 h-3" />
+                              <IconCpu className="w-3 h-3" />
                               {decision.context.affectedMachines.join(', ')}
                             </span>
                             <span className="text-xs text-slate-400">
@@ -435,9 +435,9 @@ export const DecisionLog: React.FC = () => {
                             {decision.status}
                           </span>
                           {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-slate-400" />
+                            <IconChevronUp className="w-4 h-4 text-slate-400" />
                           ) : (
-                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                            <IconChevronDown className="w-4 h-4 text-slate-400" />
                           )}
                         </div>
                       </div>
@@ -462,7 +462,7 @@ export const DecisionLog: React.FC = () => {
                         {/* AI Reasoning */}
                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-4">
                           <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="w-4 h-4 text-indigo-500" />
+                            <IconSparkles className="w-4 h-4 text-indigo-500" />
                             <h4 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">
                               AI Reasoning
                             </h4>
@@ -545,7 +545,7 @@ export const DecisionLog: React.FC = () => {
                         {decision.actualOutcome && (
                           <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4">
                             <div className="flex items-center gap-2 mb-3">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              <IconCircleCheckFilled className="w-4 h-4 text-emerald-500" />
                               <h4 className="text-xs font-semibold text-emerald-900 uppercase tracking-wider">
                                 Actual Outcome
                               </h4>

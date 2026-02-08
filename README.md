@@ -21,6 +21,9 @@ Intelligent Manufacturing & IIoT Portfolio Project
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
 - **Chaos Engineering**: Controlled failure injection for resilience testing
 - **Demo Mode**: Full functionality without backend configuration
+- **Aegis Sentinel**: Autonomous defense agents with 3-tier safety circuit (Green/Yellow/Red zones)
+- **Knowledge Graph**: Incident relationship visualization and concept extraction from telemetry
+- **Physics-Based Detection**: Thermal drift (CTE calculations), ISO 10816 vibration analysis, ultrasonic impedance monitoring
 
 ---
 
@@ -37,6 +40,7 @@ flowchart TB
             Overview["Overview Tab"]
             Machines["Machines Tab"]
             Jobs["Jobs Tab"]
+            Sentinel["Sentinel Tab"]
         end
         
         React --> Tailwind
@@ -51,12 +55,14 @@ flowchart TB
         VM["Virtual Metrology"]
         Chaos["Chaos API"]
         Simulation["Simulation API"]
+        Aegis["Aegis API"]
         
         FastAPI --> ToC
         FastAPI --> ML
         FastAPI --> VM
         FastAPI --> Chaos
         FastAPI --> Simulation
+        FastAPI --> Aegis
     end
 
     subgraph Database["Database - Supabase"]
@@ -65,11 +71,13 @@ flowchart TB
         SensorData[(Sensor Data)]
         Jobs[(Jobs)]
         SimFunctions["simulate_job_progression()"]
+        KnowledgeGraph[(Knowledge Graph)]
         
         PostgreSQL --> Machines
         PostgreSQL --> SensorData
         PostgreSQL --> Jobs
         PostgreSQL --> SimFunctions
+        PostgreSQL --> KnowledgeGraph
     end
 
     Frontend <-->|HTTP REST| Backend
@@ -86,7 +94,9 @@ flowchart TB
 | **Frontend** | React 18 + Vite + TypeScript | UI Framework | Vercel |
 | **Styling** | Tailwind CSS 3.4 | Utility-first CSS | - |
 | **Charts** | Recharts | Data Visualization | - |
-| **Icons** | Lucide React | Icon Library | - |
+| **Icons** | Tabler Icons React | Icon Library | - |
+| **Knowledge Graph** | NetworkX | Graph analytics | - |
+| **Graph Viz** | react-force-graph-2d | Interactive visualization | - |
 | **Backend** | FastAPI (Python 3.11) | API & ML Services | Koyeb |
 | **Database** | PostgreSQL 15 | Primary Data Store | Supabase |
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
@@ -102,10 +112,11 @@ YieldOps/
 │   ├── dashboard/          # React Frontend (Vercel)
 │   │   ├── src/
 │   │   │   ├── components/    # React components
-│   │   │   │   ├── tabs/         # Overview, Machines, Jobs tabs
+│   │   │   │   ├── tabs/         # Overview, Machines, Jobs, Sentinel tabs
+│   │   │   │   ├── aegis/        # Sentinel, Knowledge Graph, Safety Circuit
 │   │   │   │   ├── ui/           # Reusable UI components
 │   │   │   │   └── *.tsx         # Component files
-│   │   │   ├── hooks/         # Custom hooks (useRealtime, useVirtualMetrology)
+│   │   │   ├── hooks/         # Custom hooks (useRealtime, useVirtualMetrology, useAegisSentinel)
 │   │   │   ├── services/      # API & Supabase clients
 │   │   │   ├── lib/           # Utility libraries
 │   │   │   └── types/         # TypeScript types
@@ -114,10 +125,18 @@ YieldOps/
 │   └── api/                # FastAPI Backend (Koyeb)
 │       ├── app/
 │       │   ├── api/v1/        # API endpoints
+│       │   │   └── aegis.py         # Aegis Sentinel API routes
 │       │   ├── core/          # ML & algorithms
+│       │   │   ├── sentinel_engine.py       # Sentinel agent logic
+│       │   │   └── knowledge_graph_engine.py # Graph analytics
 │       │   ├── models/        # Pydantic schemas
 │       │   └── services/      # Database service
 │       └── requirements.txt
+│
+├── aegis/                  # Aegis Sentinel Platform
+│   ├── sentinel-agent/     # Autonomous defense agents
+│   ├── simulator/          # Sentinel simulation environment
+│   └── knowledge-graph/    # Graph analytics & visualization
 │
 ├── packages/
 │   └── types/              # Shared TypeScript types
@@ -203,6 +222,44 @@ YieldOps/
 
 ---
 
+## Aegis Integration
+
+The **Aegis Sentinel Platform** provides autonomous defense capabilities for the Smart Fab system:
+
+### Aegis Components
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Sentinel Agents** | Custom Python Agents | Autonomous monitoring & response |
+| **Knowledge Graph** | NetworkX + PostgreSQL | Incident relationship mapping |
+| **Safety Circuit** | 3-Tier Zone System | Escalating response protocols |
+
+### Three-Agent Architecture
+
+1. **Perception Agent** - Continuous telemetry ingestion (thermal, vibration, ultrasonic)
+2. **Analysis Agent** - Physics-based anomaly detection using CTE calculations, ISO 10816 standards, and impedance analysis
+3. **Response Agent** - Automated interventions with escalating actions based on safety zones
+
+### Safety Circuit Zones
+
+| Zone | Status | Response |
+|------|--------|----------|
+| **Green** | Normal | Continuous monitoring |
+| **Yellow** | Warning | Increased sampling, operator alert |
+| **Red** | Critical | Automated intervention, emergency protocols |
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/aegis/status` | GET | Get sentinel status |
+| `/api/v1/aegis/telemetry` | POST | Submit telemetry data |
+| `/api/v1/aegis/incidents` | GET/POST | List/Create incidents |
+| `/api/v1/aegis/graph` | GET | Get knowledge graph data |
+| `/api/v1/aegis/safety-zone` | GET | Current safety zone status |
+
+---
+
 ## Demo Mode
 
 YieldOps includes a **Demo Mode** that provides full UI functionality without requiring any backend configuration:
@@ -227,7 +284,7 @@ flowchart TD
 - ✅ Job creation and cancellation with instant list updates
 - ✅ Sorting on all tabs (priority, deadline, status, efficiency, type)
 - ✅ Analytics modal with export to Excel functionality
-- ✅ Virtual Metrology with fallback mock predictions
+- ✅ **Virtual Metrology with Global Shared Cache** - No flickering, consistent predictions
 - ✅ System Analytics with realistic data fallback
 - ✅ Toast notifications for all actions
 - ❌ No persistent data storage
@@ -276,7 +333,7 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 ### Machines Tab
 
 - Machine Grid with filterable/sortable cards (by name, status, efficiency, type)
-- Real-time status indicators with VM predictions
+- Real-time status indicators with VM predictions (global cache eliminates flickering)
 - **Sorting** - Name, Status, Efficiency, Type
 - Machine Detail Panel:
   - Status controls (IDLE, RUNNING, MAINTENANCE, DOWN)
@@ -295,6 +352,7 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 - Cancel Job action with immediate UI update
 - Hot Lot indicators and Priority badges
 - Assigned machine display
+- **Inject Hot Lot** - Priority job injection (realistic MES terminology)
 
 ---
 
@@ -317,6 +375,8 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 | `/api/v1/chaos/inject` | POST | Inject failure |
 | `/api/v1/chaos/recover/{id}` | POST | Recover machine |
 | `/api/v1/vm/status/{id}` | GET | Get VM status |
+| `/api/v1/vm/history/{id}` | GET | Get VM history (24h) |
+| `/api/v1/vm/model/info` | GET | Get VM model info |
 | `/api/v1/vm/predict` | POST | Request VM prediction |
 
 See [Architecture.md](Architecture.md) for complete documentation.

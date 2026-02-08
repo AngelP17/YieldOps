@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { 
-  Bomb, 
-  Activity, 
-  Thermometer, 
-  Zap, 
-  AlertTriangle, 
-  Power,
-  RotateCcw,
-  Skull,
-  Gauge,
-  Cpu,
-  CheckCircle2,
-  Timer
-} from 'lucide-react';
+  IconBomb, 
+  IconActivity, 
+  IconThermometer, 
+  IconBolt, 
+  IconAlertTriangle, 
+  IconPower,
+  IconRefresh,
+  IconSkull,
+  IconGauge,
+  IconCpu,
+  IconCircleCheckFilled,
+  IconClockHour4
+} from '@tabler/icons-react';
 
 interface ChaosEvent {
   id: string;
@@ -31,7 +31,7 @@ const CHAOS_SCENARIOS = [
     id: 'thermal_runaway',
     name: 'Thermal Runaway',
     description: 'Simulate extreme temperature spike in lithography unit',
-    icon: Thermometer,
+    icon: IconThermometer,
     color: 'from-orange-500 to-red-600',
     severity: 'critical' as const,
   },
@@ -39,7 +39,7 @@ const CHAOS_SCENARIOS = [
     id: 'vibration_spike',
     name: 'Vibration Anomaly',
     description: 'Inject high-frequency vibration in etching chamber',
-    icon: Activity,
+    icon: IconActivity,
     color: 'from-amber-500 to-orange-600',
     severity: 'high' as const,
   },
@@ -47,7 +47,7 @@ const CHAOS_SCENARIOS = [
     id: 'power_fluctuation',
     name: 'Power Fluctuation',
     description: 'Simulate voltage instability in deposition bay',
-    icon: Zap,
+    icon: IconBolt,
     color: 'from-yellow-500 to-amber-600',
     severity: 'medium' as const,
   },
@@ -55,7 +55,7 @@ const CHAOS_SCENARIOS = [
     id: 'communication_loss',
     name: 'Communication Loss',
     description: 'Disconnect sensor telemetry from inspection unit',
-    icon: Power,
+    icon: IconPower,
     color: 'from-slate-500 to-slate-600',
     severity: 'high' as const,
   },
@@ -63,7 +63,7 @@ const CHAOS_SCENARIOS = [
     id: 'sensor_drift',
     name: 'Sensor Drift',
     description: 'Gradual calibration error in temperature sensors',
-    icon: Gauge,
+    icon: IconGauge,
     color: 'from-blue-500 to-indigo-600',
     severity: 'low' as const,
   },
@@ -133,13 +133,13 @@ export const ChaosPanel: React.FC = () => {
   const getStatusIcon = (status: ChaosEvent['status']) => {
     switch (status) {
       case 'injected':
-        return <Bomb className="w-4 h-4 text-rose-500" />;
+        return <IconBomb className="w-4 h-4 text-rose-500" />;
       case 'detected':
-        return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+        return <IconAlertTriangle className="w-4 h-4 text-amber-500" />;
       case 'mitigated':
-        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+        return <IconCircleCheckFilled className="w-4 h-4 text-emerald-500" />;
       case 'resolved':
-        return <CheckCircle2 className="w-4 h-4 text-blue-500" />;
+        return <IconCircleCheckFilled className="w-4 h-4 text-blue-500" />;
     }
   };
 
@@ -164,7 +164,7 @@ export const ChaosPanel: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 bg-rose-500/20 rounded-xl">
-                <Skull className="w-5 h-5 text-rose-400" />
+                <IconSkull className="w-5 h-5 text-rose-400" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">Chaos Engineering</h3>
@@ -225,7 +225,7 @@ export const ChaosPanel: React.FC = () => {
                   {isActive && (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-xl">
                       <div className="flex items-center gap-2">
-                        <RotateCcw className="w-4 h-4 text-rose-400 animate-spin" />
+                        <IconRefresh className="w-4 h-4 text-rose-400 animate-spin" />
                         <span className="text-xs font-medium text-rose-400">Injecting...</span>
                       </div>
                     </div>
@@ -253,7 +253,7 @@ export const ChaosPanel: React.FC = () => {
               "
             >
               <div className="flex items-center gap-3">
-                <Bomb className="w-6 h-6 text-white" />
+                <IconBomb className="w-6 h-6 text-white" />
                 <div className="text-left">
                   <span className="block text-lg font-bold text-white">INJECT CHAOS</span>
                   <span className="block text-xs text-rose-200">Trigger Random Failure</span>
@@ -272,7 +272,7 @@ export const ChaosPanel: React.FC = () => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 bg-slate-100 rounded-lg">
-              <Activity className="w-4 h-4 text-slate-600" />
+              <IconActivity className="w-4 h-4 text-slate-600" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Chaos Event Log</h3>
@@ -283,7 +283,7 @@ export const ChaosPanel: React.FC = () => {
             onClick={() => setEvents([])}
             className="text-xs font-medium text-slate-500 hover:text-slate-700 flex items-center gap-1"
           >
-            <RotateCcw className="w-3 h-3" />
+            <IconRefresh className="w-3 h-3" />
             Clear
           </button>
         </div>
@@ -292,7 +292,7 @@ export const ChaosPanel: React.FC = () => {
           {events.length === 0 ? (
             <div className="px-6 py-12 text-center">
               <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <CheckCircle2 className="w-6 h-6 text-slate-400" />
+                <IconCircleCheckFilled className="w-6 h-6 text-slate-400" />
               </div>
               <p className="text-sm text-slate-500">No chaos events recorded</p>
               <p className="text-xs text-slate-400 mt-1">Inject a failure to see system response</p>
@@ -318,11 +318,11 @@ export const ChaosPanel: React.FC = () => {
                         <p className="text-xs text-slate-500 mt-1">{event.description}</p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
                           <span className="flex items-center gap-1">
-                            <Cpu className="w-3 h-3" />
+                            <IconCpu className="w-3 h-3" />
                             {event.machineName}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Timer className="w-3 h-3" />
+                            <IconClockHour4 className="w-3 h-3" />
                             {formatTimeAgo(event.timestamp)}
                           </span>
                         </div>
@@ -340,7 +340,7 @@ export const ChaosPanel: React.FC = () => {
                     {event.mitigationAction && (
                       <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
                         <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5" />
+                          <IconCircleCheckFilled className="w-4 h-4 text-emerald-500 mt-0.5" />
                           <div>
                             <p className="text-xs font-medium text-emerald-800">Auto-Mitigation Applied</p>
                             <p className="text-xs text-emerald-600 mt-0.5">{event.mitigationAction}</p>
@@ -362,7 +362,7 @@ export const ChaosPanel: React.FC = () => {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full mx-4 overflow-hidden">
             <div className="px-6 py-4 bg-rose-50 border-b border-rose-100">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-6 h-6 text-rose-500" />
+                <IconAlertTriangle className="w-6 h-6 text-rose-500" />
                 <h3 className="text-lg font-semibold text-rose-900">Confirm Chaos Injection</h3>
               </div>
             </div>

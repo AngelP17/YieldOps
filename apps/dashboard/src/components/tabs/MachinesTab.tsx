@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Wrench, Zap, Activity, TrendingUp, Layers, AlertTriangle, BarChart3 } from 'lucide-react';
+import { IconSearch, IconTool, IconBolt, IconActivity, IconTrendingUp, IconStack, IconAlertTriangle, IconChartBar } from '@tabler/icons-react';
 import { MachineNode } from '../MachineNode';
 import { StatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
@@ -162,7 +162,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               placeholder="Search machines..."
@@ -273,14 +273,14 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
+                      <IconTrendingUp className="w-3.5 h-3.5 text-slate-400" />
                       <span className="text-xs text-slate-500">Efficiency</span>
                     </div>
                     <p className="text-lg font-semibold text-slate-900">{(selectedMachine.efficiency_rating * 100).toFixed(1)}%</p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <Layers className="w-3.5 h-3.5 text-slate-400" />
+                      <IconStack className="w-3.5 h-3.5 text-slate-400" />
                       <span className="text-xs text-slate-500">Wafers</span>
                     </div>
                     <p className="text-lg font-semibold text-slate-900">{selectedMachine.current_wafer_count}</p>
@@ -288,7 +288,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-3.5 h-3.5 text-slate-400" />
+                      <IconBolt className="w-3.5 h-3.5 text-slate-400" />
                       <span className="text-xs text-slate-500">Temperature</span>
                     </div>
                     <p className="text-lg font-semibold text-slate-900">
@@ -297,7 +297,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <Activity className="w-3.5 h-3.5 text-slate-400" />
+                      <IconActivity className="w-3.5 h-3.5 text-slate-400" />
                       <span className="text-xs text-slate-500">Vibration</span>
                     </div>
                     <p className="text-lg font-semibold text-slate-900">
@@ -311,7 +311,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                   onClick={() => setShowAnalytics(true)}
                   className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
                 >
-                  <BarChart3 className="w-4 h-4" />
+                  <IconChartBar className="w-4 h-4" />
                   View Analytics & Export
                 </button>
 
@@ -344,7 +344,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                       disabled={actionLoading === 'recover'}
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                      <Wrench className="w-4 h-4" />
+                      <IconTool className="w-4 h-4" />
                       Recover Machine
                     </button>
                   )}
@@ -354,7 +354,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                       disabled={actionLoading === 'chaos'}
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white text-slate-600 text-sm font-medium rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-colors"
                     >
-                      <AlertTriangle className="w-4 h-4" />
+                      <IconAlertTriangle className="w-4 h-4" />
                       Inject Failure
                     </button>
                     <div className="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-xl shadow-lg border border-slate-200 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
@@ -379,7 +379,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                   </div>
                   {isUsingMockData && (
                     <div className="flex items-center gap-2 p-2 bg-amber-50 rounded-lg">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <IconAlertTriangle className="w-4 h-4 text-amber-500" />
                       <span className="text-xs text-amber-700">Demo Mode - Changes are local only</span>
                     </div>
                   )}
@@ -389,7 +389,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
           ) : (
             <div className="bg-slate-100 rounded-2xl border border-dashed border-slate-300 p-8 text-center">
               <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center mx-auto mb-4">
-                <Search className="w-6 h-6 text-slate-400" />
+                <IconSearch className="w-6 h-6 text-slate-400" />
               </div>
               <h3 className="text-sm font-medium text-slate-900 mb-1">No Machine Selected</h3>
               <p className="text-xs text-slate-500">Click on a machine to view details, analytics, and controls</p>

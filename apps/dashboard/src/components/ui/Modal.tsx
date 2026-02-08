@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { IconX } from '@tabler/icons-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -24,7 +24,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <IconX className="w-5 h-5" />
           </button>
         </div>
         <div className="p-4 sm:p-6 overflow-y-auto flex-1">{children}</div>

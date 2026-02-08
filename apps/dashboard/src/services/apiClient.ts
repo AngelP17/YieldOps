@@ -1,4 +1,4 @@
-import type { VMPredictionRecord, RecipeAdjustment } from '../types';
+import type { VMPredictionRecord, RecipeAdjustment, AegisIncident, AegisAgent, SafetyCircuitStatus, SentinelSummary, KnowledgeGraphData } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -236,4 +236,42 @@ export const api = {
 
   simulationReset: () =>
     request<{ message: string; status: string }>(`/api/v1/simulation/reset`, { method: 'POST' }),
+
+  // Aegis Sentinel
+  getAegisSummary: () =>
+    request<SentinelSummary>(`/api/v1/aegis/summary`),
+
+  getAegisIncidents: (params?: { severity?: string; machine_id?: string; resolved?: boolean; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.severity) searchParams.set('severity', params.severity);
+    if (params?.machine_id) searchParams.set('machine_id', params.machine_id);
+    if (params?.resolved !== undefined) searchParams.set('resolved', String(params.resolved));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    const qs = searchParams.toString();
+    return request<AegisIncident[]>(`/api/v1/aegis/incidents${qs ? `?${qs}` : ''}`);
+  },
+
+  approveIncident: (id: string, approved: boolean, notes?: string) =>
+    request<AegisIncident>(`/api/v1/aegis/incidents/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approved, operator_notes: notes }),
+    }),
+
+  resolveIncident: (id: string, notes?: string) =>
+    request<AegisIncident>(`/api/v1/aegis/incidents/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ operator_notes: notes }),
+    }),
+
+  getAegisAgents: () =>
+    request<AegisAgent[]>(`/api/v1/aegis/agents`),
+
+  getSafetyCircuitStatus: () =>
+    request<SafetyCircuitStatus>(`/api/v1/aegis/safety-circuit`),
+
+  getKnowledgeGraph: () =>
+    request<KnowledgeGraphData>(`/api/v1/aegis/knowledge-graph`),
+
+  generateKnowledgeGraph: () =>
+    request<KnowledgeGraphData>(`/api/v1/aegis/knowledge-graph/generate`, { method: 'POST' }),
 };

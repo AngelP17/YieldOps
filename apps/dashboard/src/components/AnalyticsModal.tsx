@@ -2,23 +2,23 @@ import { useMemo } from 'react';
 import { Machine } from '../types';
 import * as XLSX from 'xlsx';
 import {
-  X,
-  TrendingUp,
-  Activity,
-  Zap,
-  Clock,
-  Layers,
-  Cpu,
-  Calendar,
-  BarChart3,
-  ArrowUpRight,
-  ArrowDownRight,
-  Minus,
-  Download,
-  Microscope,
-  AlertCircle,
-  CheckCircle2
-} from 'lucide-react';
+  IconX,
+  IconTrendingUp,
+  IconActivity,
+  IconBolt,
+  IconClock,
+  IconStack,
+  IconCpu,
+  IconCalendar,
+  IconChartBar,
+  IconArrowUpRight,
+  IconArrowDownRight,
+  IconMinus,
+  IconDownload,
+  IconMicroscope,
+  IconAlertCircle,
+  IconCircleCheck
+} from '@tabler/icons-react';
 import { SPCControlChart } from './SPCControlChart';
 import { SPCViolationBadges } from './SPCViolationBadges';
 import { analyzeSPC } from '../lib/spcEngine';
@@ -140,7 +140,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <IconX className="w-5 h-5" />
           </button>
         </div>
 
@@ -152,28 +152,28 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
               label="24h Avg Efficiency"
               value={`${(avgEfficiency * 100).toFixed(1)}%`}
               trend={efficiencyTrend}
-              icon={TrendingUp}
+              icon={IconTrendingUp}
               color="emerald"
             />
             <MetricCard
               label="Wafers Processed"
               value={totalWafersProcessed.toString()}
               subtext="Last 24h"
-              icon={Layers}
+              icon={IconStack}
               color="blue"
             />
             <MetricCard
               label="Avg Job Duration"
               value={`${avgJobDuration.toFixed(0)}m`}
               subtext="Per job"
-              icon={Clock}
+              icon={IconClock}
               color="amber"
             />
             <MetricCard
               label="Jobs Completed"
               value={completedJobs.toString()}
               subtext={`${jobHistory.length - completedJobs} failed`}
-              icon={Cpu}
+              icon={IconCpu}
               color="indigo"
             />
           </div>
@@ -182,7 +182,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
           {enableVM && (
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
-                <Microscope className="w-5 h-5 text-indigo-500" />
+                <IconMicroscope className="w-5 h-5 text-indigo-500" />
                 <h3 className="text-sm font-semibold text-slate-900">Virtual Metrology (VM)</h3>
                 {vmLoading && <span className="text-xs text-slate-400">Loading...</span>}
               </div>
@@ -192,7 +192,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
                   {/* VM Prediction Card */}
                   <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Microscope className="w-4 h-4 text-indigo-500" />
+                      <IconMicroscope className="w-4 h-4 text-indigo-500" />
                       <span className="text-xs text-slate-500">Predicted Thickness</span>
                     </div>
                     <div className="flex items-baseline gap-1">
@@ -204,12 +204,12 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
                     <div className="mt-2 flex items-center gap-1">
                       {vmStatus.needs_correction ? (
                         <span className="inline-flex items-center gap-1 text-xs text-amber-600">
-                          <AlertCircle className="w-3 h-3" />
+                          <IconAlertCircle className="w-3 h-3" />
                           R2R Correction Needed
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                          <CheckCircle2 className="w-3 h-3" />
+                          <IconCircleCheck className="w-3 h-3" />
                           On Target
                         </span>
                       )}
@@ -219,7 +219,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
                   {/* Confidence Score */}
                   <div className="bg-white border border-slate-200 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Activity className="w-4 h-4 text-slate-400" />
+                      <IconActivity className="w-4 h-4 text-slate-400" />
                       <span className="text-xs text-slate-500">Confidence Score</span>
                     </div>
                     <div className="flex items-baseline gap-1">
@@ -243,7 +243,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
                   {/* EWMA Error */}
                   <div className="bg-white border border-slate-200 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-4 h-4 text-slate-400" />
+                      <IconBolt className="w-4 h-4 text-slate-400" />
                       <span className="text-xs text-slate-500">EWMA Error (R2R)</span>
                     </div>
                     <div className="flex items-baseline gap-1">
@@ -264,7 +264,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
                 </div>
               ) : (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center">
-                  <Microscope className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <IconMicroscope className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-sm text-slate-500">No VM predictions available for this machine</p>
                   <p className="text-xs text-slate-400 mt-1">
                     {vmStatus?.message || 'Sensor data may be insufficient for prediction'}
@@ -386,7 +386,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
               unit="mm/s"
               max={machine.max_vibration}
               current={machine.vibration}
-              icon={Activity}
+              icon={IconActivity}
             />
             <SensorStatCard
               label="Current Temperature"
@@ -394,14 +394,14 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
               unit="°C"
               max={machine.max_temperature}
               current={machine.temperature}
-              icon={Zap}
+              icon={IconBolt}
             />
             <SensorStatCard
               label="Uptime"
               value="23.5"
               unit="hours"
               subtext="99.2% availability"
-              icon={Calendar}
+              icon={IconCalendar}
             />
           </div>
 
@@ -409,7 +409,7 @@ export function AnalyticsModal({ machine, isOpen, onClose, enableVM = true }: An
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-slate-500" />
+                <IconChartBar className="w-4 h-4 text-slate-500" />
                 <h3 className="text-sm font-semibold text-slate-900">Recent Jobs</h3>
               </div>
               <button className="text-xs font-medium text-blue-600 hover:text-blue-700">
@@ -509,9 +509,9 @@ function MetricCard({ label, value, subtext, trend, icon: Icon, color }: MetricC
           <div className={`flex items-center gap-0.5 text-xs font-medium ${
             trend > 0 ? 'text-emerald-600' : trend < 0 ? 'text-rose-600' : 'text-slate-500'
           }`}>
-            {trend > 0 ? <ArrowUpRight className="w-3 h-3" /> : 
-             trend < 0 ? <ArrowDownRight className="w-3 h-3" /> : 
-             <Minus className="w-3 h-3" />}
+            {trend > 0 ? <IconArrowUpRight className="w-3 h-3" /> : 
+             trend < 0 ? <IconArrowDownRight className="w-3 h-3" /> : 
+             <IconMinus className="w-3 h-3" />}
             {Math.abs(trend * 100).toFixed(1)}%
           </div>
         )}
@@ -644,7 +644,7 @@ function ExportReportButton({ machine, historyData, jobHistory, avgEfficiency, a
       onClick={handleExport}
       className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
     >
-      <Download className="w-4 h-4" />
+      <IconDownload className="w-4 h-4" />
       Export Report
     </button>
   );

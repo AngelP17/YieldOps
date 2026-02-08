@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { X, FileSpreadsheet, BarChart3, TrendingUp, Activity, Layers, Clock } from 'lucide-react';
+import { IconX, IconFileSpreadsheet, IconChartBar, IconTrendingUp, IconActivity, IconStack, IconClock } from '@tabler/icons-react';
 import type { Machine, ProductionJob } from '../types';
 
 interface SystemAnalyticsModalProps {
@@ -286,7 +286,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <IconX className="w-5 h-5" />
           </button>
         </div>
         
@@ -299,7 +299,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
               disabled={exporting}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
             >
-              <FileSpreadsheet className="w-4 h-4" />
+              <IconFileSpreadsheet className="w-4 h-4" />
               {exporting ? 'Exporting...' : 'Export to CSV'}
             </button>
           </div>
@@ -308,7 +308,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-4 h-4 text-blue-600" />
+                <IconActivity className="w-4 h-4 text-blue-600" />
                 <span className="text-xs font-medium text-blue-600">Utilization</span>
               </div>
               <p className="text-2xl font-bold text-blue-900">{analytics.performance.utilizationRate.toFixed(1)}%</p>
@@ -317,7 +317,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
             
             <div className="bg-emerald-50 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
+                <IconTrendingUp className="w-4 h-4 text-emerald-600" />
                 <span className="text-xs font-medium text-emerald-600">Avg Efficiency</span>
               </div>
               <p className="text-2xl font-bold text-emerald-900">{(analytics.machines.avgEfficiency * 100).toFixed(1)}%</p>
@@ -326,7 +326,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
             
             <div className="bg-purple-50 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Layers className="w-4 h-4 text-purple-600" />
+                <IconStack className="w-4 h-4 text-purple-600" />
                 <span className="text-xs font-medium text-purple-600">Wafers</span>
               </div>
               <p className="text-2xl font-bold text-purple-900">{analytics.machines.totalWafers}</p>
@@ -335,7 +335,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
             
             <div className="bg-amber-50 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-4 h-4 text-amber-600" />
+                <IconClock className="w-4 h-4 text-amber-600" />
                 <span className="text-xs font-medium text-amber-600">Throughput</span>
               </div>
               <p className="text-2xl font-bold text-amber-900">{analytics.performance.estimatedThroughput}</p>
@@ -346,7 +346,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
           {/* Machine Status */}
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
+              <IconChartBar className="w-4 h-4" />
               Machine Status Distribution
             </h3>
             <div className="space-y-3">
@@ -373,7 +373,7 @@ export function SystemAnalyticsModal({ isOpen, onClose, machines: rawMachines, j
           {/* Job Status */}
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <Layers className="w-4 h-4" />
+              <IconStack className="w-4 h-4" />
               Job Queue Status
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">

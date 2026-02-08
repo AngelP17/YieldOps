@@ -9,6 +9,7 @@ jupyter==1.0.0
 matplotlib==3.8.2
 seaborn==0.13.1
 
+
 # Data
 supabase==2.3.0
 python-dotenv==1.0.0

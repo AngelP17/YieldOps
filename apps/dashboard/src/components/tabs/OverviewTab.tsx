@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Activity, Cpu, TrendingUp, Layers, Package, Shield, Zap,
-  Play, AlertTriangle, ArrowRight, Clock, RefreshCw, Wrench,
-  BarChart3
-} from 'lucide-react';
+  IconActivity, IconCpu, IconTrendingUp, IconStack, IconPackage, IconShield, IconBolt,
+  IconPlayerPlay, IconAlertTriangle, IconArrowRight, IconClock, IconRefresh, IconTool,
+  IconChartBar, IconShieldCheck, IconShieldExclamation
+} from '@tabler/icons-react';
 import { KpiCard } from '../ui/KpiCard';
 import { StatusBadge, JobStatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
 import { SystemAnalyticsModal } from '../SystemAnalyticsModal';
 import { api, DispatchQueueResponse, isApiConfigured } from '../../services/apiClient';
 import { useAppConfig } from '../../App';
+import { useAegisSentinel } from '../../hooks/useAegisSentinel';
 import type { Machine, ProductionJob } from '../../types';
 
 interface OverviewTabProps {
@@ -303,18 +304,61 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   };
 
   const troubledMachines = machines.filter(m => m.status === 'DOWN' || m.status === 'MAINTENANCE');
+  const { summary: sentinelSummary } = useAegisSentinel({ pollingInterval: 15000 });
 
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KpiCard label="Total Machines" value={stats.total} subtext={`${stats.running} active`} icon={Cpu} trend="+2" color="blue" />
-        <KpiCard label="Running" value={stats.running} subtext={`${stats.total > 0 ? ((stats.running / stats.total) * 100).toFixed(0) : 0}% uptime`} icon={Activity} trend="+5%" color="emerald" />
-        <KpiCard label="Efficiency" value={`${(stats.avgEfficiency * 100).toFixed(1)}%`} subtext="Avg. performance" icon={TrendingUp} trend="+1.2%" color="indigo" />
-        <KpiCard label="Wafers In Process" value={stats.totalWafers} subtext={`${stats.totalProcessed.toLocaleString()} total`} icon={Layers} trend="+12" color="amber" />
-        <KpiCard label="Active Jobs" value={stats.runningJobs + stats.queuedJobs} subtext={`${stats.hotLots} hot lots`} icon={Package} trend="+3" color="purple" />
-        <KpiCard label="Alerts" value={stats.down + stats.maintenance} subtext="Require attention" icon={Shield} trend="-1" color="rose" />
+        <KpiCard label="Total Machines" value={stats.total} subtext={`${stats.running} active`} icon={IconCpu} trend="+2" color="blue" />
+        <KpiCard label="Running" value={stats.running} subtext={`${stats.total > 0 ? ((stats.running / stats.total) * 100).toFixed(0) : 0}% uptime`} icon={IconActivity} trend="+5%" color="emerald" />
+        <KpiCard label="Efficiency" value={`${(stats.avgEfficiency * 100).toFixed(1)}%`} subtext="Avg. performance" icon={IconTrendingUp} trend="+1.2%" color="indigo" />
+        <KpiCard label="Wafers In Process" value={stats.totalWafers} subtext={`${stats.totalProcessed.toLocaleString()} total`} icon={IconStack} trend="+12" color="amber" />
+        <KpiCard label="Active Jobs" value={stats.runningJobs + stats.queuedJobs} subtext={`${stats.hotLots} hot lots`} icon={IconPackage} trend="+3" color="purple" />
+        <KpiCard label="Alerts" value={stats.down + stats.maintenance} subtext="Require attention" icon={IconShield} trend="-1" color="rose" />
       </div>
+
+      {/* Aegis Sentinel Summary */}
+      {sentinelSummary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-emerald-50 rounded-lg">
+              <IconShieldCheck className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">{sentinelSummary.active_agents}</p>
+              <p className="text-[10px] font-medium text-slate-500">Sentinel Agents</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-amber-50 rounded-lg">
+              <IconAlertTriangle className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">{sentinelSummary.total_incidents_24h}</p>
+              <p className="text-[10px] font-medium text-slate-500">Incidents (24h)</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-lg">
+              <IconActivity className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">{sentinelSummary.safety_circuit.green_actions_24h}</p>
+              <p className="text-[10px] font-medium text-slate-500">Auto-Resolved</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-rose-50 rounded-lg">
+              <IconShieldExclamation className="w-4 h-4 text-rose-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">{sentinelSummary.safety_circuit.yellow_pending}</p>
+              <p className="text-[10px] font-medium text-slate-500">Pending Approval</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4">
@@ -324,7 +368,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             disabled={dispatching}
             className="flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {dispatching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {dispatching ? <IconRefresh className="w-4 h-4 animate-spin" /> : <IconPlayerPlay className="w-4 h-4" />}
             Run ToC Dispatch
           </button>
 
@@ -333,7 +377,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
               disabled={chaosLoading}
               className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 text-white text-sm font-medium rounded-xl hover:bg-rose-700 disabled:opacity-50 transition-colors"
             >
-              <Zap className="w-4 h-4" />
+              <IconBolt className="w-4 h-4" />
               Inject Chaos
             </button>
             <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
@@ -347,7 +391,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             onClick={() => setShowAnalytics(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
           >
-            <BarChart3 className="w-4 h-4" />
+            <IconChartBar className="w-4 h-4" />
             <span className="hidden sm:inline">System </span>Analytics
           </button>
 
@@ -397,7 +441,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                         )}
                       </div>
                       <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <Clock className="w-3 h-3" />
+                        <IconClock className="w-3 h-3" />
                         P{job.priority_level}
                       </span>
                     </div>
@@ -418,7 +462,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
               {dispatchHistory.slice(0, 8).map((d, i) => (
                 <div key={d.decision_id || i} className="px-6 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <ArrowRight className="w-3.5 h-3.5 text-blue-500" />
+                    <IconArrowRight className="w-3.5 h-3.5 text-blue-500" />
                     <div>
                       <span className="text-sm text-slate-700">{d.production_jobs?.job_name || d.job_id?.slice(0, 8)}</span>
                       <span className="text-xs text-slate-400 ml-2">{d.machines?.name || ''}</span>
@@ -459,8 +503,8 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                     <JobStatusBadge status={job.status} />
                   </div>
                   <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <span className="flex items-center gap-1"><Layers className="w-3 h-3" />{job.wafer_count} wafers</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />P{job.priority_level}</span>
+                    <span className="flex items-center gap-1"><IconStack className="w-3 h-3" />{job.wafer_count} wafers</span>
+                    <span className="flex items-center gap-1"><IconClock className="w-3 h-3" />P{job.priority_level}</span>
                     {job.assigned_machine_id && (
                       <span className="text-blue-600">{machines.find(m => m.machine_id === job.assigned_machine_id)?.name || 'Assigned'}</span>
                     )}
@@ -509,7 +553,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             <div className="px-6 py-4 border-b border-slate-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                  <IconAlertTriangle className="w-4 h-4 text-rose-500" />
                   <h3 className="text-sm font-semibold text-slate-900">Needs Attention</h3>
                 </div>
                 {troubledMachines.length > 1 && (
@@ -517,7 +561,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                     onClick={handleRecoverAll}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
                   >
-                    <Wrench className="w-3 h-3" />
+                    <IconTool className="w-3 h-3" />
                     Recover All ({troubledMachines.length})
                   </button>
                 )}
@@ -536,7 +580,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                     onClick={() => handleRecover(m.machine_id, m.name)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
                   >
-                    <Wrench className="w-3 h-3" />
+                    <IconTool className="w-3 h-3" />
                     Recover
                   </button>
                 </div>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { CheckCircle, XCircle, Info, X } from 'lucide-react';
+import { IconCircleCheck, IconCircleX, IconInfoCircle, IconX } from '@tabler/icons-react';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -37,10 +37,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const icons = {
-    success: <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />,
-    error: <XCircle className="w-4 h-4 text-rose-500 shrink-0" />,
-    info: <Info className="w-4 h-4 text-blue-500 shrink-0" />,
-    warning: <Info className="w-4 h-4 text-amber-500 shrink-0" />,
+    success: <IconCircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />,
+    error: <IconCircleX className="w-4 h-4 text-rose-500 shrink-0" />,
+    info: <IconInfoCircle className="w-4 h-4 text-blue-500 shrink-0" />,
+    warning: <IconInfoCircle className="w-4 h-4 text-amber-500 shrink-0" />,
   };
 
   const borderColors = {
@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               onClick={() => dismiss(t.id)}
               className="p-0.5 text-slate-400 hover:text-slate-600"
             >
-              <X className="w-3.5 h-3.5" />
+              <IconX className="w-3.5 h-3.5" />
             </button>
           </div>
         ))}

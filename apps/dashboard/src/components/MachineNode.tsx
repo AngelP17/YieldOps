@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, AlertTriangle, CheckCircle, Pause, Thermometer, Zap, Microscope } from 'lucide-react';
+import { IconActivity, IconAlertTriangle, IconCircleCheck, IconPlayerPause, IconThermometer, IconBolt, IconMicroscope } from '@tabler/icons-react';
 import type { Machine, MachineStatus } from '../types';
 
 interface MachineNodeProps {
@@ -26,7 +26,7 @@ const statusConfig: Record<MachineStatus, {
     gradient: 'from-emerald-500/10 to-emerald-600/5',
     bgColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
-    icon: CheckCircle,
+    icon: IconCircleCheck,
     label: 'Idle',
     dotColor: 'bg-emerald-500',
   },
@@ -34,7 +34,7 @@ const statusConfig: Record<MachineStatus, {
     gradient: 'from-blue-500/10 to-blue-600/5',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
-    icon: Activity,
+    icon: IconActivity,
     label: 'Running',
     dotColor: 'bg-blue-500',
   },
@@ -42,7 +42,7 @@ const statusConfig: Record<MachineStatus, {
     gradient: 'from-rose-500/10 to-rose-600/5',
     bgColor: 'bg-rose-50',
     borderColor: 'border-rose-200',
-    icon: AlertTriangle,
+    icon: IconAlertTriangle,
     label: 'Down',
     dotColor: 'bg-rose-500',
   },
@@ -50,7 +50,7 @@ const statusConfig: Record<MachineStatus, {
     gradient: 'from-amber-500/10 to-amber-600/5',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
-    icon: Pause,
+    icon: IconPlayerPause,
     label: 'Maintenance',
     dotColor: 'bg-amber-500',
   }
@@ -145,7 +145,7 @@ export const MachineNode: React.FC<MachineNodeProps> = ({
                 ? 'bg-amber-100 text-amber-700 border border-amber-200' 
                 : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}
             `}>
-              <Microscope className="w-3 h-3" />
+              <IconMicroscope className="w-3 h-3" />
               <span>VM: {vmStatus.predicted_thickness_nm?.toFixed(1)}nm</span>
               {vmStatus.needs_correction && (
                 <span className="ml-1 text-amber-600">⚠ R2R</span>
@@ -183,7 +183,7 @@ export const MachineNode: React.FC<MachineNodeProps> = ({
           {/* Temperature */}
           <div className="bg-white/60 backdrop-blur-sm rounded-xl p-2.5 border border-slate-100">
             <div className="flex items-center gap-1 mb-1">
-              <Thermometer className="w-3 h-3 text-slate-400" />
+              <IconThermometer className="w-3 h-3 text-slate-400" />
               <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Temp</p>
             </div>
             <p className={`text-lg font-bold ${
@@ -198,7 +198,7 @@ export const MachineNode: React.FC<MachineNodeProps> = ({
           {/* Vibration */}
           <div className="bg-white/60 backdrop-blur-sm rounded-xl p-2.5 border border-slate-100">
             <div className="flex items-center gap-1 mb-1">
-              <Zap className="w-3 h-3 text-slate-400" />
+              <IconBolt className="w-3 h-3 text-slate-400" />
               <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Vib</p>
             </div>
             <p className={`text-lg font-bold ${

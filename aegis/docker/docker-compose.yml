@@ -1,0 +1,191 @@
+version: '3.8'
+
+# Aegis Industrial Defense Platform
+# Complete stack: MQTT broker + Ghost CNCs + Aegis Sentinel + Knowledge Graph
+#
+# Quick start (from aegis/docker/):
+#   docker-compose up -d
+#
+# Access Knowledge Graph API at: http://localhost:8000
+# Dashboard is now integrated into YieldOps: http://localhost:5173
+
+services:
+  # ============================================================
+  # MQTT Broker - Message bus for telemetry and commands
+  # ============================================================
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: aegis-mqtt
+    ports:
+      - "1883:1883"  # MQTT
+      - "9001:9001"  # WebSocket (for dashboard)
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-logs:/mosquitto/log
+    networks:
+      - aegis-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-t", "test", "-m", "test", "-r"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Ghost CNC Fleet - Virtual manufacturing equipment
+  # ============================================================
+  ghost-cnc-001:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: ghost-cnc-001
+    environment:
+      - MACHINE_ID=CNC-001
+      - MQTT_BROKER=mosquitto
+      - INITIAL_RPM=4800
+      - INITIAL_LOAD=0.65
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    restart: unless-stopped
+
+  ghost-cnc-002:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: ghost-cnc-002
+    environment:
+      - MACHINE_ID=CNC-002
+      - MQTT_BROKER=mosquitto
+      - INITIAL_RPM=5200
+      - INITIAL_LOAD=0.70
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    restart: unless-stopped
+
+  ghost-cnc-003:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: ghost-cnc-003
+    environment:
+      - MACHINE_ID=CNC-003
+      - MQTT_BROKER=mosquitto
+      - INITIAL_RPM=4500
+      - INITIAL_LOAD=0.60
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    restart: unless-stopped
+
+  ghost-cnc-004:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: ghost-cnc-004
+    environment:
+      - MACHINE_ID=CNC-004
+      - MQTT_BROKER=mosquitto
+      - INITIAL_RPM=5000
+      - INITIAL_LOAD=0.75
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    restart: unless-stopped
+
+  ghost-cnc-005:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: ghost-cnc-005
+    environment:
+      - MACHINE_ID=CNC-005
+      - MQTT_BROKER=mosquitto
+      - INITIAL_RPM=0  # Idle machine
+      - INITIAL_LOAD=0.0
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    restart: unless-stopped
+
+  # ============================================================
+  # Aegis Sentinel - Autonomous defense engine (Python)
+  # ============================================================
+  aegis-sentinel:
+    build:
+      context: ../sentinel-agent
+      dockerfile: Dockerfile
+    container_name: aegis-sentinel
+    environment:
+      - RUST_LOG=info
+      - MQTT_BROKER=mosquitto
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    restart: unless-stopped
+
+  # ============================================================
+  # TimescaleDB - Time-series database for telemetry storage
+  # ============================================================
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    container_name: aegis-timescale
+    environment:
+      - POSTGRES_DB=aegis
+      - POSTGRES_USER=aegis
+      - POSTGRES_PASSWORD=aegis_secure_password_change_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - aegis-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis -d aegis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Knowledge Graph Service - Graph analytics for incidents
+  # ============================================================
+  knowledge-graph:
+    build:
+      context: ../knowledge-graph
+      dockerfile: Dockerfile
+    container_name: aegis-knowledge-graph
+    ports:
+      - "8000:8000"
+    networks:
+      - aegis-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  aegis-net:
+    driver: bridge
+
+volumes:
+  mosquitto-data:
+  mosquitto-logs:
+  timescale-data:

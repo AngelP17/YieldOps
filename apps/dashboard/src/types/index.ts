@@ -146,3 +146,76 @@ export interface RecipeAdjustment {
   applied: boolean;
   created_at: string;
 }
+
+// =====================================================
+// Aegis Sentinel Types
+// =====================================================
+
+export type SeverityLevel = 'low' | 'medium' | 'high' | 'critical';
+export type SafetyZone = 'green' | 'yellow' | 'red';
+export type ActionStatus = 'auto_executed' | 'pending_approval' | 'approved' | 'rejected' | 'alert_only';
+export type AgentType = 'precision' | 'facility' | 'assembly';
+
+export interface AegisIncident {
+  incident_id: string;
+  timestamp: string;
+  machine_id: string;
+  severity: SeverityLevel;
+  incident_type: string;
+  message: string;
+  detected_value: number;
+  threshold_value: number;
+  action_taken: string;
+  action_status: ActionStatus;
+  action_zone: SafetyZone;
+  agent_type?: AgentType | null;
+  z_score?: number | null;
+  rate_of_change?: number | null;
+  resolved: boolean;
+  resolved_at?: string | null;
+  operator_notes?: string | null;
+}
+
+export interface AegisAgent {
+  agent_id: string;
+  agent_type: AgentType;
+  machine_id: string;
+  status: string;
+  last_heartbeat?: string | null;
+  detections_24h: number;
+  uptime_hours: number;
+  capabilities: string[];
+  protocol: string;
+}
+
+export interface SafetyCircuitStatus {
+  green_actions_24h: number;
+  yellow_pending: number;
+  red_alerts_24h: number;
+  agents_active: number;
+  agents_total: number;
+  last_incident?: AegisIncident | null;
+}
+
+export interface SentinelSummary {
+  total_incidents_24h: number;
+  critical_incidents_24h: number;
+  active_agents: number;
+  safety_circuit: SafetyCircuitStatus;
+  recent_incidents: AegisIncident[];
+  top_affected_machines: Array<{ machine_id: string; incident_count: number }>;
+}
+
+export interface KnowledgeGraphData {
+  nodes: Array<{
+    data: { id: string; label: string; type: string; color: string };
+  }>;
+  edges: Array<{
+    data: { id: string; source: string; target: string; label: string; weight: number };
+  }>;
+  stats: {
+    node_count: number;
+    edge_count: number;
+    central_concepts: Array<[string, number]>;
+  };
+}

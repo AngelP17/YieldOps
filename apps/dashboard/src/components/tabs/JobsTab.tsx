@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Clock, Layers, X, Flame, AlertTriangle } from 'lucide-react';
+import { IconSearch, IconClock, IconStack, IconX, IconFlame, IconAlertTriangle } from '@tabler/icons-react';
 import { JobStatusBadge } from '../ui/StatusBadge';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
@@ -25,13 +25,13 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const apiAvailable = isApiConfigured();
 
-  // Form state
+  // Form state - defaults to hot lot since this is "Inject Hot Lot"
   const [form, setForm] = useState<CreateJobPayload>({
     job_name: '',
     wafer_count: 25,
-    priority_level: 3,
+    priority_level: 1,
     recipe_type: 'STANDARD_LOGIC',
-    is_hot_lot: false,
+    is_hot_lot: true,
     customer_tag: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -134,7 +134,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
         updated_at: new Date().toISOString(),
       };
       addJob(newJob);
-      toast(`Job "${form.job_name}" created (Demo Mode)`, 'success');
+      toast(`Hot lot "${form.job_name}" injected (Demo Mode)`, 'success');
       setShowCreate(false);
       setForm({
         job_name: '',
@@ -150,7 +150,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
     setSubmitting(true);
     try {
       await api.createJob(form);
-      toast(`Job "${form.job_name}" created`, 'success');
+      toast(`Hot lot "${form.job_name}" injected`, 'success');
       setShowCreate(false);
       setForm({
         job_name: '',
@@ -192,7 +192,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       {/* Demo Mode Banner */}
       {isUsingMockData && (
         <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <AlertTriangle className="w-5 h-5 text-amber-500" />
+          <IconAlertTriangle className="w-5 h-5 text-amber-500" />
           <div>
             <p className="text-sm font-medium text-amber-800">Demo Mode Active</p>
             <p className="text-xs text-amber-700">Jobs will be stored locally. Configure VITE_API_URL to enable persistent storage.</p>
@@ -223,14 +223,14 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 text-white text-sm font-medium rounded-xl hover:bg-rose-700 transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            Create Job
+            <IconFlame className="w-4 h-4" />
+            Inject Hot Lot
           </button>
 
           <div className="relative flex-1 min-w-0 order-first basis-full sm:basis-auto sm:order-none">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               placeholder="Search jobs or customers..."
@@ -272,7 +272,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            <Flame className="w-3.5 h-3.5" />
+            <IconFlame className="w-3.5 h-3.5" />
             Hot Lots
           </button>
         </div>
@@ -302,7 +302,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                     <span>&middot;</span>
                     <span>{job.recipe_type}</span>
                     <span>&middot;</span>
-                    <span className="flex items-center gap-1"><Layers className="w-3 h-3" />{job.wafer_count} wafers</span>
+                    <span className="flex items-center gap-1"><IconStack className="w-3 h-3" />{job.wafer_count} wafers</span>
                     {job.assigned_machine_id && (
                       <>
                         <span>&middot;</span>
@@ -312,7 +312,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                     {job.deadline && (
                       <>
                         <span>&middot;</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(job.deadline).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-1"><IconClock className="w-3 h-3" />{new Date(job.deadline).toLocaleDateString()}</span>
                       </>
                     )}
                   </div>
@@ -326,7 +326,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                       disabled={cancellingId === job.job_id}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-colors"
                     >
-                      <X className="w-3 h-3" />
+                      <IconX className="w-3 h-3" />
                       Cancel
                     </button>
                   )}
@@ -341,11 +341,11 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
       </div>
 
       {/* Create Job Modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Production Job">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Inject Hot Lot">
         <div className="space-y-4">
           {isUsingMockData && (
             <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              <IconAlertTriangle className="w-4 h-4 text-amber-500" />
               <span className="text-xs text-amber-700">Demo Mode - Job will be stored locally only</span>
             </div>
           )}
@@ -437,7 +437,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
               disabled={submitting}
               className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {submitting ? 'Creating...' : 'Create Job'}
+              {submitting ? 'Injecting...' : 'Inject Hot Lot'}
             </button>
           </div>
         </div>

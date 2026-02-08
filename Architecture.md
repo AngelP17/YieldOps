@@ -20,7 +20,10 @@ Intelligent Manufacturing & IIoT Portfolio Project
 - **Virtual Metrology**: Predict film thickness and enable Run-to-Run control
 - **Capacity Planning**: Monte Carlo simulation for production forecasting
 - **Chaos Engineering**: Controlled failure injection for resilience testing
-- **Demo Mode**: Full functionality without backend configuration
+- **Demo Mode**: Full functionality without backend configuration (with global VM cache for consistent mock data)
+- **Aegis Sentinel**: Autonomous defense agents with 3-tier safety circuit
+- **Knowledge Graph**: Incident relationship visualization and concept extraction
+- **Physics-based detection**: Thermal drift, ISO 10816 vibration, ultrasonic impedance
 
 ---
 
@@ -33,7 +36,7 @@ flowchart TB
         React["React 18 + Vite + TypeScript"]
         Tailwind["Tailwind CSS 3.4"]
         Recharts["Recharts"]
-        Lucide["Lucide Icons"]
+        Tabler["Tabler Icons"]
         
         subgraph Components["UI Components"]
             OverviewTab["Overview Tab"]
@@ -47,6 +50,7 @@ flowchart TB
         subgraph Hooks["Custom Hooks"]
             useRealtime["useRealtime"]
             useVirtualMetrology["useVirtualMetrology"]
+            useVirtualMetrologyBatch["useVirtualMetrologyBatch"]
             usePolling["usePolling"]
         end
         
@@ -57,7 +61,7 @@ flowchart TB
         
         React --> Tailwind
         React --> Recharts
-        React --> Lucide
+        React --> Tabler
         Components --> Hooks
         Hooks --> Services
     end
@@ -75,14 +79,47 @@ flowchart TB
             VMAPI["/vm"]
             SchedulerAPI["/scheduler"]
             SimulationAPI["/simulation"]
+            AegisAPI["AegisAPI"]
+        end
+        
+        subgraph AegisRoutes["Aegis Routes"]
+            IncidentsAPI["/aegis/incidents"]
+            AgentsAPI["/aegis/agents"]
+            SafetyAPI["/aegis/safety-circuit"]
+            KnowledgeAPI["/aegis/knowledge-graph"]
         end
         
         subgraph CoreEngines["Core Engines"]
             ToC["Theory of Constraints Engine"]
             AnomalyDetector["Anomaly Detector (Isolation Forest)"]
+            SentinelEngine["SentinelEngine (Z-score + RoC)"]
+            KnowledgeGraphEngine["KnowledgeGraphEngine (NetworkX)"]
+            SafetyCircuit["Safety Circuit (3-tier zones)"]
             MonteCarlo["Monte Carlo Simulator"]
             VMEngine["Virtual Metrology Engine"]
             SchedulerOpt["Scheduler Optimizer"]
+        end
+        
+        subgraph AegisSentinel["Aegis Sentinel Platform"]
+            direction TB
+            
+            subgraph SentinelAgents["Sentinel Agents"]
+                FacilityAgent["Facility Agent (Zone-level)"]
+                PrecisionAgent["Precision Agent (Tool-level)"]
+                AssemblyAgent["Assembly Agent (Lot-level)"]
+            end
+            
+            subgraph SafetyCircuitSub["Safety Circuit"]
+                GreenZone["Green Zone (Normal)"]
+                YellowZone["Yellow Zone (Caution)"]
+                RedZone["Red Zone (Critical)"]
+            end
+            
+            subgraph KnowledgeGraph["Knowledge Graph"]
+                KGNodes["kg_nodes (Concepts/Entities)"]
+                KGEdges["kg_edges (Relationships)"]
+                GraphViz["react-force-graph-2d"]
+            end
         end
         
         subgraph RustModules["Rust Extensions"]
@@ -96,6 +133,8 @@ flowchart TB
         
         FastAPI --> APIRoutes
         APIRoutes --> CoreEngines
+        APIRoutes --> AegisRoutes
+        AegisRoutes --> AegisSentinel
         APIRoutes --> ServicesBE
         CoreEngines --> RustModules
     end
@@ -124,9 +163,17 @@ flowchart TB
             CapacitySimulations[(capacity_simulations)]
         end
         
+        subgraph AegisTables["Aegis Sentinel Tables"]
+            AegisIncidents[(aegis_incidents)]
+            AegisAgents[(aegis_agents)]
+            KGNodesTable[(kg_nodes)]
+            KGEdgesTable[(kg_edges)]
+        end
+        
         PostgreSQL --> Tables
         PostgreSQL --> VMTables
         PostgreSQL --> OpsTables
+        PostgreSQL --> AegisTables
         PostgreSQL --> Realtime
     end
 
@@ -144,12 +191,145 @@ flowchart TB
 | **Frontend** | React 18 + Vite + TypeScript | UI Framework | Vercel |
 | **Styling** | Tailwind CSS 3.4 | Utility-first CSS | - |
 | **Charts** | Recharts | Data Visualization | - |
-| **Icons** | Lucide React | Icon Library | - |
+| **Icons** | Tabler Icons React | Icon Library | - |
 | **Backend** | FastAPI (Python 3.11) | API & ML Services | Koyeb |
 | **Database** | PostgreSQL 15 | Primary Data Store | Supabase |
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
 | **ML** | Scikit-Learn | Anomaly Detection & VM | - |
 | **Rust** | PyO3 + rayon | High-performance compute | - |
+| **Graph Analytics** | NetworkX | Knowledge graph analysis | - |
+| **Graph Visualization** | react-force-graph-2d | Interactive graph rendering | - |
+
+## Aegis Sentinel Platform
+
+The Aegis Sentinel Platform provides autonomous defense capabilities for semiconductor manufacturing through a multi-agent architecture with physics-based detection and knowledge graph intelligence.
+
+### Three-Agent Architecture
+
+```mermaid
+flowchart TB
+    subgraph AegisAgents["Aegis Sentinel Agents"]
+        direction TB
+        
+        subgraph Facility["Facility Agent"]
+            F1["Scope: Zone-level"]
+            F2["Physics: Thermal drift monitoring"]
+            F3["Detection: Z-score + RoC"]
+        end
+        
+        subgraph Precision["Precision Agent"]
+            P1["Scope: Tool-level"]
+            P2["Physics: ISO 10816 vibration"]
+            P3["Detection: Bearing fault signatures"]
+        end
+        
+        subgraph Assembly["Assembly Agent"]
+            A1["Scope: Lot-level"]
+            A2["Physics: Ultrasonic impedance"]
+            A3["Detection: Delamination patterns"]
+        end
+    end
+    
+    subgraph Safety["Safety Circuit"]
+        Green["Green Zone<br/>Normal Operation"]
+        Yellow["Yellow Zone<br/>Caution - Elevated Monitoring"]
+        Red["Red Zone<br/>Critical - Immediate Action"]
+    end
+    
+    Facility --> Safety
+    Precision --> Safety
+    Assembly --> Safety
+```
+
+**Agent Responsibilities:**
+
+| Agent | Scope | Physics Domain | Key Detection |
+|-------|-------|----------------|---------------|
+| **Facility Agent** | Zone-level (LITHO, ETCH, DEP, etc.) | Thermal drift, power anomalies | Z-score thresholding + Rate of Change |
+| **Precision Agent** | Tool-level (individual machines) | ISO 10816 vibration standards | Bearing fault frequencies, misalignment |
+| **Assembly Agent** | Lot-level (wafer batches) | Ultrasonic impedance | Delamination, void detection, bond quality |
+
+### Safety Circuit (3-Tier Zones)
+
+The Safety Circuit provides a defense-in-depth approach with three escalating response tiers:
+
+| Zone | Threshold | Response | Auto-Action |
+|------|-----------|----------|-------------|
+| **Green** | Z-score < 2.0 | Normal monitoring | Log telemetry |
+| **Yellow** | Z-score 2.0-3.0 | Caution state | Increase sampling rate, notify operators |
+| **Red** | Z-score > 3.0 | Critical alert | Trigger maintenance workflow, stop lot |
+
+**Zone Transitions:**
+- Green → Yellow: Anomaly score exceeds 2σ threshold
+- Yellow → Red: Anomaly score exceeds 3σ or multiple Yellow alerts correlate
+- Any → Green: Sustained normal readings for cooldown period (configurable)
+
+### Knowledge Graph Capabilities
+
+The Knowledge Graph provides relationship visualization and concept extraction for incident analysis:
+
+```mermaid
+flowchart LR
+    A["Incidents<br/>(aegis_incidents)"] -->|"extract"| B["Concept Extraction<br/>(NLP Pipeline)"]
+    C["Tools<br/>(machines)"] -->|"link"| B
+    D["Lots<br/>(production_jobs)"] -->|"link"| B
+    B -->|"create"| E["kg_nodes<br/>(Entities)"]
+    B -->|"create"| F["kg_edges<br/>(Relationships)"]
+    E -->|"visualize"| G["react-force-graph-2d<br/>(Interactive Graph)"]
+    F -->|"visualize"| G
+```
+
+**Graph Features:**
+
+| Feature | Implementation | Use Case |
+|---------|----------------|----------|
+| **Concept Extraction** | NLP pipeline on incident descriptions | Auto-tag incidents with failure modes |
+| **Relationship Mapping** | NetworkX graph analytics | Identify incident clusters |
+| **Similarity Search** | Vector embeddings (384-dim) | Find historically similar incidents |
+| **Graph Visualization** | react-force-graph-2d | Interactive exploration of incident networks |
+
+### Physics-Based Detection
+
+Aegis implements physics-informed detection algorithms based on semiconductor manufacturing domain knowledge:
+
+**Thermal Drift Detection (Facility Agent):**
+- Monitors temperature sensors for deviation from baseline
+- Z-score calculation with exponential weighting
+- Rate of Change (RoC) alerts for rapid thermal shifts
+- Configurable thresholds per zone
+
+**ISO 10816 Vibration Analysis (Precision Agent):**
+- Implements ISO 10816-1 mechanical vibration standards
+- Velocity-based severity classification:
+  - Class I: Small machines (< 15 kW)
+  - Class II: Medium machines (15-75 kW)
+  - Class III: Large machines (> 75 kW)
+  - Class IV: Turbo machines
+- Frequency-domain analysis for bearing fault detection (BPFO, BPFI, BSF, FTF)
+
+**Ultrasonic Impedance (Assembly Agent):**
+- Acoustic monitoring for bond integrity
+- Impedance mismatch detection for delamination
+- Void detection through ultrasonic attenuation
+- Frequency sweep analysis (0.5-15 MHz typical range)
+
+### Aegis API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/aegis/incidents` | GET | List all incidents with filtering |
+| `/aegis/incidents` | POST | Create new incident |
+| `/aegis/incidents/{id}` | GET | Get incident details |
+| `/aegis/incidents/{id}/resolve` | POST | Resolve incident |
+| `/aegis/agents` | GET | List all sentinel agents |
+| `/aegis/agents` | POST | Create/configure agent |
+| `/aegis/agents/{id}/status` | PUT | Update agent status |
+| `/aegis/safety-circuit/status` | GET | Get current safety circuit state |
+| `/aegis/safety-circuit/zones` | GET | Get zone configuration |
+| `/aegis/knowledge-graph` | GET | Get full graph data |
+| `/aegis/knowledge-graph/nodes` | GET | Query graph nodes |
+| `/aegis/knowledge-graph/edges` | GET | Query graph relationships |
+| `/aegis/knowledge-graph/similar/{incident_id}` | GET | Find similar incidents |
 
 ### Why This Stack?
 
@@ -377,6 +557,81 @@ CREATE TABLE recipe_adjustments (
 );
 ```
 
+### Aegis Sentinel Tables
+
+#### Aegis Incidents
+
+```sql
+CREATE TABLE aegis_incidents (
+    incident_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id UUID NOT NULL REFERENCES aegis_agents(agent_id),
+    incident_type VARCHAR(50) NOT NULL, -- anomaly, violation, fault
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    zone VARCHAR(20) NOT NULL CHECK (zone IN ('GREEN', 'YELLOW', 'RED')),
+    tool_id UUID REFERENCES machines(machine_id),
+    description TEXT NOT NULL,
+    physics_data JSONB, -- thermal, vibration, acoustic measurements
+    detected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    resolved_by UUID,
+    resolution_notes TEXT,
+    status VARCHAR(20) DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'INVESTIGATING', 'RESOLVED', 'CLOSED'))
+);
+```
+
+#### Aegis Agents
+
+```sql
+CREATE TABLE aegis_agents (
+    agent_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_name VARCHAR(100) NOT NULL UNIQUE,
+    agent_type VARCHAR(50) NOT NULL CHECK (agent_type IN ('FACILITY', 'PRECISION', 'ASSEMBLY')),
+    scope VARCHAR(50) NOT NULL, -- zone, tool, lot
+    target_id VARCHAR(100), -- zone_id, tool_id, or lot_id
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'PAUSED', 'MAINTENANCE')),
+    config JSONB NOT NULL, -- detection thresholds, physics parameters
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Knowledge Graph Nodes
+
+```sql
+CREATE TABLE kg_nodes (
+    node_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    label VARCHAR(100) NOT NULL, -- display name
+    node_type VARCHAR(50) NOT NULL CHECK (node_type IN ('INCIDENT', 'TOOL', 'LOT', 'ZONE', 'CONCEPT', 'ANOMALY')),
+    source_table VARCHAR(50), -- references aegis_incidents, machines, etc.
+    source_id UUID, -- foreign key to source record
+    properties JSONB DEFAULT '{}', -- additional metadata
+    embedding VECTOR(384), -- for semantic similarity search
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create index for vector similarity search
+CREATE INDEX idx_kg_nodes_embedding ON kg_nodes USING ivfflat (embedding vector_cosine_ops);
+```
+
+#### Knowledge Graph Edges
+
+```sql
+CREATE TABLE kg_edges (
+    edge_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_node_id UUID NOT NULL REFERENCES kg_nodes(node_id) ON DELETE CASCADE,
+    target_node_id UUID NOT NULL REFERENCES kg_nodes(node_id) ON DELETE CASCADE,
+    relationship_type VARCHAR(50) NOT NULL, -- AFFECTED, CAUSES, SIMILAR_TO, etc.
+    weight DECIMAL(4,3) DEFAULT 1.0 CHECK (weight >= 0 AND weight <= 1),
+    properties JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(source_node_id, target_node_id, relationship_type)
+);
+
+-- Create index for graph traversal
+CREATE INDEX idx_kg_edges_source ON kg_edges(source_node_id);
+CREATE INDEX idx_kg_edges_target ON kg_edges(target_node_id);
+```
+
 ### Database Files
 
 | File | Size | Description |
@@ -385,6 +640,47 @@ CREATE TABLE recipe_adjustments (
 | `seed.sql` | 16KB | 48 machines, 25 jobs, sensor readings |
 | `reset_and_seed.sql` | 27KB | **Full reset + seed** - Use this for Supabase migration |
 | `migrations/002_virtual_metrology.sql` | 4KB | VM tables (if not in schema) |
+
+### Virtual Metrology Hooks
+
+The frontend implements a sophisticated **global shared cache pattern** for Virtual Metrology data to eliminate flickering and ensure consistent mock data:
+
+```typescript
+// Global cache shared between all hook instances
+const globalMockCache: Record<string, { status: VMStatus; history: VMHistory }> = {};
+```
+
+**Key Design Patterns:**
+
+| Feature | Implementation | Benefit |
+|---------|---------------|---------|
+| **Global Shared Cache** | Module-level `globalMockCache` | Data persists across re-renders and hook instances |
+| **Synchronous Generation** | `useMemo` for mock data | Data available on first render, no loading flash |
+| **Dual Hook API** | `useVirtualMetrology` + `useVirtualMetrologyBatch` | Single machine or batch queries with shared cache |
+| **No Loading in Mock** | `isLoading: apiAvailable ? isLoading : false` | No "Loading..." states in demo mode |
+| **Persistent Values** | Cache never cleared | Same machine always shows same mock values |
+
+**Hook APIs:**
+
+```typescript
+// Single machine VM data
+const { status, history, isLoading, error, refresh } = useVirtualMetrology(
+  machineId,
+  { pollingInterval: 30000, enabled: true }
+);
+
+// Batch VM data for all machines
+const { statuses, isLoading, error, refresh } = useVirtualMetrologyBatch(
+  machineIds,
+  { pollingInterval: 30000, enabled: true }
+);
+```
+
+**Demo Mode Behavior:**
+- Mock data generated once per machine and cached forever (until page reload)
+- Switching between machines or opening modals won't regenerate random values
+- Both `useVirtualMetrology` and `useVirtualMetrologyBatch` share the same cache
+- No flickering or "Loading..." / "No VM predictions" flashes
 
 ---
 
@@ -511,6 +807,35 @@ flowchart TD
 - **Features**: Temperature, Pressure, Power Consumption
 - **R2R**: Run-to-Run control for process drift correction
 
+#### Frontend VM Hook Architecture
+
+```mermaid
+flowchart TD
+    subgraph Hooks["VM Hooks"]
+        Single["useVirtualMetrology<br/>single machine"]
+        Batch["useVirtualMetrologyBatch<br/>all machines"]
+    end
+    
+    subgraph Cache["Global Mock Cache"]
+        CacheStore["globalMockCache<br/>Record<string, VMData>"]
+    end
+    
+    subgraph Render["Render Cycle"]
+        Memo["useMemo<br/>synchronous compute"]
+        NoLoading["isLoading = false<br/>in mock mode"]
+    end
+    
+    Single <-->|read/write| CacheStore
+    Batch <-->|read/write| CacheStore
+    CacheStore --> Memo
+    Memo --> NoLoading
+```
+
+**Cache Benefits:**
+- Eliminates flickering when switching machines
+- Prevents "Loading..." flashes in Analytics Modal
+- Consistent values across all components using VM data
+
 ### 4. Monte Carlo Simulation
 
 ```mermaid
@@ -580,6 +905,84 @@ flowchart LR
 - `efficiency_drop`: Reduce machine efficiency
 
 **Purpose**: Test system resilience under failures
+
+### 7. Aegis Core Engines
+
+#### SentinelEngine
+
+```mermaid
+flowchart TD
+    A["Sensor Data (Thermal/Vibration/Acoustic)"] --> B{Z-score Check}
+    B -->|"|Z| < 2"| C[Green Zone]
+    B -->|"2 ≤ |Z| < 3"| D[Yellow Zone]
+    B -->|"|Z| ≥ 3"| E[Red Zone]
+    C --> F[Normal Logging]
+    D --> G[Increase Monitoring]
+    E --> H[Create Incident]
+    G --> I[Safety Circuit Update]
+    H --> I
+```
+
+- **Algorithm**: Z-score anomaly detection + Rate of Change (RoC)
+- **Physics Domains**: Thermal drift, ISO 10816 vibration, ultrasonic impedance
+- **Features**: Temperature gradients, vibration velocity, acoustic attenuation
+- **Output**: Zone classification (Green/Yellow/Red) + Confidence score
+
+#### KnowledgeGraphEngine
+
+```mermaid
+flowchart LR
+    A["New Incident"] --> B["Concept Extraction<br/>(NLP)"]
+    B --> C["Create Nodes<br/>(Entities)"]
+    C --> D["Create Edges<br/>(Relationships)"]
+    D --> E["NetworkX Graph"]
+    E --> F["Graph Analytics"]
+    F --> G["Similarity Scores"]
+    F --> H["Cluster Detection"]
+    F --> I["Centrality Analysis"]
+```
+
+- **Library**: NetworkX for graph analytics
+- **NLP**: Concept extraction from incident descriptions
+- **Embeddings**: 384-dim sentence embeddings for semantic similarity
+- **Analytics**: PageRank centrality, community detection, shortest path
+- **Visualization**: Export to react-force-graph-2d
+
+#### SafetyCircuit
+
+```mermaid
+flowchart TB
+    subgraph Tiers["Safety Tiers"]
+        Green["Green Zone<br/>Z < 2σ<br/>Normal"]
+        Yellow["Yellow Zone<br/>2σ ≤ Z < 3σ<br/>Caution"]
+        Red["Red Zone<br/>Z ≥ 3σ<br/>Critical"]
+    end
+    
+    subgraph Actions["Automatic Actions"]
+        A1["Log Telemetry"]
+        A2["Notify Operators"]
+        A3["Stop Process"]
+    end
+    
+    subgraph Escalation["Escalation Rules"]
+        E1["3 Yellow → Red"]
+        E2["Correlation Check"]
+        E3["Cooldown Timer"]
+    end
+    
+    Green --> A1
+    Yellow --> A2
+    Red --> A3
+    Yellow --> E1
+    Yellow --> E2
+    Red --> E3
+```
+
+- **3-Tier System**: Green (normal), Yellow (caution), Red (critical)
+- **Thresholds**: Configurable Z-score boundaries per agent type
+- **Auto-Actions**: Zone-dependent responses (log/notify/stop)
+- **Escalation**: Automatic tier promotion based on correlation rules
+- **Cooldown**: Hysteresis to prevent flapping between zones
 
 ### 7. Autonomous Job Simulation
 
@@ -922,7 +1325,7 @@ flowchart TD
 - Actions trigger toast notifications
 - Sorting on all tabs (priority, deadline, status, efficiency, type)
 - Analytics modal with Excel export
-- Virtual Metrology with fallback mock predictions
+- **Virtual Metrology with Global Cache** - No flickering, consistent mock predictions across all components
 - System Analytics with realistic data fallback
 - Visual indicators show "Demo Mode" status
 - No "Failed to fetch" errors

@@ -13,6 +13,9 @@ numpy
 pandas
 scipy
 
+# Knowledge Graph
+networkx
+
 # Data Validation
 pydantic
 pydantic-settings
