@@ -55,9 +55,9 @@ class IncidentResponse(BaseModel):
     severity: SeverityLevel
     incident_type: str
     message: str
-    detected_value: float
-    threshold_value: float
-    action_taken: str
+    detected_value: Optional[float] = None
+    threshold_value: Optional[float] = None
+    action_taken: Optional[str] = None
     action_status: ActionStatus
     action_zone: SafetyZone
     agent_type: Optional[AgentType] = None

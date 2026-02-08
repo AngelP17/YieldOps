@@ -61,11 +61,11 @@ app.add_middleware(
         "https://yield-ops-dashboard.vercel.app",
         "https://yieldops.vercel.app",
         "https://yieldops-dashboard.vercel.app",
-        "https://yield-ops-dashboard-git-main-aps-projects-791dd75a.vercel.app",
         "http://localhost:5173",  # Vite dev server
         "http://localhost:3000",  # React dev server
     ],
-    allow_origin_regex=r"https://.*-yield-ops-dashboard.*\.vercel\.app|https://yield-ops-dashboard.*\.vercel\.app",
+    # Match any Vercel preview deployment for yield-ops-dashboard
+    allow_origin_regex=r"https://.*yield[-_]?ops[-_]?dashboard.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -151,6 +151,21 @@ async def system_stats():
             "total_machines": 0,
             "pending_jobs": 0
         }
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler to ensure CORS headers are always added."""
+    from fastapi.responses import JSONResponse
+    import traceback
+    
+    logger.error(f"Unhandled exception: {exc}")
+    logger.error(traceback.format_exc())
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)}
+    )
 
 
 if __name__ == "__main__":
