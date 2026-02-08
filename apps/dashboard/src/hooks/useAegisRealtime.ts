@@ -166,7 +166,7 @@ export function useAegisRealtime() {
 
       if (!hasIncidents && !hasAgents) {
         if (!hasReceivedRealData.current) {
-          console.log('No data from Supabase, using demo data');
+  
           setIncidents(DEMO_INCIDENTS);
           setAgents(DEMO_AGENTS);
           setIsDemoMode(true);
@@ -209,7 +209,7 @@ export function useAegisRealtime() {
         const { data: rpcData } = await supabase.rpc('get_safety_circuit_status');
         safetyData = rpcData?.[0] || null;
       } catch (e) {
-        console.warn('Safety circuit RPC not available, calculating locally');
+
       }
 
       // Calculate summary
@@ -275,7 +275,7 @@ export function useAegisRealtime() {
           table: 'aegis_incidents',
         },
         (payload) => {
-          console.log('Aegis incident update:', payload);
+
 
           // Only update if not in demo mode (use ref to avoid stale closure)
           if (!isDemoModeRef.current) {
@@ -313,7 +313,7 @@ export function useAegisRealtime() {
           table: 'aegis_agents',
         },
         (payload) => {
-          console.log('Aegis agent update:', payload);
+
 
           if (!isDemoModeRef.current) {
             setAgents((prev) => {

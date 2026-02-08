@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList, IconWifi, IconWifiOff } from '@tabler/icons-react';
+import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList, IconWifiOff } from '@tabler/icons-react';
 import { KpiCard } from '../ui/KpiCard';
 import { SentinelAgentCard } from '../aegis/SentinelAgentCard';
 import { SafetyCircuitPanel } from '../aegis/SafetyCircuitPanel';
@@ -8,10 +8,10 @@ import { KnowledgeGraphViz } from '../aegis/KnowledgeGraphViz';
 import { AgentTopology } from '../aegis/AgentTopology';
 import { AgentCoveragePanel } from '../aegis/AgentCoveragePanel';
 import { useAegisRealtime } from '../../hooks/useAegisRealtime';
-import { isSupabaseConfigured } from '../../services/apiClient';
+
 
 export function SentinelTab() {
-  const hasSupabase = isSupabaseConfigured();
+
   const {
     summary,
     incidents,
@@ -19,7 +19,7 @@ export function SentinelTab() {
     facilitySummary,
     assemblySummary,
     loading,
-    isConnected,
+
     isDemoMode,
     approveIncident,
     resolveIncident,
@@ -80,40 +80,13 @@ export function SentinelTab() {
 
   return (
     <div className="space-y-6">
-      {/* Connection Status */}
-      <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-        {isDemoMode ? (
-          <>
-            <IconWifiOff className="w-5 h-5 text-amber-500" />
-            <div>
-              <p className="text-sm font-medium text-amber-800">Demo Mode</p>
-              <p className="text-xs text-amber-700">
-                Using sample data. Run database migration to see real Sentinel data.
-              </p>
-            </div>
-          </>
-        ) : isConnected ? (
-          <>
-            <IconWifi className="w-5 h-5 text-emerald-500" />
-            <div>
-              <p className="text-sm font-medium text-slate-900">Supabase Realtime Connected</p>
-              <p className="text-xs text-slate-500">Receiving live data from Aegis Sentinel agents</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <IconWifiOff className="w-5 h-5 text-amber-500" />
-            <div>
-              <p className="text-sm font-medium text-amber-800">Offline Mode</p>
-              <p className="text-xs text-amber-700">
-                {!hasSupabase 
-                  ? 'Configure VITE_SUPABASE_URL to enable real-time Sentinel data'
-                  : 'Connecting to Supabase...'}
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Connection Status - subtle indicator */}
+      {isDemoMode && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg">
+          <IconWifiOff className="w-4 h-4 text-amber-500" />
+          <span className="text-xs text-amber-700">Demo Mode - Sample Data</span>
+        </div>
+      )}
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

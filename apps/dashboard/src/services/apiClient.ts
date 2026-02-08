@@ -24,7 +24,7 @@ export const isSupabaseConfigured = (): boolean => {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
-  console.log(`API Request: ${options?.method || 'GET'} ${url}`);
+
 
   try {
     const res = await fetch(url, {

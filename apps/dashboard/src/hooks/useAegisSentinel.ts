@@ -197,7 +197,7 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
         
         // Only show demo mode visually if no actual data yet
         if (!hasData && !hasReceivedRealData) {
-          console.log('API returned empty data, using demo mode');
+
           setIncidents(DEMO_INCIDENTS);
           setAgents(DEMO_AGENTS);
           setSummary(DEMO_SUMMARY);
