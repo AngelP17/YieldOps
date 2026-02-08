@@ -105,7 +105,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { isUsingMockData, updateMachine, updateJob, addJob, recoverAllMachines } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
-  const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
+  const [, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
   interface DispatchHistoryItem {
     decision_id: string;
     job_id: string;
@@ -168,21 +168,23 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
       });
   }, [apiAvailable, toast]);
 
-  // Ensure minimum pending jobs in demo mode
+  // Auto-generate pending jobs in demo mode only if explicitly empty after load
   useEffect(() => {
-    if (apiAvailable || !isUsingMockData) return;
+    // Only run in demo mode, after initial load, and if truly empty
+    if (apiAvailable || !isUsingMockData || jobs.length === 0) return;
     
     const pendingJobs = jobs.filter(j => j.status === 'PENDING');
     
-    if (pendingJobs.length === 0) {
-      // Generate pending jobs dynamically
+    // Only generate if we have jobs but none are pending (they were all dispatched)
+    if (pendingJobs.length === 0 && jobs.length > 10) {
+      // Generate a few pending jobs dynamically
       const customers = ['Apple', 'NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Samsung', 'MediaTek', 'Broadcom'];
       const recipes = ['N5-STD', 'N7-EXP', 'N3-ADV', 'N5-HOT', 'N7-STD', 'N3-EXP'];
       
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 3; i++) {
         const customer = customers[Math.floor(Math.random() * customers.length)];
         const recipe = recipes[Math.floor(Math.random() * recipes.length)];
-        const isHot = i < 2; // Ensure at least 2 hot lots
+        const isHot = i < 1; // Ensure at least 1 hot lot
         
         const newJob: ProductionJob = {
           job_id: `job-${Date.now()}-${i}`,
@@ -202,7 +204,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         addJob(newJob);
       }
     }
-  }, [jobs, apiAvailable, isUsingMockData, addJob]);
+  }, [jobs.length, apiAvailable, isUsingMockData, addJob]); // Use jobs.length to prevent constant re-runs
 
   const handleRunDispatch = async () => {
     setDispatching(true);
@@ -631,83 +633,79 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         {/* Dispatch Activity */}
         <div className="xl:col-span-2 space-y-6">
           {/* Dispatch Queue */}
-          {dispatchQueue && (
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100">
-                <h3 className="text-sm font-semibold text-slate-900">Dispatch Queue</h3>
-                <p className="text-xs text-slate-500">
-                  {jobs.filter(j => j.status === 'PENDING').length} pending jobs, {machines.filter(m => m.status === 'IDLE').length} available machines
-                </p>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {jobs
-                  .filter(j => j.status === 'PENDING')
-                  .sort((a, b) => {
-                    if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
-                    return a.priority_level - b.priority_level;
-                  })
-                  .slice(0, 5)
-                  .map((job, i) => (
-                    <div key={job.job_id} className="px-6 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono text-slate-400">#{i + 1}</span>
-                        <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
-                        {job.is_hot_lot && (
-                          <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
-                        )}
-                      </div>
-                      <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <IconClock className="w-3 h-3" />
-                        P{job.priority_level}
-                      </span>
-                    </div>
-                  ))}
-                {jobs.filter(j => j.status === 'PENDING').length === 0 && (
-                  <div className="px-6 py-8 text-center">
-                    <IconPackage className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500 mb-1">Loading pending jobs...</p>
-                    <p className="text-xs text-slate-400 mb-3">System is generating new jobs for dispatch</p>
-                    {!apiAvailable && (
-                      <button
-                        onClick={() => {
-                          // Generate pending jobs dynamically
-                          const customers = ['Apple', 'NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Samsung', 'MediaTek', 'Broadcom'];
-                          const recipes = ['N5-STD', 'N7-EXP', 'N3-ADV', 'N5-HOT', 'N7-STD', 'N3-EXP'];
-                          
-                          for (let i = 0; i < 3; i++) {
-                            const customer = customers[Math.floor(Math.random() * customers.length)];
-                            const recipe = recipes[Math.floor(Math.random() * recipes.length)];
-                            const isHot = Math.random() > 0.85;
-                            
-                            const newJob: ProductionJob = {
-                              job_id: `job-${Date.now()}-${i}`,
-                              job_name: `WF-${new Date().getFullYear()}-${String(1000 + i).slice(-4)}`,
-                              wafer_count: 20 + Math.floor(Math.random() * 40),
-                              priority_level: isHot ? 1 : Math.floor(Math.random() * 3) + 2,
-                              status: 'PENDING',
-                              recipe_type: recipe,
-                              is_hot_lot: isHot,
-                              customer_tag: customer,
-                              estimated_duration_minutes: 90 + Math.floor(Math.random() * 120),
-                              deadline: new Date(Date.now() + 86400000 * (2 + Math.floor(Math.random() * 5))).toISOString(),
-                              created_at: new Date().toISOString(),
-                              updated_at: new Date().toISOString(),
-                            };
-                            
-                            addJob(newJob);
-                          }
-                          toast('Generated 3 new pending jobs', 'success');
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Generate Jobs
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900">Dispatch Queue</h3>
+              <p className="text-xs text-slate-500">
+                {jobs.filter(j => j.status === 'PENDING').length} pending jobs, {machines.filter(m => m.status === 'IDLE').length} available machines
+              </p>
             </div>
-          )}
+            <div className="divide-y divide-slate-100">
+              {jobs
+                .filter(j => j.status === 'PENDING')
+                .sort((a, b) => {
+                  if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+                  return a.priority_level - b.priority_level;
+                })
+                .slice(0, 5)
+                .map((job, i) => (
+                  <div key={job.job_id} className="px-6 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono text-slate-400">#{i + 1}</span>
+                      <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
+                      {job.is_hot_lot && (
+                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
+                      )}
+                    </div>
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <IconClock className="w-3 h-3" />
+                      P{job.priority_level}
+                    </span>
+                  </div>
+                ))}
+              {jobs.filter(j => j.status === 'PENDING').length === 0 && (
+                <div className="px-6 py-8 text-center">
+                  <IconPackage className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500 mb-1">No pending jobs</p>
+                  <p className="text-xs text-slate-400 mb-3">All jobs have been dispatched</p>
+                  <button
+                    onClick={() => {
+                      // Generate pending jobs dynamically
+                      const customers = ['Apple', 'NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Samsung', 'MediaTek', 'Broadcom'];
+                      const recipes = ['N5-STD', 'N7-EXP', 'N3-ADV', 'N5-HOT', 'N7-STD', 'N3-EXP'];
+                      
+                      for (let i = 0; i < 3; i++) {
+                        const customer = customers[Math.floor(Math.random() * customers.length)];
+                        const recipe = recipes[Math.floor(Math.random() * recipes.length)];
+                        const isHot = Math.random() > 0.7;
+                        
+                        const newJob: ProductionJob = {
+                          job_id: `job-${Date.now()}-${i}`,
+                          job_name: `WF-${new Date().getFullYear()}-${String(1000 + i).slice(-4)}`,
+                          wafer_count: 20 + Math.floor(Math.random() * 40),
+                          priority_level: isHot ? 1 : Math.floor(Math.random() * 3) + 2,
+                          status: 'PENDING',
+                          recipe_type: recipe,
+                          is_hot_lot: isHot,
+                          customer_tag: customer,
+                          estimated_duration_minutes: 90 + Math.floor(Math.random() * 120),
+                          deadline: new Date(Date.now() + 86400000 * (2 + Math.floor(Math.random() * 5))).toISOString(),
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        };
+                        
+                        addJob(newJob);
+                      }
+                      toast('Generated 3 new pending jobs', 'success');
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Generate Jobs
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Recent Dispatch Decisions */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">

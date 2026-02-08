@@ -1,4 +1,4 @@
-import { useState, useMemo, createContext, useContext, useCallback, useEffect } from 'react';
+import { useState, useMemo, createContext, useContext, useCallback, useEffect, useRef } from 'react';
 import { Machine, ProductionJob } from './types';
 import { useRealtimeMachines, useLatestSensorData, useRealtimeJobs } from './hooks/useRealtime';
 import { useAutonomousSimulation } from './hooks/useAutonomousSimulation';
@@ -191,42 +191,34 @@ function App() {
   // Use realtime data if available, otherwise use local mock data
   const [displayMachines, setDisplayMachines] = useState<Machine[]>(MOCK_MACHINES);
   const [displayJobs, setDisplayJobs] = useState<ProductionJob[]>(MOCK_JOBS);
+  const hasInitialized = useRef(false);
 
   // Sync display data with source data
   useEffect(() => {
     if (hasSupabase) {
-      setDisplayMachines(realtimeMachines);
-    } else {
-      // In demo mode, ALWAYS use MOCK_MACHINES directly
+      // Only update from realtime if we have actual data
+      if (realtimeMachines.length > 0) {
+        setDisplayMachines(realtimeMachines);
+      }
+    } else if (!hasInitialized.current) {
+      // In demo mode, initialize once with mock data
       setDisplayMachines(MOCK_MACHINES);
       setLocalMachines(MOCK_MACHINES);
     }
   }, [hasSupabase, realtimeMachines]);
 
-  // Ensure mock data is loaded on initial mount in demo mode
-  useEffect(() => {
-    if (!hasSupabase) {
-      // Force reset to mock data on every render in demo mode
-      if (displayMachines.length !== MOCK_MACHINES.length || 
-          displayMachines[0]?.name !== MOCK_MACHINES[0]?.name) {
-        setDisplayMachines(MOCK_MACHINES);
-        setLocalMachines(MOCK_MACHINES);
-      }
-      if (displayJobs.length !== MOCK_JOBS.length || 
-          displayJobs[0]?.job_name !== MOCK_JOBS[0]?.job_name) {
-        setDisplayJobs(MOCK_JOBS);
-        setLocalJobs(MOCK_JOBS);
-      }
-    }
-  }, [hasSupabase, displayMachines.length, displayJobs.length]);
-
   useEffect(() => {
     if (hasSupabase) {
-      setDisplayJobs(realtimeJobs);
-    } else {
-      // In demo mode, ALWAYS use MOCK_JOBS directly
+      // Only update from realtime if we have actual data
+      if (realtimeJobs.length > 0) {
+        setDisplayJobs(realtimeJobs);
+        hasInitialized.current = true;
+      }
+    } else if (!hasInitialized.current) {
+      // In demo mode, initialize once with mock data
       setDisplayJobs(MOCK_JOBS);
       setLocalJobs(MOCK_JOBS);
+      hasInitialized.current = true;
     }
   }, [hasSupabase, realtimeJobs]);
 

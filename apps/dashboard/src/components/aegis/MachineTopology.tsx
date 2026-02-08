@@ -62,7 +62,11 @@ export function MachineTopology({ machines, selectedMachineId, onSelectMachine, 
     }, {} as Record<string, Machine[]>);
 
     // Create zone nodes and machine nodes
-    Object.entries(machinesByZone).forEach(([zone, zoneMachines]) => {
+    const zoneIds = Object.keys(machinesByZone).sort();
+    
+    zoneIds.forEach((zone, index) => {
+      const zoneMachines = machinesByZone[zone];
+      
       // Zone node (larger, central)
       zoneNodes.push({
         id: zone,
@@ -71,6 +75,15 @@ export function MachineTopology({ machines, selectedMachineId, onSelectMachine, 
         val: 20,
         color: ZONE_COLORS[zone] || '#64748B',
       });
+
+      // Connect zones to each other (create a chain)
+      if (index > 0) {
+        topologyLinks.push({
+          source: zoneIds[index - 1],
+          target: zone,
+          value: 1,
+        });
+      }
 
       // Machine nodes connected to zone
       zoneMachines.forEach((machine) => {
@@ -100,6 +113,9 @@ export function MachineTopology({ machines, selectedMachineId, onSelectMachine, 
         });
       });
     });
+
+    // If there's only one zone, no inter-zone links needed
+    // If multiple zones, they're now connected in a chain
 
     return { nodes: [...zoneNodes, ...machineNodes], links: topologyLinks };
   }, [machines, vmStatuses]);
