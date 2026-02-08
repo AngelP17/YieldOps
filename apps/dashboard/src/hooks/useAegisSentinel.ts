@@ -17,7 +17,7 @@ interface UseAegisSentinelOptions {
 const DEMO_INCIDENTS: AegisIncident[] = [
   {
     incident_id: 'demo-inc-001',
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    created_at: new Date(Date.now() - 3600000).toISOString(),
     machine_id: 'LITHO-01',
     severity: 'high',
     incident_type: 'thermal_runaway',
@@ -36,7 +36,7 @@ const DEMO_INCIDENTS: AegisIncident[] = [
   },
   {
     incident_id: 'demo-inc-002',
-    timestamp: new Date(Date.now() - 7200000).toISOString(),
+    created_at: new Date(Date.now() - 7200000).toISOString(),
     machine_id: 'ETCH-01',
     severity: 'medium',
     incident_type: 'elevated_temperature',

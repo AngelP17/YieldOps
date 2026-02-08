@@ -158,7 +158,7 @@ export type AgentType = 'precision' | 'facility' | 'assembly';
 
 export interface AegisIncident {
   incident_id: string;
-  timestamp: string;
+  created_at: string;
   machine_id: string;
   severity: SeverityLevel;
   incident_type: string;

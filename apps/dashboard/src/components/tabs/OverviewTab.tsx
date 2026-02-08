@@ -809,9 +809,8 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
           ) : (
             <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
               <IconGraph className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-              <h4 className="text-sm font-semibold text-slate-900 mb-1">System Topology Graph</h4>
               <p className="text-xs text-slate-500 mb-4">
-                {systemGraphLoading ? 'Loading system topology...' : 'Click show graph to visualize system relationships'}
+                {systemGraphLoading ? 'Loading visualization...' : 'Click Show Graph to visualize system relationships'}
               </p>
               {systemGraphLoading && (
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -829,56 +828,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         jobs={jobs}
       />
 
-      {/* System Knowledge Graph Section */}
-      <div className="border-t border-slate-200 pt-6 mt-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-              <IconGraph className="w-4 h-4 text-blue-600" />
-              System Topology
-            </h3>
-            <p className="text-xs text-slate-500">
-              Visualize fab system relationships: machines, zones, jobs, and operational status
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              if (!showSystemGraph) {
-                setShowSystemGraph(true);
-              } else {
-                setShowSystemGraph(false);
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
-          >
-            <IconGraph className="w-4 h-4" />
-            {showSystemGraph ? 'Hide Topology' : 'Show Topology'}
-          </button>
-        </div>
 
-        {showSystemGraph && (
-          systemGraphData ? (
-            <SystemKnowledgeGraphViz
-              data={systemGraphData}
-              onGenerate={fetchSystemGraph}
-              loading={systemGraphLoading}
-            />
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
-              <IconGraph className={`w-8 h-8 mx-auto mb-3 ${systemGraphLoading ? 'text-blue-400 animate-pulse' : 'text-slate-300'}`} />
-              <h4 className="text-sm font-semibold text-slate-900 mb-1">System Topology Graph</h4>
-              <p className="text-xs text-slate-500 mb-4">
-                {systemGraphLoading 
-                  ? 'Generating system topology from machines and jobs...' 
-                  : 'Visualize the complete fab system: machines, zones, jobs, and their relationships.'}
-              </p>
-              {systemGraphLoading && (
-                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              )}
-            </div>
-          )
-        )}
-      </div>
     </div>
   );
 }

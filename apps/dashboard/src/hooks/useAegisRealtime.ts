@@ -54,8 +54,8 @@ export function useAegisRealtime() {
       const { data: incidentsData, error: incidentsError } = await supabase
         .from('aegis_incidents')
         .select('*')
-        .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .order('timestamp', { ascending: false })
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
         .limit(100);
 
       if (incidentsError) throw incidentsError;
