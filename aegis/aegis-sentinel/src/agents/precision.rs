@@ -386,6 +386,14 @@ impl SentinelAgent for PrecisionSentinel {
                 tracing::info!("Scheduling maintenance for {}", component);
                 Ok(())
             }
+            Action::LogOnly => {
+                tracing::info!("[PRECISION] Logging event only");
+                Ok(())
+            }
+            Action::FeedHold { reason } => {
+                tracing::info!("[PRECISION] Feed hold: {}", reason);
+                Ok(())
+            }
         }
     }
     

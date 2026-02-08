@@ -291,6 +291,10 @@ impl SentinelAgent for FacilitySentinel {
                 );
                 Ok(())
             }
+            Action::LogOnly => {
+                info!("[FACILITY] Logging event only");
+                Ok(())
+            }
             _ => Ok(()),
         }
     }

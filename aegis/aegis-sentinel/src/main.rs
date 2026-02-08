@@ -9,6 +9,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn, error};
 
 mod agents;
+mod api_bridge;
 mod detection;
 mod mqtt;
 mod safety;
@@ -18,6 +19,7 @@ use agents::precision::PrecisionSentinel;
 use agents::facility::FacilitySentinel;
 use agents::assembly::AssemblySentinel;
 use agents::SentinelAgent;
+use api_bridge::{report_threat, YieldOpsClient};
 use mqtt::MqttClient;
 use types::*;
 
@@ -40,6 +42,15 @@ async fn main() -> anyhow::Result<()> {
     // Load configuration
     let config = load_config()?;
     info!("Configuration loaded successfully");
+
+    // Initialize YieldOps API client (optional, for direct HTTP reporting)
+    let yieldops_client = YieldOpsClient::from_env();
+    if yieldops_client.is_some() {
+        info!("✓ YieldOps API integration enabled");
+    } else {
+        info!("ℹ YieldOps API not configured - using MQTT only");
+        info!("  Set YIELDOPS_API_URL to enable direct API integration");
+    }
 
     // Initialize agents
     let mut agents: Vec<Box<dyn SentinelAgent>> = vec![];
@@ -87,6 +98,41 @@ async fn main() -> anyhow::Result<()> {
     let mqtt_client = Arc::new(RwLock::new(MqttClient::new(&broker).await?));
     info!("Connected to MQTT broker");
 
+    // Register agents with YieldOps API
+    if let Some(ref api) = yieldops_client {
+        for agent_config in &config.agents {
+            let agent_type = agent_config.agent_type.clone();
+            let machine_id = agent_config.machine_id.clone();
+            let agent_id = format!("agent-{}-{}", agent_type, machine_id.to_lowercase());
+            
+            let capabilities = match agent_type.as_str() {
+                "precision" => vec![
+                    "z_score_analysis".to_string(),
+                    "thermal_drift_detection".to_string(),
+                    "tool_wear_tracking".to_string(),
+                    "chatter_detection".to_string(),
+                ],
+                "facility" => vec![
+                    "iso_14644_compliance".to_string(),
+                    "filter_life_prediction".to_string(),
+                    "particle_monitoring".to_string(),
+                    "chemical_leak_detection".to_string(),
+                ],
+                "assembly" => vec![
+                    "nsop_detection".to_string(),
+                    "ultrasonic_monitoring".to_string(),
+                    "shear_strength_tracking".to_string(),
+                    "oee_calculation".to_string(),
+                ],
+                _ => vec!["general_monitoring".to_string()],
+            };
+
+            if let Err(e) = api.register_agent(&agent_id, &agent_type, &machine_id, &capabilities).await {
+                warn!("Failed to register agent {}: {}", agent_id, e);
+            }
+        }
+    }
+
     // Subscribe to telemetry topics
     mqtt_client.write().await.subscribe("factory/+/telemetry").await?;
     info!("Subscribed to factory/+/telemetry");
@@ -116,6 +162,7 @@ async fn main() -> anyhow::Result<()> {
 async fn handle_telemetry(
     agents: &[Box<dyn SentinelAgent>],
     mqtt_client: &Arc<RwLock<MqttClient>>,
+    yieldops_client: &Option<YieldOpsClient>,
     telemetry: Telemetry,
 ) -> anyhow::Result<()> {
     for agent in agents {
@@ -128,6 +175,9 @@ async fn handle_telemetry(
                 
                 log_threat(&threat, &tier, &action);
                 
+                // Report threat to YieldOps API
+                report_threat(yieldops_client, &threat, &action, &tier).await;
+
                 match tier {
                     ResponseTier::Green => {
                         // Auto-execute
@@ -145,12 +195,9 @@ async fn handle_telemetry(
                     ResponseTier::Yellow => {
                         // Queue for approval (in production, wait for dashboard)
                         warn!("YELLOW ZONE: Action '{}' queued for approval", action.name());
-                        // For demo: auto-approve after delay
-                        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                        info!("Auto-approving action after delay");
-                        if let Err(e) = agent.execute(&action).await {
-                            error!("Failed to execute action: {}", e);
-                        }
+                        // Publish for dashboard visibility
+                        let incident = Incident::from_threat(&threat, &action, "pending_approval");
+                        mqtt_client.write().await.publish_incident(&incident).await?;
                     }
                     ResponseTier::Red => {
                         // Alert only - no autonomous action
