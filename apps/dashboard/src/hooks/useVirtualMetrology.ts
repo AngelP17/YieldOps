@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api, isApiConfigured } from '../services/apiClient';
 
 export interface VMStatus {
@@ -83,20 +83,11 @@ export function useVirtualMetrology(
   const { pollingInterval = 30000, enabled = true } = options;
   const apiAvailable = isApiConfigured();
 
-  const [status, setStatus] = useState<VMStatus | null>(null);
-  const [history, setHistory] = useState<VMHistory | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
   // Cache mock data per machineId to prevent flickering from regeneration
   const mockDataCacheRef = useRef<Record<string, { status: VMStatus; history: VMHistory }>>({});
 
-  // Get or create cached mock data for a machine
-  const getMockData = useCallback((id: string) => {
+  // Get or create cached mock data for a machine - this is synchronous
+  const getMockData = useCallback((id: string): { status: VMStatus; history: VMHistory } => {
     if (!mockDataCacheRef.current[id]) {
       mockDataCacheRef.current[id] = {
         status: generateMockVMStatus(id),
@@ -112,23 +103,49 @@ export function useVirtualMetrology(
     return mockDataCacheRef.current[id];
   }, []);
 
-  // Initial fetch and polling setup
+  // For mock mode: compute mock data SYNCHRONOUSLY during render using useMemo
+  // This ensures data is available on the FIRST render, not after useEffect
+  const mockData = useMemo(() => {
+    if (!apiAvailable && machineId && enabled) {
+      return getMockData(machineId);
+    }
+    return null;
+  }, [apiAvailable, machineId, enabled, getMockData]);
+
+  // State for API mode only
+  const [apiStatus, setApiStatus] = useState<VMStatus | null>(null);
+  const [apiHistory, setApiHistory] = useState<VMHistory | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Only run useEffect for API mode
   useEffect(() => {
+    // Clear interval on unmount or when deps change
+    const cleanup = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+
     if (!machineId || !enabled) {
-      setStatus(null);
-      setHistory(null);
+      setApiStatus(null);
+      setApiHistory(null);
       setLastUpdated(null);
-      return;
+      return cleanup;
     }
 
-    // If API not available, set mock data SYNCHRONOUSLY - no loading, no flicker
+    // Skip useEffect for mock mode - data is already provided via useMemo
     if (!apiAvailable) {
-      const mockData = getMockData(machineId);
-      setStatus(mockData.status);
-      setHistory(mockData.history);
       setLastUpdated(new Date());
-      // No polling needed for mock data
-      return;
+      return cleanup;
     }
 
     // API is available - do async fetch
@@ -150,18 +167,18 @@ export function useVirtualMetrology(
 
         // If API returns empty/unrealistic data (no prediction), use mock data
         if (!statusData.has_prediction || !statusData.predicted_thickness_nm) {
-          const mockData = getMockData(machineId);
-          setStatus(mockData.status);
+          const fallbackMock = getMockData(machineId);
+          setApiStatus(fallbackMock.status);
         } else {
-          setStatus(statusData);
+          setApiStatus(statusData);
         }
 
         // If history is empty, generate mock history
         if (!historyData.history || historyData.history.length === 0) {
-          const mockData = getMockData(machineId);
-          setHistory(mockData.history);
+          const fallbackMock = getMockData(machineId);
+          setApiHistory(fallbackMock.history);
         } else {
-          setHistory(historyData);
+          setApiHistory(historyData);
         }
 
         setLastUpdated(new Date());
@@ -170,9 +187,9 @@ export function useVirtualMetrology(
           setError(err);
           console.error('VM fetch error:', err);
           // Fall back to mock data on error
-          const mockData = getMockData(machineId);
-          setStatus(mockData.status);
-          setHistory(mockData.history);
+          const fallbackMock = getMockData(machineId);
+          setApiStatus(fallbackMock.status);
+          setApiHistory(fallbackMock.history);
           setLastUpdated(new Date());
         }
       } finally {
@@ -188,15 +205,7 @@ export function useVirtualMetrology(
       intervalRef.current = setInterval(fetchVMStatus, pollingInterval);
     }
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
+    return cleanup;
   }, [machineId, enabled, pollingInterval, apiAvailable, getMockData]);
 
   const refresh = useCallback(() => {
@@ -207,17 +216,20 @@ export function useVirtualMetrology(
       setLastUpdated(new Date());
       return;
     }
-
-    // For API mode, trigger refetch by forcing effect re-run
-    // This is handled by the polling interval
   }, [machineId, enabled, apiAvailable]);
 
+  // Return mock data synchronously for mock mode, or API data for API mode
+  // Mock mode: data is available immediately on first render
+  // API mode: data may be null initially while loading
+  const effectiveStatus = mockData?.status ?? apiStatus;
+  const effectiveHistory = mockData?.history ?? apiHistory;
+
   return {
-    status,
-    history,
-    isLoading,
+    status: effectiveStatus,
+    history: effectiveHistory,
+    isLoading: apiAvailable ? isLoading : false, // Never loading in mock mode
     error,
-    lastUpdated,
+    lastUpdated: mockData ? (lastUpdated || new Date()) : lastUpdated,
     refresh,
   };
 }
