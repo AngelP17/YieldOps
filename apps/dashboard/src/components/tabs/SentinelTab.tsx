@@ -1,42 +1,58 @@
 import { useState, useEffect } from 'react';
-import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList } from '@tabler/icons-react';
+import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList, IconWifi, IconWifiOff } from '@tabler/icons-react';
 import { KpiCard } from '../ui/KpiCard';
 import { SentinelAgentCard } from '../aegis/SentinelAgentCard';
 import { SafetyCircuitPanel } from '../aegis/SafetyCircuitPanel';
 import { IncidentFeed } from '../aegis/IncidentFeed';
 import { KnowledgeGraphViz } from '../aegis/KnowledgeGraphViz';
 import { AgentTopology } from '../aegis/AgentTopology';
-import { useAegisSentinel } from '../../hooks/useAegisSentinel';
+import { AgentCoveragePanel } from '../aegis/AgentCoveragePanel';
+import { useAegisRealtime } from '../../hooks/useAegisRealtime';
+import { isSupabaseConfigured } from '../../services/apiClient';
 
 export function SentinelTab() {
+  const hasSupabase = isSupabaseConfigured();
   const {
     summary,
     incidents,
     agents,
-    safetyCircuit,
-    knowledgeGraph,
+    facilitySummary,
+    assemblySummary,
     loading,
-    isDemoMode,
+    isConnected,
     approveIncident,
     resolveIncident,
-    fetchKnowledgeGraph,
-  } = useAegisSentinel({ pollingInterval: 10000 });
+  } = useAegisRealtime();
 
+  // Mock knowledge graph data for demo
+  const [knowledgeGraph, setKnowledgeGraph] = useState<any>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'topology'>('list');
 
   const handleGenerateGraph = async () => {
     setGraphLoading(true);
-    await fetchKnowledgeGraph();
-    setGraphLoading(false);
+    // Generate mock graph from incident data
+    setTimeout(() => {
+      const nodes = incidents.slice(0, 10).map(i => ({
+        data: { 
+          id: i.incident_id, 
+          label: i.incident_type, 
+          type: i.agent_type || 'unknown',
+          color: i.severity === 'critical' ? '#EF4444' : i.severity === 'high' ? '#F59E0B' : '#3B82F6'
+        }
+      }));
+      const edges: any[] = [];
+      setKnowledgeGraph({ nodes, edges, stats: { node_count: nodes.length, edge_count: 0, central_concepts: [] } });
+      setGraphLoading(false);
+    }, 1000);
   };
 
   // Auto-generate knowledge graph on mount
   useEffect(() => {
-    if (!knowledgeGraph && !graphLoading) {
+    if (!knowledgeGraph && !graphLoading && incidents.length > 0) {
       handleGenerateGraph();
     }
-  }, [knowledgeGraph, graphLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [knowledgeGraph, graphLoading, incidents.length]);
 
   if (loading) {
     return (
@@ -51,19 +67,42 @@ export function SentinelTab() {
 
   const autoResolved = incidents.filter(i => i.action_status === 'auto_executed' && i.resolved).length;
   const pendingApproval = incidents.filter(i => i.action_status === 'pending_approval').length;
+  
+  // Build safety circuit status from incidents
+  const safetyCircuit = summary?.safety_circuit || {
+    green_actions_24h: incidents.filter(i => i.action_zone === 'green').length,
+    yellow_pending: pendingApproval,
+    red_alerts_24h: incidents.filter(i => i.action_zone === 'red').length,
+    agents_active: agents.filter(a => a.status === 'active').length,
+    agents_total: agents.length,
+  };
 
   return (
     <div className="space-y-6">
-      {/* Demo Mode Banner */}
-      {isDemoMode && (
-        <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <IconAlertTriangle className="w-5 h-5 text-amber-500" />
-          <div>
-            <p className="text-sm font-medium text-amber-800">Demo Mode Active</p>
-            <p className="text-xs text-amber-700">Aegis Sentinel data is simulated. Configure VITE_API_URL to connect to real sentinel agents.</p>
-          </div>
-        </div>
-      )}
+      {/* Connection Status */}
+      <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+        {isConnected ? (
+          <>
+            <IconWifi className="w-5 h-5 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium text-slate-900">Supabase Realtime Connected</p>
+              <p className="text-xs text-slate-500">Receiving live data from Aegis Sentinel agents</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <IconWifiOff className="w-5 h-5 text-amber-500" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Offline Mode</p>
+              <p className="text-xs text-amber-700">
+                {!hasSupabase 
+                  ? 'Configure VITE_SUPABASE_URL to enable real-time Sentinel data'
+                  : 'Connecting to Supabase...'}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -100,6 +139,12 @@ export function SentinelTab() {
           color="amber"
         />
       </div>
+
+      {/* Sand-to-Package Coverage */}
+      <AgentCoveragePanel 
+        facilitySummary={facilitySummary}
+        assemblySummary={assemblySummary}
+      />
 
       {/* View Toggle */}
       <div className="flex items-center justify-between">

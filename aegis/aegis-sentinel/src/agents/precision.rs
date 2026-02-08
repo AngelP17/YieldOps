@@ -5,6 +5,7 @@
 //! and surface finish optimization.
 
 use super::*;
+use serde::Deserialize;
 use std::collections::VecDeque;
 
 /// Precision Sentinel configuration

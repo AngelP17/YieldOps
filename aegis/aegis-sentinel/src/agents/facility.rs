@@ -5,6 +5,7 @@
 //! Protocol: Modbus/BACnet (Building Automation)
 
 use async_trait::async_trait;
+use serde::Deserialize;
 use std::collections::VecDeque;
 use tracing::info;
 

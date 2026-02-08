@@ -17,7 +17,7 @@ mod types;
 
 use agents::precision::PrecisionSentinel;
 use agents::facility::FacilitySentinel;
-use agents::assembly::AssemblySentinel;
+use agents::assembly::{AssemblySentinel, AssemblyConfig};
 use agents::SentinelAgent;
 use api_bridge::{report_threat, YieldOpsClient};
 use mqtt::MqttClient;
@@ -52,34 +52,38 @@ async fn main() -> anyhow::Result<()> {
         info!("  Set YIELDOPS_API_URL to enable direct API integration");
     }
 
-    // Initialize agents
-    let mut agents: Vec<Box<dyn SentinelAgent>> = vec![];
+    // Initialize agents (wrapped in RwLock for thread-safe mutation)
+    let mut agents: Vec<Arc<RwLock<dyn SentinelAgent>>> = vec![];
     
     for agent_config in &config.agents {
         match agent_config.agent_type.as_str() {
             "precision" => {
                 info!("Initializing Precision Sentinel for {}", agent_config.machine_id);
-                let agent = PrecisionSentinel::new(
-                    agent_config.machine_id.clone(),
-                    agent_config.config.clone(),
-                );
-                agents.push(Box::new(agent));
+                let agent = PrecisionSentinel::from_config(agent_config.config.clone())
+                    .unwrap_or_else(|_| PrecisionSentinel::new(
+                        agent_config.machine_id.clone(),
+                        Default::default(),
+                    ));
+                agents.push(Arc::new(RwLock::new(agent)));
             }
             "facility" => {
                 info!("Initializing Facility Sentinel for {}", agent_config.machine_id);
-                let agent = FacilitySentinel::new(
-                    agent_config.machine_id.clone(),
-                    agent_config.config.clone(),
-                );
-                agents.push(Box::new(agent));
+                let agent = FacilitySentinel::from_config(agent_config.config.clone())
+                    .unwrap_or_else(|_| FacilitySentinel::new(
+                        agent_config.machine_id.clone(),
+                        Default::default(),
+                    ));
+                agents.push(Arc::new(RwLock::new(agent)));
             }
             "assembly" => {
                 info!("Initializing Assembly Sentinel for {}", agent_config.machine_id);
-                let agent = AssemblySentinel::new(
-                    agent_config.machine_id.clone(),
-                    agent_config.config.clone(),
-                );
-                agents.push(Box::new(agent));
+                let agent = AssemblySentinel::from_config(agent_config.config.clone())
+                    .unwrap_or_else(|_| {
+                        let mut config: AssemblyConfig = Default::default();
+                        config.machine_id = agent_config.machine_id.clone();
+                        AssemblySentinel::new(config)
+                    });
+                agents.push(Arc::new(RwLock::new(agent)));
             }
             _ => {
                 warn!("Unknown agent type: {}", agent_config.agent_type);
@@ -95,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
     let broker = std::env::var("MQTT_BROKER").unwrap_or_else(|_| "localhost".to_string());
     info!("Connecting to MQTT broker at {}...", broker);
     
-    let mqtt_client = Arc::new(RwLock::new(MqttClient::new(&broker).await?));
+    let mut mqtt_client = MqttClient::new(&broker).await?;
     info!("Connected to MQTT broker");
 
     // Register agents with YieldOps API
@@ -134,17 +138,37 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Subscribe to telemetry topics
-    mqtt_client.write().await.subscribe("factory/+/telemetry").await?;
+    mqtt_client.subscribe("factory/+/telemetry").await?;
     info!("Subscribed to factory/+/telemetry");
+
+    // Wrap MQTT client in Arc<tokio::sync::Mutex> for shared access
+    // Using Mutex instead of RwLock because MqttClient's internals are not Sync
+    let mqtt_client = Arc::new(tokio::sync::Mutex::new(mqtt_client));
+
+    // Create channel for telemetry
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Telemetry>(100);
+
+    // Spawn MQTT receiver task
+    let mqtt_client_clone = Arc::clone(&mqtt_client);
+    tokio::spawn(async move {
+        loop {
+            if let Some(telemetry) = mqtt_client_clone.lock().await.receive_telemetry().await {
+                if tx.send(telemetry).await.is_err() {
+                    break;
+                }
+            }
+        }
+    });
 
     // Main event loop
     info!("Aegis Sentinel is running - Press Ctrl+C to stop");
+    info!("Full Value Chain Coverage: Precision → Facility → Assembly");
     
     loop {
         tokio::select! {
             // Handle incoming telemetry
-            Some(telemetry) = mqtt_client.write().await.receive_telemetry() => {
-                handle_telemetry(&agents, &mqtt_client, telemetry).await?;
+            Some(telemetry) = rx.recv() => {
+                handle_telemetry(&agents, &mqtt_client, &yieldops_client, telemetry).await?;
             }
             
             // Handle shutdown signal
@@ -160,18 +184,19 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn handle_telemetry(
-    agents: &[Box<dyn SentinelAgent>],
-    mqtt_client: &Arc<RwLock<MqttClient>>,
+    agents: &[Arc<RwLock<dyn SentinelAgent>>],
+    mqtt_client: &Arc<tokio::sync::Mutex<MqttClient>>,
     yieldops_client: &Option<YieldOpsClient>,
     telemetry: Telemetry,
 ) -> anyhow::Result<()> {
     for agent in agents {
-        if agent.can_handle(&telemetry.machine_id) {
+        let mut agent_guard = agent.write().await;
+        if agent_guard.can_handle(&telemetry.machine_id) {
             // Analyze telemetry for threats
-            let threats = agent.analyze(&telemetry);
+            let threats = agent_guard.analyze(&telemetry);
             
             for threat in threats {
-                let (tier, action) = agent.safety_circuit(&threat);
+                let (tier, action) = agent_guard.safety_circuit(&threat);
                 
                 log_threat(&threat, &tier, &action);
                 
@@ -181,12 +206,12 @@ async fn handle_telemetry(
                 match tier {
                     ResponseTier::Green => {
                         // Auto-execute
-                        if let Err(e) = agent.execute(&action).await {
+                        if let Err(e) = agent_guard.execute(&action).await {
                             error!("Failed to execute action: {}", e);
                         } else {
                             // Publish command to machine
                             let command = action_to_command(&action);
-                            mqtt_client.write().await.publish_command(
+                            mqtt_client.lock().await.publish_command(
                                 &telemetry.machine_id,
                                 &command,
                             ).await?;
@@ -197,14 +222,14 @@ async fn handle_telemetry(
                         warn!("YELLOW ZONE: Action '{}' queued for approval", action.name());
                         // Publish for dashboard visibility
                         let incident = Incident::from_threat(&threat, &action, "pending_approval");
-                        mqtt_client.write().await.publish_incident(&incident).await?;
+                        mqtt_client.lock().await.publish_incident(&incident).await?;
                     }
                     ResponseTier::Red => {
                         // Alert only - no autonomous action
                         error!("RED ZONE: Human intervention required for {:?}", threat);
                         // Publish incident for dashboard
                         let incident = Incident::from_threat(&threat, &action, "alert_only");
-                        mqtt_client.write().await.publish_incident(&incident).await?;
+                        mqtt_client.lock().await.publish_incident(&incident).await?;
                     }
                 }
             }
