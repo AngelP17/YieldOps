@@ -97,8 +97,8 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     // Process RUNNING jobs - increment wafer progress
     jobs.forEach(job => {
       if (job.status === 'RUNNING' && job.assigned_machine_id) {
-        // Randomly complete jobs
-        if (Math.random() > 0.95) {
+        // Lower chance to complete so jobs stay running longer
+        if (Math.random() > 0.98) {
           updateJob(job.job_id, { 
             status: 'COMPLETED',
             actual_end_time: new Date().toISOString(),
@@ -117,7 +117,13 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     });
     
     // Process QUEUED jobs - start them if machine is available
+    // Only start a few at a time to prevent draining the queue too fast
+    let startedCount = 0;
+    const maxToStart = 2;
+    
     jobs.forEach(job => {
+      if (startedCount >= maxToStart) return;
+      
       if (job.status === 'QUEUED' && job.assigned_machine_id) {
         const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
         if (machine && machine.status === 'IDLE') {
@@ -129,9 +135,39 @@ export function useAutonomousSimulation(config: SimulationConfig) {
             status: 'RUNNING',
             current_wafer_count: job.wafer_count,
           });
+          startedCount++;
         }
       }
     });
+    
+    // Auto-dispatch: Move PENDING jobs to QUEUED when machines are available
+    // But only dispatch a few at a time to let pending queue build up
+    let dispatchedCount = 0;
+    const maxToDispatch = 1; // Only dispatch 1 pending job per cycle
+    
+    const pendingJobs = jobs
+      .filter(j => j.status === 'PENDING')
+      .sort((a, b) => {
+        // Hot lots first, then by priority
+        if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+        return a.priority_level - b.priority_level;
+      });
+    
+    const idleMachines = machines.filter(m => m.status === 'IDLE');
+    
+    for (const job of pendingJobs) {
+      if (dispatchedCount >= maxToDispatch) break;
+      if (idleMachines.length === 0) break;
+      
+      // Assign to best available machine
+      const machine = idleMachines[dispatchedCount];
+      updateJob(job.job_id, {
+        status: 'QUEUED',
+        assigned_machine_id: machine.machine_id,
+      });
+      // Keep machine as IDLE - it will transition to RUNNING when job starts
+      dispatchedCount++;
+    }
   }, [jobs, machines, updateJob, updateMachine, isUsingMockData]);
 
   /**
@@ -182,75 +218,33 @@ export function useAutonomousSimulation(config: SimulationConfig) {
 
   /**
    * Ensure minimum jobs in each category - always maintain data
+   * Adds jobs gradually to simulate realistic fab workflow
    */
   const ensureMinimumJobs = useCallback(() => {
     if (!isUsingMockData) return;
     
     const pendingJobs = jobs.filter(j => j.status === 'PENDING');
-    const queuedJobs = jobs.filter(j => j.status === 'QUEUED');
-    const runningJobs = jobs.filter(j => j.status === 'RUNNING');
     const hotLots = jobs.filter(j => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED');
     
-    // Always ensure at least 3 pending jobs
-    while (pendingJobs.length < 3) {
-      const newJob = generateNewJob(jobs.length + pendingJobs.length + 1);
+    // Add ONE pending job at a time to let them accumulate (max 8)
+    if (pendingJobs.length < 5) {
+      const newJob = generateNewJob(jobs.length + Date.now());
       newJob.status = 'PENDING';
       newJob.priority_level = Math.floor(Math.random() * 3) + 2;
       newJob.is_hot_lot = false;
       addJob(newJob);
-      pendingJobs.push(newJob);
     }
     
-    // Always ensure at least 2 queued jobs
-    while (queuedJobs.length < 2) {
-      const newJob = generateNewJob(jobs.length + queuedJobs.length + 1);
-      newJob.status = 'QUEUED';
-      newJob.priority_level = Math.floor(Math.random() * 3) + 2;
-      newJob.is_hot_lot = false;
-      // Assign to an idle machine if available
-      const idleMachine = machines.find(m => m.status === 'IDLE');
-      if (idleMachine) {
-        newJob.assigned_machine_id = idleMachine.machine_id;
-      }
-      addJob(newJob);
-      queuedJobs.push(newJob);
-    }
-    
-    // Always ensure at least 3 running jobs
-    while (runningJobs.length < 3) {
-      const newJob = generateNewJob(jobs.length + runningJobs.length + 1);
-      newJob.status = 'RUNNING';
-      newJob.priority_level = Math.floor(Math.random() * 3) + 2;
-      newJob.is_hot_lot = false;
-      newJob.actual_start_time = new Date().toISOString();
-      // Assign to an idle machine if available
-      const idleMachine = machines.find(m => m.status === 'IDLE');
-      if (idleMachine) {
-        newJob.assigned_machine_id = idleMachine.machine_id;
-      }
-      addJob(newJob);
-      runningJobs.push(newJob);
-    }
-    
-    // Always ensure at least 2 hot lots
-    while (hotLots.length < 2) {
-      const newJob = generateNewJob(jobs.length + hotLots.length + 1);
-      newJob.status = Math.random() > 0.5 ? 'RUNNING' : 'QUEUED';
+    // Add hot lots sparingly (max 3)
+    if (hotLots.length < 3 && Math.random() > 0.7) {
+      const newJob = generateNewJob(jobs.length + Date.now() + 1);
+      newJob.status = 'PENDING'; // Hot lots start as pending too
       newJob.priority_level = 1;
       newJob.is_hot_lot = true;
-      if (newJob.status === 'RUNNING') {
-        newJob.actual_start_time = new Date().toISOString();
-      }
-      // Assign to a machine if needed
-      if (newJob.status === 'RUNNING' || newJob.status === 'QUEUED') {
-        const availableMachine = machines.find(m => m.status !== 'DOWN' && m.status !== 'MAINTENANCE');
-        if (availableMachine) {
-          newJob.assigned_machine_id = availableMachine.machine_id;
-        }
-      }
       addJob(newJob);
-      hotLots.push(newJob);
     }
+    
+
   }, [jobs, machines, addJob, isUsingMockData]);
 
   /**
