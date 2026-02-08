@@ -285,25 +285,30 @@ The **Aegis Sentinel Platform** provides autonomous defense capabilities for the
 
 ### Sand-to-Package Coverage
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SAND-TO-PACKAGE PLATFORM                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   FRONT-END (Fab)          BACK-END (Packaging)                 │
-│   ─────────────────        ───────────────────                  │
-│   • Lithography            • Wire Bonders                       │
-│   • Etching                • Die Attach                         │
-│   • Deposition             • Test Equipment                     │
-│   • FFU/HVAC                                                        │
-│                                                                  │
-│   Facility Agent           Assembly Agent                        │
-│   ──────────────           ─────────────                        │
-│   Modbus/BACnet            SECS/GEM                             │
-│   P/Q Impedance            USG Impedance                        │
-│   ISO 14644                NSOP Detection                       │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph SandToPackage["SAND-TO-PACKAGE PLATFORM"]
+        subgraph FrontEnd["FRONT-END (Fab)"]
+            Litho["• Lithography"]
+            Etch["• Etching"]
+            Dep["• Deposition"]
+            FFU["• FFU/HVAC"]
+            Facility["Facility Agent"]
+            Modbus["Protocol: Modbus/BACnet"]
+            Physics1["Physics: P/Q Impedance, ISO 14644"]
+        end
+        
+        subgraph BackEnd["BACK-END (Packaging)"]
+            Wire["• Wire Bonders"]
+            Die["• Die Attach"]
+            Test["• Test Equipment"]
+            Assembly["Assembly Agent"]
+            SECS["Protocol: SECS/GEM"]
+            Physics2["Physics: USG Impedance, NSOP Detection"]
+        end
+    end
+    
+    FrontEnd --> BackEnd
 ```
 
 ### API Endpoints

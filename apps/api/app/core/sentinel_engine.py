@@ -210,7 +210,7 @@ def get_incidents(
     resolved: Optional[bool] = None,
     limit: int = 50,
 ) -> List[Dict]:
-    """Get incidents from Supabase with filtering."""
+    """Get incidents from Supabase with filtering. Excludes demo incidents."""
     try:
         query = supabase_service.client.table("aegis_incidents").select("*")
         
@@ -223,16 +223,21 @@ def get_incidents(
         
         response = query.order("created_at", desc=True).limit(limit).execute()
         
-        # Map DB records to API format
+        # Map DB records to API format, filtering out demo incidents
         incidents = []
         for row in (response.data or []):
+            message = row.get("message", "")
+            # Skip demo incidents - only return real "Active incident" entries
+            if "Demo incident" in message:
+                continue
+            
             incidents.append({
                 "incident_id": str(row.get("incident_id", "")),
                 "timestamp": row.get("created_at", ""),
                 "machine_id": row.get("machine_id", ""),
                 "severity": row.get("severity", "medium"),
                 "incident_type": row.get("incident_type", ""),
-                "message": row.get("message", ""),
+                "message": message,
                 "detected_value": row.get("detected_value", 0),
                 "threshold_value": row.get("threshold_value", 0),
                 "action_taken": row.get("action_taken", ""),
@@ -391,11 +396,15 @@ def get_safety_circuit_status() -> Dict:
         now = datetime.utcnow()
         cutoff = (now - timedelta(hours=24)).isoformat()
         
-        # Get recent incidents
+        # Get recent incidents (excluding demo incidents)
         response = supabase_service.client.table("aegis_incidents") \
             .select("*").gte("created_at", cutoff).execute()
         
-        recent = response.data or []
+        # Filter out demo incidents
+        recent = [
+            i for i in (response.data or [])
+            if "Demo incident" not in (i.get("message", ""))
+        ]
         green = sum(1 for i in recent if i.get("action_zone") == "green")
         yellow_pending = sum(
             1 for i in recent
@@ -412,12 +421,14 @@ def get_safety_circuit_status() -> Dict:
             .select("agent_id").execute()
         total_agents = len(total_agents_response.data or [])
         
-        # Get last incident
+        # Get last incident (excluding demo incidents)
         last_response = supabase_service.client.table("aegis_incidents") \
-            .select("*").order("created_at", desc=True).limit(1).execute()
+            .select("*").order("created_at", desc=True).limit(10).execute()
         last = None
-        if last_response.data:
-            row = last_response.data[0]
+        for row in (last_response.data or []):
+            # Skip demo incidents
+            if "Demo incident" in (row.get("message", "")):
+                continue
             last = {
                 "incident_id": str(row.get("incident_id", "")),
                 "timestamp": row.get("created_at", ""),
@@ -429,6 +440,7 @@ def get_safety_circuit_status() -> Dict:
                 "action_status": row.get("action_status", ""),
                 "resolved": row.get("resolved", False),
             }
+            break  # Found the most recent non-demo incident
         
         return {
             "green_actions_24h": green,
@@ -456,10 +468,15 @@ def get_summary() -> Dict:
         now = datetime.utcnow()
         cutoff = (now - timedelta(hours=24)).isoformat()
         
-        # Get incidents from last 24h
+        # Get incidents from last 24h (excluding demo incidents)
         response = supabase_service.client.table("aegis_incidents") \
             .select("*").gte("created_at", cutoff).execute()
-        recent = response.data or []
+        
+        # Filter out demo incidents
+        recent = [
+            i for i in (response.data or [])
+            if "Demo incident" not in (i.get("message", ""))
+        ]
         
         critical = sum(1 for i in recent if i.get("severity") == "critical")
         
@@ -477,23 +494,29 @@ def get_summary() -> Dict:
             .select("*").eq("status", "active").execute()
         active_agents = len(agents_response.data or [])
         
-        # Get recent incidents (all time, sorted)
+        # Get recent incidents (all time, sorted), excluding demo incidents
         recent_response = supabase_service.client.table("aegis_incidents") \
-            .select("*").order("created_at", desc=True).limit(10).execute()
+            .select("*").order("created_at", desc=True).limit(20).execute()
         
         recent_incidents = []
         for row in (recent_response.data or []):
+            message = row.get("message", "")
+            # Skip demo incidents
+            if "Demo incident" in message:
+                continue
             recent_incidents.append({
                 "incident_id": str(row.get("incident_id", "")),
                 "timestamp": row.get("created_at", ""),
                 "machine_id": row.get("machine_id", ""),
                 "severity": row.get("severity", ""),
                 "incident_type": row.get("incident_type", ""),
-                "message": row.get("message", ""),
+                "message": message,
                 "action_zone": row.get("action_zone", ""),
                 "action_status": row.get("action_status", ""),
                 "resolved": row.get("resolved", False),
             })
+        # Limit to 10 real incidents
+        recent_incidents = recent_incidents[:10]
         
         return {
             "total_incidents_24h": len(recent),

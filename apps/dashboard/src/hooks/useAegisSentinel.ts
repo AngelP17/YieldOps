@@ -182,30 +182,36 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
         api.getSafetyCircuitStatus(),
       ]);
 
+      // Filter out demo incidents from API response
+      const realIncidents = (incidentsData || []).filter(
+        (incident) => !incident.message?.includes('Demo incident')
+      );
+
       // Check if API returned real data (even empty arrays mean the API is working)
       const apiResponded = Array.isArray(agentsData) || Array.isArray(incidentsData);
-      const hasData = (agentsData && agentsData.length > 0) ||
-                      (incidentsData && incidentsData.length > 0);
+      const hasRealData = (agentsData && agentsData.length > 0) || (realIncidents.length > 0);
 
       if (apiResponded) {
-        // API is working - always use its data (even if empty)
-        setSummary(summaryData);
-        setIncidents(incidentsData || []);
-        setAgents(agentsData || []);
-        setSafetyCircuit(circuitData);
-        setHasReceivedRealData(true);
-        
-        // Only show demo mode visually if no actual data yet
-        if (!hasData && !hasReceivedRealData) {
-
+        // API is working - check if we have real data
+        if (hasRealData) {
+          // Use real data from API
+          console.log(`[Aegis API] Using real data: ${realIncidents.length} incidents, ${agentsData?.length || 0} agents`);
+          setSummary(summaryData);
+          setIncidents(realIncidents);
+          setAgents(agentsData || []);
+          setSafetyCircuit(circuitData);
+          setHasReceivedRealData(true);
+          setIsDemoMode(false);
+        } else if (!hasReceivedRealData) {
+          // No real data yet, use demo fallback
+          console.log('[Aegis API] No real data from API, using demo fallback');
           setIncidents(DEMO_INCIDENTS);
           setAgents(DEMO_AGENTS);
           setSummary(DEMO_SUMMARY);
           setSafetyCircuit(DEMO_SAFETY_CIRCUIT);
           setIsDemoMode(true);
-        } else {
-          setIsDemoMode(false);
         }
+        // If hasReceivedRealData but this poll returned empty, keep existing data
       }
       // If hasReceivedRealData but this poll returned empty, keep existing data
       setError(null);

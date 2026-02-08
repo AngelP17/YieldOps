@@ -2,7 +2,7 @@
 name = "aegis-sentinel"
 version = "1.0.0"
 edition = "2021"
-authors = ["Angel L. Pinzon <apinzon@expac.com>"]
+authors = ["Angel L. Pinzon <angelpinzon1706@gmail.com>"]
 description = "Aegis Sentinel - Autonomous defense agent for industrial equipment"
 license = "MIT"
 repository = "https://github.com/AngelP17/aegis-core"

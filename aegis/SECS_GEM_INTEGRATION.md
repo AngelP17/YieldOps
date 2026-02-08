@@ -8,11 +8,16 @@ This document describes the SECS/GEM (SEMI Equipment Communications Standard / G
 
 Instead of implementing the complex SECS/GEM binary protocol directly in Rust (a 6+ month effort), we use a **Sidecar Pattern**:
 
-```
-┌─────────────────┐      MQTT       ┌──────────────────┐     SECS/GEM      ┌──────────────┐
-│  Rust Agent     │ ◄──────────────► │  Python Bridge   │ ◄───────────────► │ Wire Bonder  │
-│  (Assembly.rs)  │                  │  (gem_adapter.py)│                   │  (K&S, ASM)  │
-└─────────────────┘                  └──────────────────┘                   └──────────────┘
+```mermaid
+flowchart LR
+    Rust["Rust Agent<br/>(Assembly.rs)"]
+    MQTT["MQTT"]
+    Python["Python Bridge<br/>(gem_adapter.py)"]
+    SECS["SECS/GEM"]
+    Bonder["Wire Bonder<br/>(K&S, ASM)"]
+    
+    Rust <-->|MQTT| Python
+    Python <-->|SECS/GEM| Bonder
 ```
 
 ### Why This Pattern?

@@ -5,6 +5,8 @@ Autonomous threat detection and remediation for manufacturing equipment.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status: Beta](https://img.shields.io/badge/Status-Beta-blue.svg)](https://github.com/AngelP17/aegis-core)
+[![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org)
 
 ---
 
@@ -13,116 +15,119 @@ Autonomous threat detection and remediation for manufacturing equipment.
 Aegis is an **open-source autonomous defense platform** for the factory floor.
 It applies cybersecurity principles to physical machines:
 
-1.  **Detect:** Behavioral anomaly detection (Z-score physics models).
-2.  **Defend:** Autonomous remediation (Safety Circuit logic).
-3.  **Recover:** Automated incident response and logging.
+1. **Detect:** Behavioral anomaly detection (Z-score + rate-of-change physics models).
+2. **Defend:** Autonomous remediation (3-tier Safety Circuit logic).
+3. **Recover:** Automated incident response and logging.
 
 **Unlike MES (passive monitoring), Aegis is active protection.**
+
+### Sand-to-Package Coverage
+
+Aegis provides full value chain coverage for semiconductor manufacturing:
+
+```mermaid
+flowchart TB
+    subgraph Platform["AEGIS SENTINEL PLATFORM"]
+        subgraph Agents["Agent Layer"]
+            Facility["FACILITY AGENT<br/>Front-End Fab<br/>• FFU/HVAC<br/>• Cleanroom<br/>• Chemical<br/>Protocol: Modbus/BACnet"]
+            Precision["PRECISION AGENT<br/>Tool-Level<br/>• CNC Mills<br/>• Lithography<br/>• Etching<br/>Protocol: MTConnect/OPC-UA"]
+            Assembly["ASSEMBLY AGENT<br/>Back-End PKG<br/>• Wire Bonders<br/>• Die Attach<br/>• Test Equip<br/>Protocol: SECS/GEM"]
+        end
+        
+        subgraph Safety["SAFETY CIRCUIT"]
+            Zones["🟢 🟡 🔴"]
+        end
+        
+        subgraph API["YIELDOPS API<br/>(FastAPI)"]
+            Endpoints["API Endpoints"]
+        end
+    end
+    
+    Facility --> Safety
+    Precision --> Safety
+    Assembly --> Safety
+    Safety --> API
+```
 
 ---
 
 ## 🚀 Quick Start (5 Minutes)
 
 ### Prerequisites
-- Docker + Docker Compose
+
+- Docker + Docker Compose (or Rust 1.75+ and Python 3.11+)
 - 4GB RAM minimum
-- Port 1883, 3000, 5432 available
+- Port 1883 (MQTT), 8000 (API), 5173 (Dashboard) available
 
 ### Installation
 
 ```bash
 # Clone repository
-git clone https://github.com/AngelP17/aegis-core.git
-cd aegis-core
+git clone https://github.com/AngelP17/YieldOps.git
+cd YieldOps
 
-# Start complete stack
-./quickstart.sh
+# Option 1: Docker Compose (Recommended)
+docker-compose up -d
+
+# Option 2: Manual setup
+# 1. Start MQTT broker
+brew install mosquitto && brew services start mosquitto
+
+# 2. Start YieldOps API
+cd apps/api && pip install -r requirements.txt && uvicorn app.main:app --reload
+
+# 3. Start Aegis Sentinel (in another terminal)
+cd aegis/aegis-sentinel && cargo run
+
+# 4. Start Dashboard (in another terminal)
+cd apps/dashboard && npm install && npm run dev
 
 # Access dashboard
-open http://localhost:3000
+open http://localhost:5173
 ```
 
 **That's it.** You now have:
-- ✅ 5 virtual CNC machines generating physics-based telemetry
-- ✅ Aegis Sentinel agents monitoring for threats
-- ✅ Real-time Aegis Command Center dashboard
-- ✅ Time-series database storing all telemetry
+
+- ✅ 48 virtual fab machines generating physics-based telemetry
+- ✅ 3 Aegis Sentinel agents (Facility, Precision, Assembly)
+- ✅ Real-time YieldOps dashboard with Sentinel Tab
+- ✅ PostgreSQL database with Supabase Realtime
+- ✅ Knowledge graph visualization
+- ✅ 3-tier Safety Circuit (Green/Yellow/Red zones)
 
 ---
 
 ## 🏗️ Architecture
 
+```mermaid
+flowchart TB
+    subgraph AegisPlatform["AEGIS PLATFORM"]
+        subgraph Layer1["Layer 1: AEGIS SENTINEL AGENTS (Rust)"]
+            L1Desc["• Sub-10MB memory footprint<br/>• Behavioral anomaly detection<br/>• Safety Circuit (3-tier)<br/>• Protocol adapters: MQTT, Modbus, OPC-UA, SECS/GEM"]
+        end
+        
+        subgraph Layer2["Layer 2: TELEMETRY BUS (MQTT)"]
+            L2Desc["• Eclipse Mosquitto broker<br/>• QoS 1 (at-least-once delivery)<br/>• WebSocket support for dashboard"]
+        end
+        
+        subgraph Layer3["Layer 3: YIELDOPS API (Python/FastAPI)"]
+            L3Desc["• Incident management<br/>• Knowledge graph analytics (NetworkX)<br/>• Safety circuit state machine<br/>• ML anomaly detection"]
+        end
+        
+        subgraph Layer4["Layer 4: DATABASE (Supabase/PostgreSQL)"]
+            L4Desc["• PostgreSQL 15 with Realtime subscriptions<br/>• Tables: aegis_incidents, aegis_agents<br/>• 30-day data retention policy"]
+        end
+        
+        subgraph Layer5["Layer 5: YIELDOPS DASHBOARD (React + Vite)"]
+            L5Desc["• CrowdStrike-style SOC interface<br/>• Real-time WebSocket telemetry<br/>• Sentinel Tab with Sand-to-Package coverage<br/>• Knowledge graph visualization"]
+        end
+    end
+    
+    Layer1 --> Layer2
+    Layer2 --> Layer3
+    Layer3 --> Layer4
+    Layer4 --> Layer5
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    AEGIS PLATFORM                           │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 1: AEGIS SENTINEL AGENTS (Rust/Python)               │
-│  • Sub-10MB memory footprint                                │
-│  • Behavioral anomaly detection (3-sigma, rate-of-change)   │
-│  • Safety Circuit (3-tier response model)                   │
-│  • Protocol adapters: MQTT, Modbus, OPC-UA, FOCAS          │
-│                                                             │
-│  Layer 2: TELEMETRY BUS (MQTT)                              │
-│  • Eclipse Mosquitto broker                                 │
-│  • QoS 1 (at-least-once delivery)                           │
-│  • WebSocket support for dashboard                          │
-│                                                             │
-│  Layer 3: TIME-SERIES DATABASE (TimescaleDB)                │
-│  • PostgreSQL 16 + TimescaleDB extension                    │
-│  • Continuous aggregates for performance                    │
-│  • 30-day data retention policy                             │
-│                                                             │
-│  Layer 4: AEGIS COMMAND CENTER (React + Vite)               │
-│  • CrowdStrike-style SOC interface                          │
-│  • Real-time WebSocket telemetry                            │
-│  • Incident timeline and remediation log                    │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🧪 Demo Scenarios
-
-### Scenario 1: Thermal Runaway Detection
-
-Simulate coolant pump failure and watch autonomous response:
-
-```bash
-# Inject fault into CNC-003
-docker exec ghost-cnc-003 python -c "
-from ghost_cnc import GhostCNC
-import time
-machine = GhostCNC('CNC-003', broker='mosquitto')
-machine.inject_chaos('coolant_failure')
-time.sleep(120)  # Watch for 2 minutes
-"
-
-# Watch Aegis Sentinel logs
-docker logs -f aegis-sentinel
-```
-
-**Expected Behavior:**
-1. Temperature rises from 65°C → 90°C in ~60 seconds
-2. Aegis detects thermal runaway (Z-score > 3, RoC > 5°C/min)
-3. Sentinel autonomously reduces spindle speed by 50%
-4. Temperature stabilizes and recovers
-5. Dashboard shows incident timeline with full audit trail
-
-### Scenario 2: Vibration Anomaly (Bearing Failure)
-
-```bash
-docker exec ghost-cnc-002 python -c "
-from ghost_cnc import GhostCNC
-machine = GhostCNC('CNC-002', broker='mosquitto')
-machine.inject_chaos('bearing_defect')
-"
-```
-
-**Expected Behavior:**
-1. Vibration spikes from 0.001 mm/s → 0.08 mm/s
-2. Aegis flags as critical bearing failure
-3. Sentinel sends "ALERT ONLY" (RED zone - human decision required)
-4. Maintenance ticket created (future: Epicor integration)
 
 ---
 
@@ -130,20 +135,61 @@ machine.inject_chaos('bearing_defect')
 
 Aegis uses specialized agents for different equipment types:
 
-### Precision Sentinel (CNC Machining)
-- **Purpose:** CNC mills, lathes, machining centers
-- **Detects:** Chatter, thermal drift, tool wear
-- **Actions:** RPM adjustment, thermal compensation, tool change alerts
+### 1. Facility Sentinel (Front-End Fab)
 
-### Power Sentinel (Coming Soon)
-- **Purpose:** Welders, laser cutters, EDM machines
-- **Detects:** Arc instability, power fluctuations, gas flow issues
-- **Actions:** Parameter adjustment, gas pressure alerts
+**File**: `aegis-sentinel/src/agents/facility.rs`
 
-### Thermal Sentinel (Coming Soon)
-- **Purpose:** Heat treat ovens, furnaces, quench systems
-- **Detects:** Temperature uniformity issues, atmosphere problems
-- **Actions:** Zone balancing, atmosphere adjustment
+- **Purpose:** FFU units, HVAC, cleanroom environment
+- **Physics:** Fluid dynamics, ISO 14644, P/Q impedance
+- **Protocol:** Modbus/BACnet
+- **Detects:** Filter clogging, ISO violations, chemical leaks
+
+**Key Detection:**
+
+```rust
+// Darcy-Weisbach impedance for filter monitoring
+let impedance = pressure_drop / airflow;
+if impedance > threshold {
+    Threat::FilterEndOfLife { impedance, threshold }
+}
+```
+
+### 2. Precision Sentinel (CNC Machining)
+
+**File**: `aegis-sentinel/src/agents/precision.rs`
+
+- **Purpose:** CNC mills, lathes, machining centers, lithography
+- **Physics:** ISO 10816 vibration, CTE thermal expansion
+- **Protocol:** MTConnect/OPC-UA
+- **Detects:** Chatter, thermal drift, tool wear, bearing failure
+
+**Key Detection:**
+
+```rust
+// ISO 10816 vibration analysis
+let z_score = (vibration - mean) / std_dev;
+if z_score > 3.0 && roc > 5.0 {
+    Threat::BearingFailure { severity: Critical }
+}
+```
+
+### 3. Assembly Sentinel (Back-End Packaging)
+
+**File**: `aegis-sentinel/src/agents/assembly.rs`
+
+- **Purpose:** Wire bonders, die attach, flip chip
+- **Physics:** Ultrasonic impedance, CTE thermal drift
+- **Protocol:** SECS/GEM (via Python sidecar)
+- **Detects:** NSOP (Non-Stick on Pad), bond quality, OEE drift
+
+**Key Detection:**
+
+```rust
+// NSOP detection via USG impedance
+if usg_impedance < 30.0 {
+    Threat::NonStickOnPad { impedance: usg_impedance }
+}
+```
 
 ---
 
@@ -152,31 +198,36 @@ Aegis uses specialized agents for different equipment types:
 Unlike pure AI automation, Aegis implements a **three-tier safety model** inspired by aerospace and nuclear control systems:
 
 ### GREEN ZONE (Auto-Execute)
+
 **Criteria:** Low-risk, easily reversible, no production impact
 
-Examples:
-- Adjust feed rate ±10%
-- Increase coolant flow
-- Rebalance parallel work cells
-- Generate maintenance tickets in ERP
+| Threat | Action |
+|--------|--------|
+| Elevated temperature | Adjust feed rate ±10% |
+| Minor vibration | Increase coolant flow |
+| Filter loading | Log for maintenance |
 
 ### YELLOW ZONE (Human Approval)
+
 **Criteria:** Production-impacting but necessary to prevent failure
 
-Examples:
-- Reduce spindle speed >20%
-- Schedule emergency maintenance
-- Halt specific operation (not full E-stop)
+| Threat | Action |
+|--------|--------|
+| High temperature | Reduce spindle speed >20% |
+| Abnormal vibration | Schedule emergency maintenance |
+| NSOP trend | Inspect capillary |
 
 **Implementation:** Sentinel proposes action, waits for dashboard approval (1-click), then executes.
 
 ### RED ZONE (Alert Only)
+
 **Criteria:** Safety-critical or unknown failure mode
 
-Examples:
-- Emergency stop requests (OSHA-regulated)
-- First-time anomaly patterns (no baseline)
-- Multi-machine cascade events
+| Threat | Action |
+|--------|--------|
+| Thermal runaway | Emergency stop (human decision) |
+| Bearing failure | Critical alert (human decision) |
+| Cascade event | Alert management |
 
 **Implementation:** Alert sent to human operators. Sentinel takes NO autonomous action.
 
@@ -184,9 +235,10 @@ Examples:
 
 ## 🔬 Physics Models (Engineering Credibility)
 
-Aegis's simulators use **real physics**, not random data. This differentiates us from competitors:
+Aegis's agents use **real physics**, not random data:
 
-### Thermal Model
+### Thermal Model (Precision Agent)
+
 ```python
 # First-order thermal system (Newton's Law of Cooling)
 dT/dt = (Q_gen - Q_removal) / C_thermal
@@ -197,19 +249,35 @@ Where:
   C_thermal = Thermal mass (J/°C)
 ```
 
-**Why This Matters:** Our temperature predictions match real CNC behavior within ±2°C. Competitors use linear thresholds that miss gradual drift.
+**Why This Matters:** Temperature predictions match real CNC behavior within ±2°C.
 
-### Vibration Model
+### Filter Impedance Model (Facility Agent)
+
 ```python
-# Multi-source vibration composition
-V_total = V_base + V_imbalance + V_wear + V_thermal + V_defect
+# Darcy-Weisbach for HEPA filter monitoring
+Z = P / Q  # Impedance = Pressure Drop / Airflow
 
-V_imbalance = k × RPM²  # Centrifugal forces
-V_wear      = e^((wear - 0.3) × 5)  # Exponential growth after 30%
-V_thermal   = f(T > 85°C)  # Loose fits from expansion
+Where:
+  P = Pressure drop across filter (Pa)
+  Q = Airflow rate (m³/s)
+  Z = Filter impedance (Pa·s/m³)
 ```
 
-**Why This Matters:** ISO 10816 compliant. Our vibration signatures match real bearing failure modes seen in NREL fault databases.
+**Why This Matters:** Predicts filter end-of-life before ISO class violations occur.
+
+### Ultrasonic Impedance Model (Assembly Agent)
+
+```python
+# USG impedance for bond quality
+if impedance < 30:  # Ohms
+    defect = "NSOP (Non-Stick on Pad)"
+elif impedance > 50:
+    quality = "Good Bond"
+else:
+    quality = "Marginal"
+```
+
+**Why This Matters:** Detects bond failures in milliseconds, preventing field failures.
 
 ---
 
@@ -220,34 +288,42 @@ V_thermal   = f(T > 85°C)  # Loose fits from expansion
 | **Edge Agent** | Rust 1.75 | <10MB RAM, <5ms latency |
 | **Detection Algorithm** | 3-sigma Z-score + rate-of-change | <100ms analysis time |
 | **Message Bus** | MQTT (QoS 1) | 10K+ msg/sec throughput |
-| **Database** | TimescaleDB (PostgreSQL 16) | 1M+ rows/sec ingestion |
+| **Database** | PostgreSQL 15 + Realtime | 1M+ rows/sec ingestion |
 | **Dashboard** | React 18 + Vite | <100ms p95 render time |
+| **API** | FastAPI (Python 3.11) | <50ms p95 response |
 
 ---
 
 ## 🗺️ Roadmap
 
 ### Phase 1: Open Source Core (Q1 2026) ✅ **You Are Here**
-- [x] Physics-based simulator
-- [x] Behavioral anomaly detection
-- [x] Safety Circuit implementation
-- [x] Docker deployment
+
+- [x] Physics-based sentinel agents (Rust)
+- [x] 3-tier Safety Circuit implementation
+- [x] Facility/Precision/Assembly agent types
+- [x] Modbus/BACnet protocol support
+- [x] SECS/GEM bridge (Python sidecar)
+- [x] Knowledge graph analytics
+- [x] YieldOps dashboard integration
 - [ ] GitHub release + documentation
 - [ ] 500 GitHub stars target
 
 ### Phase 2: Commercial Features (Q2 2026)
+
 - [ ] ERP connectors (Epicor, SAP Business One, Odoo)
 - [ ] Real hardware protocol adapters (Modbus RTU, OPC-UA, FOCAS)
 - [ ] Cloud-hosted "Aegis Cloud" tier ($99-499/mo)
 - [ ] 10 paying pilot customers
 
 ### Phase 3: AI Autopilot (Q3 2026)
+
 - [ ] Edge LLM inference (llama.cpp) for decision explanations
 - [ ] Digital twin predictions (HMAX physics engine integration)
 - [ ] Multi-site mesh federation
 - [ ] Enterprise on-prem deployment option
 
 ### Phase 4: Network Effects (Q4 2026)
+
 - [ ] Federated threat intelligence (anonymized failure patterns)
 - [ ] Industry-specific failure libraries (aerospace, automotive, medical)
 - [ ] Predictive maintenance scheduling optimization
@@ -258,6 +334,7 @@ V_thermal   = f(T > 85°C)  # Loose fits from expansion
 ## 💰 Business Model
 
 ### Open Source (MIT License)
+
 - Core platform (this repository)
 - Protocol adapters
 - Basic anomaly detection
@@ -266,18 +343,21 @@ V_thermal   = f(T > 85°C)  # Loose fits from expansion
 ### Commercial Tiers
 
 **Aegis Cloud** ($299/mo per site)
+
 - Managed hosting
 - ERP integrations
 - Priority support
 - 99.9% SLA
 
 **Aegis AI** ($999/mo per site)
+
 - Autonomous optimization
 - Digital twin predictions
 - Multi-site federation
 - Custom physics models
 
 **Aegis Enterprise** (Custom pricing)
+
 - On-premises deployment
 - White-label option
 - Dedicated success manager
@@ -290,6 +370,7 @@ V_thermal   = f(T > 85°C)  # Loose fits from expansion
 We welcome contributions! Aegis is built for manufacturing engineers, by manufacturing engineers.
 
 **High-Value Contributions:**
+
 - Protocol adapters (Modbus RTU, Allen-Bradley EtherNet/IP, Siemens S7)
 - Industry-specific failure libraries (aerospace, automotive, medical device)
 - ERP connectors (Epicor, SAP, Oracle NetSuite, Odoo)
@@ -299,30 +380,45 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture and data flow |
+| [SECS_GEM_INTEGRATION.md](SECS_GEM_INTEGRATION.md) | SECS/GEM protocol integration |
+| [AEGIS_INTEGRATION_GUIDE.md](../AEGIS_INTEGRATION_GUIDE.md) | YieldOps integration guide |
+| [AEGIS_SAND_TO_PACKAGE.md](../AEGIS_SAND_TO_PACKAGE.md) | Sand-to-Package coverage |
+
+---
+
 ## 📄 License
 
 **MIT License** - See [LICENSE](LICENSE) file for details.
 
 **Commercial licenses available** for:
+
 - White-label deployments
 - Proprietary failure libraries
 - Export-controlled industries
 
-Contact: apinzon@expac.com
+Contact: <angelpinzon1706@gmail.com>
 
 ---
 
 ## 🙏 Acknowledgments
 
 **Inspiration:**
+
 - CrowdStrike Falcon (behavioral security)
 - Tesla Autopilot (gradual autonomy)
 - Boeing 777 FMS (safety-critical automation)
 
 **Open Source Stack:**
+
 - Eclipse Mosquitto (MQTT broker)
-- TimescaleDB (time-series database)
+- PostgreSQL + Supabase (real-time database)
 - Rust Language (performance + safety)
+- Python/FastAPI (rapid API development)
 - React + Vite (modern web)
 
 ---
@@ -330,12 +426,8 @@ Contact: apinzon@expac.com
 ## 📞 Contact
 
 **Author:** Angel L. Pinzon, B.S.Cp.E.  
-**Email:** apinzon@expac.com  
+**Email:** <angelpinzon1706@gmail.com>  
 **Portfolio:** [apinzon.dev](https://apinzon.dev)  
 **LinkedIn:** [Angel L. Pinzon](https://linkedin.com/in/angel-pinzon)
 
-**Demo Request:** [Schedule 15-min demo](https://cal.com/angel-pinzon/aegis-demo)
-
 ---
-
-**Built with ❤️ by engineers who understand both code and metal chips.**
