@@ -58,7 +58,7 @@ const generateMockVMStatus = (machineId: string): VMStatus => ({
 const generateMockVMHistory = (): VMHistoryPoint[] => {
   const history: VMHistoryPoint[] = [];
   const now = new Date();
-  
+
   for (let i = 23; i >= 0; i--) {
     const recordedAt = new Date(now.getTime() - i * 60 * 60 * 1000);
     history.push({
@@ -69,7 +69,7 @@ const generateMockVMHistory = (): VMHistoryPoint[] => {
       power_consumption: 500 + Math.random() * 200,
     });
   }
-  
+
   return history;
 };
 
@@ -82,19 +82,42 @@ export function useVirtualMetrology(
 ) {
   const { pollingInterval = 30000, enabled = true } = options;
   const apiAvailable = isApiConfigured();
-  
-  const [status, setStatus] = useState<VMStatus | null>(null);
-  const [history, setHistory] = useState<VMHistory | null>(null);
+
+  // Initialize with mock data immediately when API is not available (instant, no loading)
+  const [status, setStatus] = useState<VMStatus | null>(() => {
+    if (!apiAvailable && machineId && enabled) {
+      return generateMockVMStatus(machineId);
+    }
+    return null;
+  });
+  const [history, setHistory] = useState<VMHistory | null>(() => {
+    if (!apiAvailable && machineId && enabled) {
+      return {
+        machine_id: machineId,
+        history: generateMockVMHistory(),
+        trend: 'stable' as const,
+        avg_thickness: 50 + Math.random() * 5,
+        std_thickness: 1.5 + Math.random(),
+      };
+    }
+    return null;
+  });
+  // Never show loading for mock data mode
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(() => {
+    if (!apiAvailable && machineId && enabled) {
+      return new Date();
+    }
+    return null;
+  });
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchVMStatus = useCallback(async () => {
     if (!machineId || !enabled) return;
-    
+
     // If API not available, return mock data immediately
     if (!apiAvailable) {
       setStatus(generateMockVMStatus(machineId));
@@ -108,29 +131,29 @@ export function useVirtualMetrology(
       setLastUpdated(new Date());
       return;
     }
-    
+
     // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const [statusData, historyData] = await Promise.all([
         api.getVMStatus(machineId),
         api.getVMHistory(machineId, 24),
       ]);
-      
+
       // If API returns empty/unrealistic data (no prediction), use mock data
       if (!statusData.has_prediction || !statusData.predicted_thickness_nm) {
         setStatus(generateMockVMStatus(machineId));
       } else {
         setStatus(statusData);
       }
-      
+
       // If history is empty, generate mock history
       if (!historyData.history || historyData.history.length === 0) {
         setHistory({
@@ -143,7 +166,7 @@ export function useVirtualMetrology(
       } else {
         setHistory(historyData);
       }
-      
+
       setLastUpdated(new Date());
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
@@ -172,15 +195,15 @@ export function useVirtualMetrology(
       setHistory(null);
       return;
     }
-    
+
     // Initial fetch
     fetchVMStatus();
-    
+
     // Set up polling
     if (pollingInterval > 0) {
       intervalRef.current = setInterval(fetchVMStatus, pollingInterval);
     }
-    
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -215,17 +238,17 @@ export function useVirtualMetrologyBatch(
 ) {
   const { pollingInterval = 30000, enabled = true } = options;
   const apiAvailable = isApiConfigured();
-  
+
   const [statuses, setStatuses] = useState<Record<string, VMStatus>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchAllStatuses = useCallback(async () => {
     if (machineIds.length === 0 || !enabled) return;
-    
+
     // If API not available, return mock data for all machines
     if (!apiAvailable) {
       const mockStatuses: Record<string, VMStatus> = {};
@@ -236,17 +259,17 @@ export function useVirtualMetrologyBatch(
       setLastUpdated(new Date());
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const results = await Promise.allSettled(
         machineIds.map(id => api.getVMStatus(id))
       );
-      
+
       const newStatuses: Record<string, VMStatus> = {};
-      
+
       results.forEach((result, index) => {
         const machineId = machineIds[index];
         if (result.status === 'fulfilled') {
@@ -262,7 +285,7 @@ export function useVirtualMetrologyBatch(
           newStatuses[machineId] = generateMockVMStatus(machineId);
         }
       });
-      
+
       setStatuses(newStatuses);
       setLastUpdated(new Date());
     } catch (err) {
@@ -287,13 +310,13 @@ export function useVirtualMetrologyBatch(
       setStatuses({});
       return;
     }
-    
+
     fetchAllStatuses();
-    
+
     if (pollingInterval > 0) {
       intervalRef.current = setInterval(fetchAllStatuses, pollingInterval);
     }
-    
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -338,7 +361,7 @@ export function useVMModelInfo() {
 
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const data = await api.getVMModelInfo();
       setModelInfo(data);
