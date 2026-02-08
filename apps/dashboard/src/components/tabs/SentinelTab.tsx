@@ -28,11 +28,18 @@ export function SentinelTab() {
   const [viewMode, setViewMode] = useState<'list' | 'topology'>('list');
   const [agentViewMode, setAgentViewMode] = useState<'list' | 'grid'>('list');
 
-  const handleGenerateGraph = async () => {
+  const handleGenerateGraph = () => {
     setGraphLoading(true);
     
-    // Generate knowledge graph with edges based on incident relationships
-    const nodes = incidents.slice(0, 10).map(i => ({
+    // Get incidents to use (fallback to mock if none)
+    const incidentsToUse = incidents.length > 0 ? incidents.slice(0, 10) : [
+      { incident_id: 'demo-1', machine_id: 'LITHO-01', severity: 'critical', incident_type: 'thermal_runaway', agent_type: 'precision' },
+      { incident_id: 'demo-2', machine_id: 'ETCH-01', severity: 'high', incident_type: 'vibration_alert', agent_type: 'facility' },
+      { incident_id: 'demo-3', machine_id: 'DEP-01', severity: 'medium', incident_type: 'threshold_breach', agent_type: 'assembly' },
+    ];
+    
+    // Generate nodes from incidents
+    const nodes = incidentsToUse.map(i => ({
       data: { 
         id: i.incident_id, 
         label: i.incident_type, 
@@ -41,8 +48,8 @@ export function SentinelTab() {
       }
     }));
     
-    // Always add machine nodes to ensure edges can be created
-    const machineIds = [...new Set(incidents.slice(0, 10).map(i => i.machine_id))];
+    // Add machine nodes
+    const machineIds = [...new Set(incidentsToUse.map(i => i.machine_id))];
     machineIds.forEach((machineId) => {
       nodes.push({
         data: {
@@ -54,10 +61,24 @@ export function SentinelTab() {
       });
     });
     
-    // Generate edges - connect incidents to their machines
+    // Add severity nodes
+    const severities = ['critical', 'high', 'medium', 'low'];
+    severities.forEach(sev => {
+      nodes.push({
+        data: {
+          id: `severity-${sev}`,
+          label: sev.charAt(0).toUpperCase() + sev.slice(1),
+          type: 'severity',
+          color: sev === 'critical' ? '#EF4444' : sev === 'high' ? '#F59E0B' : sev === 'medium' ? '#F59E0B' : '#3B82F6'
+        }
+      });
+    });
+    
+    // Generate edges - MUST have edges
     const edges: any[] = [];
     
-    incidents.slice(0, 10).forEach(i => {
+    // Connect each incident to its machine
+    incidentsToUse.forEach(i => {
       edges.push({
         data: {
           id: `edge-${i.incident_id}`,
@@ -69,30 +90,31 @@ export function SentinelTab() {
       });
     });
     
-    // Connect incidents with same severity
-    const severityGroups: Record<string, string[]> = {};
-    incidents.slice(0, 10).forEach(i => {
-      if (!severityGroups[i.severity]) {
-        severityGroups[i.severity] = [];
-      }
-      severityGroups[i.severity].push(i.incident_id);
+    // Connect each incident to its severity
+    incidentsToUse.forEach(i => {
+      edges.push({
+        data: {
+          id: `sev-${i.incident_id}`,
+          source: i.incident_id,
+          target: `severity-${i.severity}`,
+          label: 'has_severity',
+          weight: 1
+        }
+      });
     });
     
-    Object.values(severityGroups).forEach(group => {
-      if (group.length > 1) {
-        for (let i = 0; i < group.length - 1; i++) {
-          edges.push({
-            data: {
-              id: `severity-${group[i]}-${group[i+1]}`,
-              source: group[i],
-              target: group[i+1],
-              label: 'same_severity',
-              weight: 1
-            }
-          });
+    // Connect machines to each other (factory floor)
+    for (let i = 0; i < machineIds.length - 1; i++) {
+      edges.push({
+        data: {
+          id: `mach-conn-${i}`,
+          source: `machine-${machineIds[i]}`,
+          target: `machine-${machineIds[i + 1]}`,
+          label: 'connected_to',
+          weight: 1
         }
-      }
-    });
+      });
+    }
     
     setKnowledgeGraph({ 
       nodes, 
@@ -100,19 +122,19 @@ export function SentinelTab() {
       stats: { 
         node_count: nodes.length, 
         edge_count: edges.length,
-        central_concepts: machineIds.slice(0, 3).map((m, i) => [m, 0.8 - i * 0.1])
+        central_concepts: machineIds.slice(0, 3).map((m) => [m, 0.75])
       } 
     });
     
     setGraphLoading(false);
   };
 
-  // Auto-generate knowledge graph when incidents change
+  // Auto-generate knowledge graph on mount
   useEffect(() => {
-    if (incidents.length > 0 && !knowledgeGraph && !graphLoading) {
+    if (!knowledgeGraph && !graphLoading) {
       handleGenerateGraph();
     }
-  }, [incidents.length]);
+  }, []);
 
   if (loading) {
     return (
