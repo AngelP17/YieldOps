@@ -155,8 +155,11 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
+  // Track whether we've ever received real data (prevents flickering back to demo)
+  const [hasReceivedRealData, setHasReceivedRealData] = useState(false);
+
   // Fetch data from API or use demo data
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitial = false) => {
     if (!apiAvailable) {
       // Demo mode: use static demo data
       setIncidents(DEMO_INCIDENTS);
@@ -168,6 +171,9 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
       return;
     }
 
+    // Only show loading spinner on initial fetch, not on polls
+    if (isInitial) setLoading(true);
+
     try {
       const [summaryData, incidentsData, agentsData, circuitData] = await Promise.all([
         api.getAegisSummary(),
@@ -175,28 +181,53 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
         api.getAegisAgents(),
         api.getSafetyCircuitStatus(),
       ]);
-      setSummary(summaryData);
-      setIncidents(incidentsData);
-      setAgents(agentsData);
-      setSafetyCircuit(circuitData);
-      setIsDemoMode(false);
+
+      // Check if API returned real data (even empty arrays mean the API is working)
+      const apiResponded = Array.isArray(agentsData) || Array.isArray(incidentsData);
+      const hasData = (agentsData && agentsData.length > 0) ||
+                      (incidentsData && incidentsData.length > 0);
+
+      if (apiResponded) {
+        // API is working - always use its data (even if empty)
+        setSummary(summaryData);
+        setIncidents(incidentsData || []);
+        setAgents(agentsData || []);
+        setSafetyCircuit(circuitData);
+        setHasReceivedRealData(true);
+        
+        // Only show demo mode visually if no actual data yet
+        if (!hasData && !hasReceivedRealData) {
+          console.log('API returned empty data, using demo mode');
+          setIncidents(DEMO_INCIDENTS);
+          setAgents(DEMO_AGENTS);
+          setSummary(DEMO_SUMMARY);
+          setSafetyCircuit(DEMO_SAFETY_CIRCUIT);
+          setIsDemoMode(true);
+        } else {
+          setIsDemoMode(false);
+        }
+      }
+      // If hasReceivedRealData but this poll returned empty, keep existing data
       setError(null);
     } catch (err) {
+      console.error('Error fetching sentinel data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch sentinel data');
-      // On error, fall back to demo data so UI isn't broken
-      setIncidents(DEMO_INCIDENTS);
-      setAgents(DEMO_AGENTS);
-      setSummary(DEMO_SUMMARY);
-      setSafetyCircuit(DEMO_SAFETY_CIRCUIT);
-      setIsDemoMode(true);
+      // Only fall back to demo if we've never had real data
+      if (!hasReceivedRealData) {
+        setIncidents(DEMO_INCIDENTS);
+        setAgents(DEMO_AGENTS);
+        setSummary(DEMO_SUMMARY);
+        setSafetyCircuit(DEMO_SAFETY_CIRCUIT);
+        setIsDemoMode(true);
+      }
     } finally {
       setLoading(false);
     }
-  }, [apiAvailable]);
+  }, [apiAvailable, hasReceivedRealData]);
 
   // Initial fetch
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [fetchData]);
 
   // Polling

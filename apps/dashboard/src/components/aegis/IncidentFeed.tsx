@@ -79,7 +79,7 @@ export function IncidentFeed({ incidents, onApprove, onResolve }: IncidentFeedPr
                   <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400">
                     <span className="flex items-center gap-1">
                       <IconClock className="w-3 h-3" />
-                      {new Date(incident.timestamp).toLocaleTimeString()}
+                      {new Date(incident.created_at).toLocaleTimeString()}
                     </span>
                     {incident.z_score != null && (
                       <span>Z: {incident.z_score.toFixed(1)}</span>

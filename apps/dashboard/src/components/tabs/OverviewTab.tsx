@@ -356,7 +356,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
     machines.forEach(machine => {
       const statusColor = statusColors[machine.status] || '#6B7280';
       const nodeType = `machine_${machine.status.toLowerCase()}`;
-      
+
       addNode(machine.machine_id, machine.name, nodeType, statusColor);
 
       // Zone relationship
@@ -380,7 +380,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         const jobColor = job.status === 'RUNNING' ? '#00F0FF' : job.status === 'QUEUED' ? '#F97316' : '#FBBF24';
         const jobType = job.status === 'RUNNING' ? 'job_running' : job.status === 'QUEUED' ? 'job_queued' : 'job_pending';
         const jobLabel = job.is_hot_lot ? `🔥 ${job.job_name}` : job.job_name;
-        
+
         addNode(jobNode, jobLabel, jobType, jobColor);
         const weight = job.status === 'RUNNING' ? 3 : 2;
         edges.push({

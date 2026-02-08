@@ -1,6 +1,6 @@
 import { useRef, useCallback, useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { IconMaximize, IconRefresh, IconCpu, IconAlertTriangle } from '@tabler/icons-react';
+import { IconMaximize, IconRefresh, IconAlertTriangle } from '@tabler/icons-react';
 import type { KnowledgeGraphData } from '../../types';
 
 interface SystemKnowledgeGraphVizProps {
@@ -61,7 +61,7 @@ export function SystemKnowledgeGraphViz({
     const isJob = node.type?.startsWith('job_');
     const isZone = node.type === 'zone';
     const isHub = node.type === 'system_hub';
-    
+
     // Node radius based on type
     let nodeRadius = 4;
     if (isHub) nodeRadius = 10;
@@ -74,13 +74,13 @@ export function SystemKnowledgeGraphViz({
     ctx.arc(node.x || 0, node.y || 0, nodeRadius, 0, 2 * Math.PI);
     ctx.fillStyle = node.color;
     ctx.fill();
-    
+
     // Special styling for system hub
     if (isHub) {
       ctx.strokeStyle = '#1E293B';
       ctx.lineWidth = 3 / globalScale;
       ctx.stroke();
-      
+
       // Inner ring for hub
       ctx.beginPath();
       ctx.arc(node.x || 0, node.y || 0, nodeRadius - 3, 0, 2 * Math.PI);
@@ -99,13 +99,13 @@ export function SystemKnowledgeGraphViz({
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = isHub ? '#1E293B' : '#475569';
-    
+
     // Truncate long labels
     let label = node.label;
     if (label.length > 20 && !isMachine && !isHub) {
       label = label.substring(0, 17) + '...';
     }
-    
+
     ctx.fillText(label, node.x || 0, (node.y || 0) + nodeRadius + 2);
   }, []);
 
@@ -131,7 +131,7 @@ export function SystemKnowledgeGraphViz({
             {jobCount > 0 && ` • ${jobCount} active jobs`}
             {zoneCount > 0 && ` • ${zoneCount} zones`}
           </p>
-          
+
           <div className="flex items-center gap-2">
             {/* Status Indicators */}
             <div className="flex items-center gap-2 mr-2">
@@ -147,7 +147,7 @@ export function SystemKnowledgeGraphViz({
                 </span>
               )}
             </div>
-            
+
             <button
               onClick={handleZoomToFit}
               className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -220,21 +220,19 @@ export function SystemKnowledgeGraphViz({
                 <div key={zone} className="bg-slate-50 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium text-slate-700">{zone}</span>
-                    <span className={`text-[10px] font-semibold ${
-                      utilization > 0.7 ? 'text-emerald-600' :
-                      utilization > 0.4 ? 'text-amber-600' :
-                      'text-rose-600'
-                    }`}>
+                    <span className={`text-[10px] font-semibold ${utilization > 0.7 ? 'text-emerald-600' :
+                        utilization > 0.4 ? 'text-amber-600' :
+                          'text-rose-600'
+                      }`}>
                       {(utilization * 100).toFixed(0)}%
                     </span>
                   </div>
                   <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full ${
-                        utilization > 0.7 ? 'bg-emerald-500' :
-                        utilization > 0.4 ? 'bg-amber-500' :
-                        'bg-rose-500'
-                      }`}
+                    <div
+                      className={`h-full rounded-full ${utilization > 0.7 ? 'bg-emerald-500' :
+                          utilization > 0.4 ? 'bg-amber-500' :
+                            'bg-rose-500'
+                        }`}
                       style={{ width: `${utilization * 100}%` }}
                     />
                   </div>

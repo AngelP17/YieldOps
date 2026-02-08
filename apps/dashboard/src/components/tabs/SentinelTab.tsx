@@ -20,6 +20,7 @@ export function SentinelTab() {
     assemblySummary,
     loading,
     isConnected,
+    isDemoMode,
     approveIncident,
     resolveIncident,
   } = useAegisRealtime();
@@ -81,7 +82,17 @@ export function SentinelTab() {
     <div className="space-y-6">
       {/* Connection Status */}
       <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-        {isConnected ? (
+        {isDemoMode ? (
+          <>
+            <IconWifiOff className="w-5 h-5 text-amber-500" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Demo Mode</p>
+              <p className="text-xs text-amber-700">
+                Using sample data. Run database migration to see real Sentinel data.
+              </p>
+            </div>
+          </>
+        ) : isConnected ? (
           <>
             <IconWifi className="w-5 h-5 text-emerald-500" />
             <div>

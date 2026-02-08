@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import type { AegisIncident, AegisAgent } from '../types';
 
@@ -35,6 +35,84 @@ interface AssemblySummary {
   avg_bond_time_ms: number;
 }
 
+// Demo data for when Supabase returns empty results
+const DEMO_AGENTS: AegisAgent[] = [
+  {
+    agent_id: 'demo-agent-precision-001',
+    agent_type: 'precision',
+    machine_id: 'LITHO-01',
+    status: 'active',
+    last_heartbeat: new Date().toISOString(),
+    detections_24h: 12,
+    uptime_hours: 720,
+    capabilities: ['z_score_analysis', 'rate_of_change', 'thermal_drift_cte'],
+    protocol: 'SECS/GEM',
+  },
+  {
+    agent_id: 'demo-agent-facility-001',
+    agent_type: 'facility',
+    machine_id: 'ETCH-01',
+    status: 'active',
+    last_heartbeat: new Date().toISOString(),
+    detections_24h: 5,
+    uptime_hours: 680,
+    capabilities: ['iso_10816_vibration', 'particle_count', 'cleanroom_monitoring'],
+    protocol: 'Modbus/BACnet',
+  },
+  {
+    agent_id: 'demo-agent-assembly-001',
+    agent_type: 'assembly',
+    machine_id: 'DEP-01',
+    status: 'active',
+    last_heartbeat: new Date().toISOString(),
+    detections_24h: 3,
+    uptime_hours: 650,
+    capabilities: ['ultrasonic_impedance', 'wire_bond_monitoring'],
+    protocol: 'SECS/GEM',
+  },
+];
+
+const DEMO_INCIDENTS: AegisIncident[] = [
+  {
+    incident_id: 'demo-inc-001',
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    machine_id: 'LITHO-01',
+    severity: 'high',
+    incident_type: 'thermal_runaway',
+    message: 'HIGH: Thermal runaway detected on LITHO-01 (95.2°C / 75°C max)',
+    detected_value: 95.2,
+    threshold_value: 75.0,
+    action_taken: 'reduce_thermal_load',
+    action_status: 'pending_approval',
+    action_zone: 'yellow',
+    agent_type: 'precision',
+    z_score: 3.2,
+    rate_of_change: 5.5,
+    resolved: false,
+    resolved_at: null,
+    operator_notes: null,
+  },
+  {
+    incident_id: 'demo-inc-002',
+    created_at: new Date(Date.now() - 7200000).toISOString(),
+    machine_id: 'ETCH-01',
+    severity: 'medium',
+    incident_type: 'elevated_temperature',
+    message: 'WARNING: Elevated temperature on ETCH-01 (82.5°C / 85°C max)',
+    detected_value: 82.5,
+    threshold_value: 85.0,
+    action_taken: 'increase_coolant',
+    action_status: 'auto_executed',
+    action_zone: 'green',
+    agent_type: 'facility',
+    z_score: 2.8,
+    rate_of_change: 2.1,
+    resolved: true,
+    resolved_at: new Date(Date.now() - 3600000).toISOString(),
+    operator_notes: 'Coolant increased automatically',
+  },
+];
+
 export function useAegisRealtime() {
   const [incidents, setIncidents] = useState<AegisIncident[]>([]);
   const [agents, setAgents] = useState<AegisAgent[]>([]);
@@ -44,95 +122,147 @@ export function useAegisRealtime() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  // Use ref for isDemoMode to avoid stale closures in realtime callbacks
+  const isDemoModeRef = useRef(false);
+  isDemoModeRef.current = isDemoMode;
+
+  // Track if we ever got real data (prevents flickering back to demo)
+  const hasReceivedRealData = useRef(false);
 
   // Fetch initial data
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitial = false) => {
     try {
-      setLoading(true);
-      
-      // Fetch incidents from last 24 hours
-      const { data: incidentsData, error: incidentsError } = await supabase
+      // Only show loading on initial fetch, not on polls/refreshes
+      if (isInitial) setLoading(true);
+
+      // Fetch ALL incidents first (not just 24h), then filter
+      const { data: allIncidents, error: incidentsError } = await supabase
         .from('aegis_incidents')
         .select('*')
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (incidentsError) throw incidentsError;
-      
+      if (incidentsError) {
+        console.error('Incidents fetch error:', incidentsError);
+        throw incidentsError;
+      }
+
       // Fetch agents
       const { data: agentsData, error: agentsError } = await supabase
         .from('aegis_agents')
         .select('*')
         .order('machine_id');
 
-      if (agentsError) throw agentsError;
-
-      // Fetch safety circuit status
-      const { data: safetyData, error: safetyError } = await supabase
-        .rpc('get_safety_circuit_status');
-
-      if (safetyError) throw safetyError;
-
-      // Fetch facility summary (Front-End Fab)
-      const { data: facilityData, error: facilityError } = await supabase
-        .rpc('get_facility_summary');
-
-      if (facilityError && facilityError.code !== '42883') { // Function might not exist yet
-        console.warn('Facility summary not available:', facilityError);
+      if (agentsError) {
+        console.error('Agents fetch error:', agentsError);
+        throw agentsError;
       }
 
-      // Fetch assembly summary (Back-End Packaging)
-      const { data: assemblyData, error: assemblyError } = await supabase
-        .rpc('get_assembly_summary');
+      // If no data from Supabase, use demo data (only if we never had real data)
+      const hasIncidents = allIncidents && allIncidents.length > 0;
+      const hasAgents = agentsData && agentsData.length > 0;
 
-      if (assemblyError && assemblyError.code !== '42883') { // Function might not exist yet
-        console.warn('Assembly summary not available:', assemblyError);
+      if (!hasIncidents && !hasAgents) {
+        if (!hasReceivedRealData.current) {
+          console.log('No data from Supabase, using demo data');
+          setIncidents(DEMO_INCIDENTS);
+          setAgents(DEMO_AGENTS);
+          setIsDemoMode(true);
+
+          const demoSummary: SentinelSummary = {
+            total_incidents_24h: DEMO_INCIDENTS.length,
+            critical_incidents_24h: DEMO_INCIDENTS.filter(i => i.severity === 'critical').length,
+            active_agents: DEMO_AGENTS.filter(a => a.status === 'active').length,
+            safety_circuit: {
+              green_actions_24h: DEMO_INCIDENTS.filter(i => i.action_zone === 'green').length,
+              yellow_pending: DEMO_INCIDENTS.filter(i => i.action_zone === 'yellow' && !i.resolved).length,
+              red_alerts_24h: DEMO_INCIDENTS.filter(i => i.action_zone === 'red').length,
+              agents_active: DEMO_AGENTS.filter(a => a.status === 'active').length,
+              agents_total: DEMO_AGENTS.length,
+            },
+            recent_incidents: DEMO_INCIDENTS.slice(0, 10),
+            top_affected_machines: calculateTopMachines(DEMO_INCIDENTS),
+          };
+          setSummary(demoSummary);
+        }
+        // If we had real data before, keep existing state (don't flash to demo)
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
+      // Use real data from Supabase
+      hasReceivedRealData.current = true;
+      const incidentsData = allIncidents || [];
+      const agentsList = agentsData || [];
+
+      // Filter to last 24h for summary stats
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const recentIncidents = incidentsData.filter(i => i.created_at >= twentyFourHoursAgo);
+      const activeAgents = agentsList.filter(a => a.status === 'active');
+
+      // Try to fetch safety circuit status
+      let safetyData: SafetyCircuitStatus | null = null;
+      try {
+        const { data: rpcData } = await supabase.rpc('get_safety_circuit_status');
+        safetyData = rpcData?.[0] || null;
+      } catch (e) {
+        console.warn('Safety circuit RPC not available, calculating locally');
       }
 
       // Calculate summary
-      const recentIncidents = incidentsData || [];
-      const activeAgents = (agentsData || []).filter(a => a.status === 'active');
-      
       const summaryData: SentinelSummary = {
         total_incidents_24h: recentIncidents.length,
         critical_incidents_24h: recentIncidents.filter(i => i.severity === 'critical').length,
         active_agents: activeAgents.length,
-        safety_circuit: safetyData?.[0] || {
+        safety_circuit: safetyData || {
           green_actions_24h: recentIncidents.filter(i => i.action_zone === 'green').length,
           yellow_pending: recentIncidents.filter(i => i.action_zone === 'yellow' && !i.resolved).length,
           red_alerts_24h: recentIncidents.filter(i => i.action_zone === 'red').length,
           agents_active: activeAgents.length,
-          agents_total: (agentsData || []).length,
+          agents_total: agentsList.length,
         },
         recent_incidents: recentIncidents.slice(0, 10),
         top_affected_machines: calculateTopMachines(recentIncidents),
       };
 
       setIncidents(recentIncidents);
-      setAgents(agentsData || []);
+      setAgents(agentsList);
       setSummary(summaryData);
-      
-      if (facilityData?.[0]) {
-        setFacilitySummary(facilityData[0]);
-      }
-      
-      if (assemblyData?.[0]) {
-        setAssemblySummary(assemblyData[0]);
-      }
-      
+      setIsDemoMode(false);
       setError(null);
+
+      // Try to fetch facility/assembly summaries (optional)
+      try {
+        const { data: facilityData } = await supabase.rpc('get_facility_summary');
+        if (facilityData?.[0]) setFacilitySummary(facilityData[0]);
+      } catch (e) { /* ignore */ }
+
+      try {
+        const { data: assemblyData } = await supabase.rpc('get_assembly_summary');
+        if (assemblyData?.[0]) setAssemblySummary(assemblyData[0]);
+      } catch (e) { /* ignore */ }
+
     } catch (err) {
       console.error('Error fetching Aegis data:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch Aegis data'));
+
+      // Fall back to demo data on error only if we never had real data
+      if (!hasReceivedRealData.current) {
+        setIncidents(DEMO_INCIDENTS);
+        setAgents(DEMO_AGENTS);
+        setIsDemoMode(true);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates (runs once on mount)
   useEffect(() => {
-    fetchData();
+    fetchData(true);
 
     // Subscribe to incidents
     const incidentsChannel = supabase
@@ -146,23 +276,26 @@ export function useAegisRealtime() {
         },
         (payload) => {
           console.log('Aegis incident update:', payload);
-          
-          setIncidents((prev) => {
-            if (payload.eventType === 'INSERT') {
-              return [payload.new as AegisIncident, ...prev];
-            }
-            if (payload.eventType === 'UPDATE') {
-              return prev.map((item) =>
-                item.incident_id === (payload.new as AegisIncident).incident_id
-                  ? (payload.new as AegisIncident)
-                  : item
-              );
-            }
-            return prev;
-          });
-          
-          // Refresh summary
-          fetchData();
+
+          // Only update if not in demo mode (use ref to avoid stale closure)
+          if (!isDemoModeRef.current) {
+            setIncidents((prev) => {
+              if (payload.eventType === 'INSERT') {
+                return [payload.new as AegisIncident, ...prev];
+              }
+              if (payload.eventType === 'UPDATE') {
+                return prev.map((item) =>
+                  item.incident_id === (payload.new as AegisIncident).incident_id
+                    ? (payload.new as AegisIncident)
+                    : item
+                );
+              }
+              return prev;
+            });
+
+            // Refresh summary
+            fetchData();
+          }
         }
       )
       .subscribe((status) => {
@@ -181,26 +314,28 @@ export function useAegisRealtime() {
         },
         (payload) => {
           console.log('Aegis agent update:', payload);
-          
-          setAgents((prev) => {
-            if (payload.eventType === 'INSERT') {
-              return [...prev, payload.new as AegisAgent];
-            }
-            if (payload.eventType === 'UPDATE') {
-              return prev.map((item) =>
-                item.agent_id === (payload.new as AegisAgent).agent_id
-                  ? (payload.new as AegisAgent)
-                  : item
-              );
-            }
-            return prev;
-          });
+
+          if (!isDemoModeRef.current) {
+            setAgents((prev) => {
+              if (payload.eventType === 'INSERT') {
+                return [...prev, payload.new as AegisAgent];
+              }
+              if (payload.eventType === 'UPDATE') {
+                return prev.map((item) =>
+                  item.agent_id === (payload.new as AegisAgent).agent_id
+                    ? (payload.new as AegisAgent)
+                    : item
+                );
+              }
+              return prev;
+            });
+          }
         }
       )
       .subscribe();
 
     // Refresh every 30 seconds as fallback
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(() => fetchData(), 30000);
 
     return () => {
       supabase.removeChannel(incidentsChannel);
@@ -210,6 +345,15 @@ export function useAegisRealtime() {
   }, [fetchData]);
 
   const approveIncident = useCallback(async (incidentId: string, approved: boolean, notes?: string) => {
+    if (isDemoModeRef.current) {
+      setIncidents(prev => prev.map(i =>
+        i.incident_id === incidentId
+          ? { ...i, action_status: approved ? 'approved' : 'rejected', resolved: true, resolved_at: new Date().toISOString(), operator_notes: notes || null }
+          : i
+      ));
+      return;
+    }
+
     const { error } = await supabase
       .from('aegis_incidents')
       .update({
@@ -225,6 +369,15 @@ export function useAegisRealtime() {
   }, [fetchData]);
 
   const resolveIncident = useCallback(async (incidentId: string, notes?: string) => {
+    if (isDemoModeRef.current) {
+      setIncidents(prev => prev.map(i =>
+        i.incident_id === incidentId
+          ? { ...i, resolved: true, resolved_at: new Date().toISOString(), operator_notes: notes || null }
+          : i
+      ));
+      return;
+    }
+
     const { error } = await supabase
       .from('aegis_incidents')
       .update({
@@ -247,6 +400,7 @@ export function useAegisRealtime() {
     loading,
     error,
     isConnected,
+    isDemoMode,
     approveIncident,
     resolveIncident,
     refresh: fetchData,
