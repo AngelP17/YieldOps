@@ -181,18 +181,77 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   }, [machines, updateMachine, isUsingMockData]);
 
   /**
-   * Generate new jobs periodically
+   * Ensure minimum jobs in each category - always maintain data
    */
-  const generateNewJobs = useCallback(() => {
+  const ensureMinimumJobs = useCallback(() => {
     if (!isUsingMockData) return;
     
-    // Only add new jobs if we have less than 20 pending/queued
-    const activeJobCount = jobs.filter(j => j.status === 'PENDING' || j.status === 'QUEUED').length;
-    if (activeJobCount < 20 && Math.random() > 0.3) {
-      const newJob = generateNewJob(jobs.length + 1);
+    const pendingJobs = jobs.filter(j => j.status === 'PENDING');
+    const queuedJobs = jobs.filter(j => j.status === 'QUEUED');
+    const runningJobs = jobs.filter(j => j.status === 'RUNNING');
+    const hotLots = jobs.filter(j => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED');
+    
+    // Always ensure at least 3 pending jobs
+    while (pendingJobs.length < 3) {
+      const newJob = generateNewJob(jobs.length + pendingJobs.length + 1);
+      newJob.status = 'PENDING';
+      newJob.priority_level = Math.floor(Math.random() * 3) + 2;
+      newJob.is_hot_lot = false;
       addJob(newJob);
+      pendingJobs.push(newJob);
     }
-  }, [jobs, addJob, isUsingMockData]);
+    
+    // Always ensure at least 2 queued jobs
+    while (queuedJobs.length < 2) {
+      const newJob = generateNewJob(jobs.length + queuedJobs.length + 1);
+      newJob.status = 'QUEUED';
+      newJob.priority_level = Math.floor(Math.random() * 3) + 2;
+      newJob.is_hot_lot = false;
+      // Assign to an idle machine if available
+      const idleMachine = machines.find(m => m.status === 'IDLE');
+      if (idleMachine) {
+        newJob.assigned_machine_id = idleMachine.machine_id;
+      }
+      addJob(newJob);
+      queuedJobs.push(newJob);
+    }
+    
+    // Always ensure at least 3 running jobs
+    while (runningJobs.length < 3) {
+      const newJob = generateNewJob(jobs.length + runningJobs.length + 1);
+      newJob.status = 'RUNNING';
+      newJob.priority_level = Math.floor(Math.random() * 3) + 2;
+      newJob.is_hot_lot = false;
+      newJob.actual_start_time = new Date().toISOString();
+      // Assign to an idle machine if available
+      const idleMachine = machines.find(m => m.status === 'IDLE');
+      if (idleMachine) {
+        newJob.assigned_machine_id = idleMachine.machine_id;
+      }
+      addJob(newJob);
+      runningJobs.push(newJob);
+    }
+    
+    // Always ensure at least 2 hot lots
+    while (hotLots.length < 2) {
+      const newJob = generateNewJob(jobs.length + hotLots.length + 1);
+      newJob.status = Math.random() > 0.5 ? 'RUNNING' : 'QUEUED';
+      newJob.priority_level = 1;
+      newJob.is_hot_lot = true;
+      if (newJob.status === 'RUNNING') {
+        newJob.actual_start_time = new Date().toISOString();
+      }
+      // Assign to a machine if needed
+      if (newJob.status === 'RUNNING' || newJob.status === 'QUEUED') {
+        const availableMachine = machines.find(m => m.status !== 'DOWN' && m.status !== 'MAINTENANCE');
+        if (availableMachine) {
+          newJob.assigned_machine_id = availableMachine.machine_id;
+        }
+      }
+      addJob(newJob);
+      hotLots.push(newJob);
+    }
+  }, [jobs, machines, addJob, isUsingMockData]);
 
   /**
    * Generate sensor data for VM
@@ -226,7 +285,7 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     // Start intervals
     jobIntervalRef.current = setInterval(simulateJobProgression, jobProgressionInterval);
     machineIntervalRef.current = setInterval(simulateMachineEvents, machineEventInterval);
-    newJobIntervalRef.current = setInterval(generateNewJobs, newJobInterval);
+    newJobIntervalRef.current = setInterval(ensureMinimumJobs, newJobInterval);
     sensorIntervalRef.current = setInterval(generateSensorDataForMachines, sensorDataInterval);
     
     return () => {
@@ -244,7 +303,7 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     sensorDataInterval,
     simulateJobProgression, 
     simulateMachineEvents, 
-    generateNewJobs,
+    ensureMinimumJobs,
     generateSensorDataForMachines
   ]);
 

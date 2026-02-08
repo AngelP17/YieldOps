@@ -599,7 +599,9 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100">
                 <h3 className="text-sm font-semibold text-slate-900">Dispatch Queue</h3>
-                <p className="text-xs text-slate-500">{stats.pendingJobs || '-'} pending jobs, {machines.filter(m => m.status === 'IDLE').length || '-'} available machines</p>
+                <p className="text-xs text-slate-500">
+                  {jobs.filter(j => j.status === 'PENDING').length || '-'} pending jobs, {machines.filter(m => m.status === 'IDLE').length || '-'} available machines
+                </p>
               </div>
               <div className="divide-y divide-slate-100">
                 {jobs
@@ -625,7 +627,11 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                     </div>
                   ))}
                 {jobs.filter(j => j.status === 'PENDING').length === 0 && (
-                  <div className="px-6 py-6 text-center text-sm text-slate-400">No pending jobs in queue</div>
+                  <div className="px-6 py-8 text-center">
+                    <IconPackage className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500 mb-1">No pending jobs</p>
+                    <p className="text-xs text-slate-400">All jobs have been dispatched or completed</p>
+                  </div>
                 )}
               </div>
             </div>

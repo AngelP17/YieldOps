@@ -145,7 +145,7 @@ export function useAegisRealtime() {
         .limit(100);
 
       if (incidentsError) {
-        console.error('Incidents fetch error:', incidentsError);
+        // Silently handle error
         throw incidentsError;
       }
 
@@ -156,7 +156,7 @@ export function useAegisRealtime() {
         .order('machine_id');
 
       if (agentsError) {
-        console.error('Agents fetch error:', agentsError);
+        // Silently handle error
         throw agentsError;
       }
 
@@ -171,7 +171,7 @@ export function useAegisRealtime() {
       // If NO real data from Supabase, use demo data (only if we never had real data before)
       if (!hasRealIncidents && !hasAgents) {
         if (!hasReceivedRealData.current) {
-          console.log('[Aegis] No real data found, using demo fallback');
+
           setIncidents(DEMO_INCIDENTS);
           setAgents(DEMO_AGENTS);
           setIsDemoMode(true);
@@ -200,7 +200,7 @@ export function useAegisRealtime() {
 
       // Use REAL data from Supabase - we have actual incidents
       hasReceivedRealData.current = true;
-      console.log(`[Aegis] Using real data: ${realIncidents.length} incidents, ${agentsData?.length || 0} agents`);
+
       
       const incidentsData = realIncidents;
       const agentsList = agentsData || [];
@@ -253,7 +253,7 @@ export function useAegisRealtime() {
       } catch (e) { /* ignore */ }
 
     } catch (err) {
-      console.error('Error fetching Aegis data:', err);
+      // Silently handle API errors
       setError(err instanceof Error ? err : new Error('Failed to fetch Aegis data'));
 
       // Fall back to demo data on error only if we never had real data

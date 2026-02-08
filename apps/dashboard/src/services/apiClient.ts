@@ -40,14 +40,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       } catch {
         // If JSON parsing fails, use status text
       }
-      console.error(`API Error ${res.status}: ${errorDetail}`);
+      // Silently handle API errors in production
       throw new Error(errorDetail);
     }
 
     return res.json();
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('Network error - API server may be unreachable');
+      // Silently handle network errors in production
       throw new Error('Cannot connect to API server. Please check your connection or start the backend server.');
     }
     throw error;

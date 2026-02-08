@@ -195,7 +195,7 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
         // API is working - check if we have real data
         if (hasRealData) {
           // Use real data from API
-          console.log(`[Aegis API] Using real data: ${realIncidents.length} incidents, ${agentsData?.length || 0} agents`);
+
           setSummary(summaryData);
           setIncidents(realIncidents);
           setAgents(agentsData || []);
@@ -204,7 +204,7 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
           setIsDemoMode(false);
         } else if (!hasReceivedRealData) {
           // No real data yet, use demo fallback
-          console.log('[Aegis API] No real data from API, using demo fallback');
+
           setIncidents(DEMO_INCIDENTS);
           setAgents(DEMO_AGENTS);
           setSummary(DEMO_SUMMARY);
@@ -216,7 +216,7 @@ export function useAegisSentinel(options: UseAegisSentinelOptions = {}) {
       // If hasReceivedRealData but this poll returned empty, keep existing data
       setError(null);
     } catch (err) {
-      console.error('Error fetching sentinel data:', err);
+      // Silently handle API errors
       setError(err instanceof Error ? err.message : 'Failed to fetch sentinel data');
       // Only fall back to demo if we've never had real data
       if (!hasReceivedRealData) {
