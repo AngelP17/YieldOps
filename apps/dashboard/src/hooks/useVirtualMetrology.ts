@@ -73,6 +73,10 @@ const generateMockVMHistory = (): VMHistoryPoint[] => {
   return history;
 };
 
+// Global cache for mock data - shared between all hook instances
+// This prevents data regeneration and flickering when switching machines
+const globalMockCache: Record<string, { status: VMStatus; history: VMHistory }> = {};
+
 /**
  * Hook for polling VM status of a single machine
  */
@@ -83,13 +87,10 @@ export function useVirtualMetrology(
   const { pollingInterval = 30000, enabled = true } = options;
   const apiAvailable = isApiConfigured();
 
-  // Cache mock data per machineId to prevent flickering from regeneration
-  const mockDataCacheRef = useRef<Record<string, { status: VMStatus; history: VMHistory }>>({});
-
-  // Get or create cached mock data for a machine - this is synchronous
+  // Use global cache for mock data - shared with batch hook
   const getMockData = useCallback((id: string): { status: VMStatus; history: VMHistory } => {
-    if (!mockDataCacheRef.current[id]) {
-      mockDataCacheRef.current[id] = {
+    if (!globalMockCache[id]) {
+      globalMockCache[id] = {
         status: generateMockVMStatus(id),
         history: {
           machine_id: id,
@@ -100,7 +101,7 @@ export function useVirtualMetrology(
         },
       };
     }
-    return mockDataCacheRef.current[id];
+    return globalMockCache[id];
   }, []);
 
   // For mock mode: compute mock data SYNCHRONOUSLY during render using useMemo
@@ -244,77 +245,109 @@ export function useVirtualMetrologyBatch(
   const { pollingInterval = 30000, enabled = true } = options;
   const apiAvailable = isApiConfigured();
 
-  const [statuses, setStatuses] = useState<Record<string, VMStatus>>({});
+  // Use global cache for mock data - shared with single hook
+  const getMockStatus = useCallback((id: string): VMStatus => {
+    if (!globalMockCache[id]) {
+      globalMockCache[id] = {
+        status: generateMockVMStatus(id),
+        history: {
+          machine_id: id,
+          history: generateMockVMHistory(),
+          trend: 'stable' as const,
+          avg_thickness: 50 + Math.random() * 5,
+          std_thickness: 1.5 + Math.random(),
+        },
+      };
+    }
+    return globalMockCache[id].status;
+  }, []);
+
+  // For mock mode: compute mock data SYNCHRONOUSLY during render using useMemo
+  const mockStatuses = useMemo(() => {
+    if (!apiAvailable && machineIds.length > 0 && enabled) {
+      const result: Record<string, VMStatus> = {};
+      machineIds.forEach(id => {
+        result[id] = getMockStatus(id);
+      });
+      return result;
+    }
+    return null;
+  }, [apiAvailable, machineIds, enabled, getMockStatus]);
+
+  // State for API mode only
+  const [apiStatuses, setApiStatuses] = useState<Record<string, VMStatus>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchAllStatuses = useCallback(async () => {
-    if (machineIds.length === 0 || !enabled) return;
-
-    // If API not available, return mock data for all machines
-    if (!apiAvailable) {
-      const mockStatuses: Record<string, VMStatus> = {};
-      machineIds.forEach(id => {
-        mockStatuses[id] = generateMockVMStatus(id);
-      });
-      setStatuses(mockStatuses);
-      setLastUpdated(new Date());
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const results = await Promise.allSettled(
-        machineIds.map(id => api.getVMStatus(id))
-      );
-
-      const newStatuses: Record<string, VMStatus> = {};
-
-      results.forEach((result, index) => {
-        const machineId = machineIds[index];
-        if (result.status === 'fulfilled') {
-          const statusData = result.value;
-          // If API returns empty/unrealistic data, use mock data
-          if (!statusData.has_prediction || !statusData.predicted_thickness_nm) {
-            newStatuses[machineId] = generateMockVMStatus(machineId);
-          } else {
-            newStatuses[machineId] = statusData;
-          }
-        } else {
-          // On error, use mock data
-          newStatuses[machineId] = generateMockVMStatus(machineId);
-        }
-      });
-
-      setStatuses(newStatuses);
-      setLastUpdated(new Date());
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err);
-        console.error('VM batch fetch error:', err);
-        // Fall back to mock data on error
-        const mockStatuses: Record<string, VMStatus> = {};
-        machineIds.forEach(id => {
-          mockStatuses[id] = generateMockVMStatus(id);
-        });
-        setStatuses(mockStatuses);
-        setLastUpdated(new Date());
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [machineIds, enabled, apiAvailable]);
-
+  // Only run useEffect for API mode
   useEffect(() => {
+    const cleanup = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+
     if (machineIds.length === 0 || !enabled) {
-      setStatuses({});
-      return;
+      setApiStatuses({});
+      return cleanup;
     }
+
+    // Skip useEffect for mock mode - data is already provided via useMemo
+    if (!apiAvailable) {
+      setLastUpdated(new Date());
+      return cleanup;
+    }
+
+    // API is available - do async fetch
+    const fetchAllStatuses = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const results = await Promise.allSettled(
+          machineIds.map(id => api.getVMStatus(id))
+        );
+
+        const newStatuses: Record<string, VMStatus> = {};
+
+        results.forEach((result, index) => {
+          const machineId = machineIds[index];
+          if (result.status === 'fulfilled') {
+            const statusData = result.value;
+            // If API returns empty/unrealistic data, use mock data
+            if (!statusData.has_prediction || !statusData.predicted_thickness_nm) {
+              newStatuses[machineId] = getMockStatus(machineId);
+            } else {
+              newStatuses[machineId] = statusData;
+            }
+          } else {
+            // On error, use mock data
+            newStatuses[machineId] = getMockStatus(machineId);
+          }
+        });
+
+        setApiStatuses(newStatuses);
+        setLastUpdated(new Date());
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err);
+          console.error('VM batch fetch error:', err);
+          // Fall back to mock data on error
+          const fallbackStatuses: Record<string, VMStatus> = {};
+          machineIds.forEach(id => {
+            fallbackStatuses[id] = getMockStatus(id);
+          });
+          setApiStatuses(fallbackStatuses);
+          setLastUpdated(new Date());
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     fetchAllStatuses();
 
@@ -322,23 +355,23 @@ export function useVirtualMetrologyBatch(
       intervalRef.current = setInterval(fetchAllStatuses, pollingInterval);
     }
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [machineIds, enabled, pollingInterval, fetchAllStatuses]);
+    return cleanup;
+  }, [machineIds, enabled, pollingInterval, apiAvailable, getMockStatus]);
 
   const refresh = useCallback(() => {
-    return fetchAllStatuses();
-  }, [fetchAllStatuses]);
+    if (!apiAvailable) {
+      setLastUpdated(new Date());
+    }
+  }, [apiAvailable]);
+
+  // Return mock data synchronously for mock mode, or API data for API mode
+  const effectiveStatuses = mockStatuses ?? apiStatuses;
 
   return {
-    statuses,
-    isLoading,
+    statuses: effectiveStatuses,
+    isLoading: apiAvailable ? isLoading : false, // Never loading in mock mode
     error,
-    lastUpdated,
+    lastUpdated: mockStatuses ? (lastUpdated || new Date()) : lastUpdated,
     refresh,
   };
 }
