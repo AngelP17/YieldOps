@@ -61,7 +61,25 @@ async def inject_failure(request: ChaosRequest):
                 machine_id=machine["machine_id"]
             )
             
-            logger.warning(f"CHAOS: Machine {machine['name']} forced DOWN")
+            # Create Aegis incident for machine failure
+            from datetime import datetime
+            incident = await supabase_service.create_aegis_incident({
+                "machine_id": machine["name"],
+                "severity": "critical",
+                "incident_type": "machine_failure",
+                "message": f"Machine {machine['name']} is DOWN - Chaos injected",
+                "detected_value": 0,
+                "threshold_value": 0,
+                "action_taken": "reassign_jobs",
+                "action_status": "auto_executed",
+                "action_zone": "red",
+                "agent_type": "facility",
+                "z_score": 0,
+                "rate_of_change": 0,
+                "resolved": False
+            })
+            
+            logger.warning(f"CHAOS: Machine {machine['name']} forced DOWN, Aegis incident created")
             
             return {
                 "injected": True,
@@ -70,13 +88,14 @@ async def inject_failure(request: ChaosRequest):
                 "machine_id": machine["machine_id"],
                 "duration": request.duration_seconds,
                 "auto_recovery": True,
-                "message": f"Machine {machine['name']} is now DOWN. Jobs will be rerouted."
+                "aegis_incident_created": incident.get("incident_id") if incident else None,
+                "message": f"Machine {machine['name']} is now DOWN. Jobs rerouted. Aegis incident created."
             }
         
         elif failure_type == "sensor_spike":
             # Generate anomalous readings
             readings = []
-            for _ in range(10):
+            for _ in range(5):
                 reading = await supabase_service.insert_sensor_reading(
                     machine_id=machine["machine_id"],
                     temperature=random.uniform(90, 100),
@@ -85,14 +104,33 @@ async def inject_failure(request: ChaosRequest):
                 )
                 readings.append(reading)
             
-            logger.warning(f"CHAOS: Sensor spikes injected for {machine['name']}")
+            # Also create an Aegis incident directly
+            from datetime import datetime
+            incident = await supabase_service.create_aegis_incident({
+                "machine_id": machine["name"],
+                "severity": "high",
+                "incident_type": "chaos_injected_anomaly",
+                "message": f"CHAOS: Sensor anomaly spike detected on {machine['name']}",
+                "detected_value": readings[0]["temperature"] if readings else 95.0,
+                "threshold_value": machine.get("max_temperature", 85.0),
+                "action_taken": "alert_operator",
+                "action_status": "auto_executed",
+                "action_zone": "yellow",
+                "agent_type": "facility",
+                "z_score": 3.5,
+                "rate_of_change": 5.0,
+                "resolved": False
+            })
+            
+            logger.warning(f"CHAOS: Sensor spikes injected for {machine['name']}, Aegis incident created")
             
             return {
                 "injected": True,
                 "scenario": "Sensor Anomaly Spike",
                 "affected_machine": machine["name"],
                 "readings_generated": len(readings),
-                "message": "Anomalous sensor readings injected. ML model should detect."
+                "aegis_incident_created": incident.get("incident_id") if incident else None,
+                "message": "Anomalous sensor readings injected. Aegis incident created."
             }
         
         elif failure_type == "efficiency_drop":

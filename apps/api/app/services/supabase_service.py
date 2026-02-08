@@ -260,5 +260,34 @@ class SupabaseService:
         return data
 
 
+    # Aegis Sentinel operations
+    async def create_aegis_incident(self, incident_data: Dict) -> Dict:
+        """Create a new Aegis incident."""
+        response = self.client.table("aegis_incidents").insert(incident_data).execute()
+        return response.data[0] if response.data else {}
+    
+    async def get_aegis_incidents(self, machine_id: Optional[str] = None, 
+                                   limit: int = 50,
+                                   resolved: Optional[bool] = None) -> List[Dict]:
+        """Get Aegis incidents with optional filters."""
+        query = self.client.table("aegis_incidents").select("*")
+        
+        if machine_id:
+            query = query.eq("machine_id", machine_id)
+        if resolved is not None:
+            query = query.eq("resolved", resolved)
+            
+        response = query.order("created_at", desc=True).limit(limit).execute()
+        return response.data or []
+    
+    async def update_aegis_incident(self, incident_id: str, update_data: Dict) -> Dict:
+        """Update an Aegis incident."""
+        response = self.client.table("aegis_incidents") \
+            .update(update_data) \
+            .eq("incident_id", incident_id) \
+            .execute()
+        return response.data[0] if response.data else {}
+
+
 # Singleton instance
 supabase_service = SupabaseService()
