@@ -174,6 +174,22 @@ const AppConfigContext = createContext<AppConfigContextType>({
 
 export const useAppConfig = () => useContext(AppConfigContext);
 
+/**
+ * Must be rendered INSIDE AppConfigContext.Provider so useAppConfig()
+ * returns the real addJob/updateJob/updateMachine — not default no-ops.
+ */
+function SimulationManager() {
+  const { simulationEnabled } = useAppConfig();
+  useAutonomousSimulation({
+    enabled: simulationEnabled,
+    jobProgressionInterval: 5000,
+    machineEventInterval: 8000,
+    newJobInterval: 8000,
+    sensorDataInterval: 3000,
+  });
+  return null;
+}
+
 function App() {
   const { machines: realtimeMachines, isConnected: isSupabaseConnected, refresh: refreshMachines } = useRealtimeMachines();
   const { sensorData } = useLatestSensorData();
@@ -290,14 +306,8 @@ function App() {
   // Autonomous simulation toggle - works in both demo and Supabase modes
   const [simulationEnabled, setSimulationEnabled] = useState(true);
   
-  // Start autonomous simulation
-  useAutonomousSimulation({
-    enabled: simulationEnabled,
-    jobProgressionInterval: 5000,
-    machineEventInterval: 8000,
-    newJobInterval: 15000,
-    sensorDataInterval: 3000,
-  });
+  // NOTE: Simulation is started via <SimulationManager /> inside the Provider below.
+  // It MUST be inside the Provider so useAppConfig() returns real functions, not default no-ops.
 
   // Recover all broken machines at once
   const recoverAllMachines = useCallback(() => {
@@ -325,6 +335,7 @@ function App() {
 
   return (
     <AppConfigContext.Provider value={appConfigValue}>
+      <SimulationManager />
       <div className="min-h-screen bg-slate-50">
         <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
           <div className="px-4 sm:px-6 lg:px-8">

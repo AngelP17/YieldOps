@@ -146,32 +146,23 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     });
     
     // Auto-dispatch: Move PENDING jobs to QUEUED when machines are available
-    // But only dispatch a few at a time to let pending queue build up
-    let dispatchedCount = 0;
-    const maxToDispatch = 1; // Only dispatch 1 pending job per cycle
-    
+    // Only dispatch if we have enough pending jobs to keep the queue visible
     const pendingJobs = jobs
       .filter(j => j.status === 'PENDING')
       .sort((a, b) => {
-        // Hot lots first, then by priority
         if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
         return a.priority_level - b.priority_level;
       });
-    
+
     const idleMachines = machines.filter(m => m.status === 'IDLE');
-    
-    for (const job of pendingJobs) {
-      if (dispatchedCount >= maxToDispatch) break;
-      if (idleMachines.length === 0) break;
-      
-      // Assign to best available machine
-      const machine = idleMachines[dispatchedCount];
-      updateJob(job.job_id, {
+
+    // Never drain pending below 3 — the system must always look alive
+    if (pendingJobs.length > 3 && idleMachines.length > 0) {
+      const machine = idleMachines[0];
+      updateJob(pendingJobs[0].job_id, {
         status: 'QUEUED',
         assigned_machine_id: machine.machine_id,
       });
-      // Keep machine as IDLE - it will transition to RUNNING when job starts
-      dispatchedCount++;
     }
   }, []);
 
@@ -229,23 +220,25 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   const ensureMinimumJobs = useCallback(() => {
     const { isUsingMockData, jobs, addJob } = stateRef.current;
     if (!isUsingMockData) return;
-    
+
     const pendingJobs = jobs.filter(j => j.status === 'PENDING');
     const hotLots = jobs.filter(j => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED');
-    
-    // Add ONE pending job at a time to let them accumulate (max 8)
-    if (pendingJobs.length < 5) {
-      const newJob = generateNewJob(jobs.length + Date.now());
+
+    // Keep pending queue healthy — add up to 2 jobs per cycle until we hit 8
+    const deficit = 8 - pendingJobs.length;
+    const toAdd = Math.min(deficit, 2);
+    for (let i = 0; i < toAdd; i++) {
+      const newJob = generateNewJob(jobs.length + Date.now() + i);
       newJob.status = 'PENDING';
       newJob.priority_level = Math.floor(Math.random() * 3) + 2;
       newJob.is_hot_lot = false;
       addJob(newJob);
     }
-    
+
     // Add hot lots sparingly (max 3)
     if (hotLots.length < 3 && Math.random() > 0.7) {
-      const newJob = generateNewJob(jobs.length + Date.now() + 1);
-      newJob.status = 'PENDING'; // Hot lots start as pending too
+      const newJob = generateNewJob(jobs.length + Date.now() + 99);
+      newJob.status = 'PENDING';
       newJob.priority_level = 1;
       newJob.is_hot_lot = true;
       addJob(newJob);
