@@ -86,12 +86,17 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   }
   const sensorDataRef = useRef<Record<string, SensorData>>({});
 
+  // Use refs to store latest state and callbacks to avoid stale closures
+  const stateRef = useRef({ machines, jobs, updateMachine, updateJob, addJob, isUsingMockData });
+  stateRef.current = { machines, jobs, updateMachine, updateJob, addJob, isUsingMockData };
+
   /**
    * Simulate job progression
    * - QUEUED jobs with assigned machines -> RUNNING
    * - RUNNING jobs progress wafer count -> COMPLETED when done
    */
   const simulateJobProgression = useCallback(() => {
+    const { isUsingMockData, jobs, machines, updateJob, updateMachine } = stateRef.current;
     if (!isUsingMockData) return;
     
     // Process RUNNING jobs - increment wafer progress
@@ -168,7 +173,7 @@ export function useAutonomousSimulation(config: SimulationConfig) {
       // Keep machine as IDLE - it will transition to RUNNING when job starts
       dispatchedCount++;
     }
-  }, [jobs, machines, updateJob, updateMachine, isUsingMockData]);
+  }, []);
 
   /**
    * Simulate machine events
@@ -177,6 +182,7 @@ export function useAutonomousSimulation(config: SimulationConfig) {
    * - Recovery from DOWN/MAINTENANCE
    */
   const simulateMachineEvents = useCallback(() => {
+    const { isUsingMockData, machines, updateMachine } = stateRef.current;
     if (!isUsingMockData) return;
     
     machines.forEach(machine => {
@@ -214,13 +220,14 @@ export function useAutonomousSimulation(config: SimulationConfig) {
         updateMachine(machine.machine_id, { current_wafer_count: newCount });
       }
     });
-  }, [machines, updateMachine, isUsingMockData]);
+  }, []);
 
   /**
    * Ensure minimum jobs in each category - always maintain data
    * Adds jobs gradually to simulate realistic fab workflow
    */
   const ensureMinimumJobs = useCallback(() => {
+    const { isUsingMockData, jobs, addJob } = stateRef.current;
     if (!isUsingMockData) return;
     
     const pendingJobs = jobs.filter(j => j.status === 'PENDING');
@@ -243,14 +250,13 @@ export function useAutonomousSimulation(config: SimulationConfig) {
       newJob.is_hot_lot = true;
       addJob(newJob);
     }
-    
-
-  }, [jobs, machines, addJob, isUsingMockData]);
+  }, []);
 
   /**
    * Generate sensor data for VM
    */
   const generateSensorDataForMachines = useCallback(() => {
+    const { isUsingMockData, machines } = stateRef.current;
     if (!isUsingMockData) return;
     
     machines.forEach(machine => {
@@ -258,7 +264,7 @@ export function useAutonomousSimulation(config: SimulationConfig) {
         sensorDataRef.current[machine.machine_id] = generateSensorData(machine);
       }
     });
-  }, [machines, isUsingMockData]);
+  }, []);
 
   // Get current sensor data
   const getSensorData = useCallback(() => {
@@ -275,6 +281,12 @@ export function useAutonomousSimulation(config: SimulationConfig) {
       if (sensorIntervalRef.current) clearInterval(sensorIntervalRef.current);
       return;
     }
+    
+    // Run immediately on start
+    ensureMinimumJobs();
+    simulateJobProgression();
+    simulateMachineEvents();
+    generateSensorDataForMachines();
     
     // Start intervals
     jobIntervalRef.current = setInterval(simulateJobProgression, jobProgressionInterval);

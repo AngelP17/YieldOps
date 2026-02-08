@@ -114,7 +114,6 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
     dispatched_at: string;
   }
   const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryItem[]>([]);
-  const [, setLocalDecisions] = useState<DispatchDecision[]>([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const apiAvailable = isApiConfigured();
 
@@ -217,7 +216,6 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
           dispatched_at: new Date().toISOString()
         }));
 
-        setLocalDecisions(prev => [...decisions, ...prev]);
         setDispatchHistory(prev => [...newDecisions, ...prev]);
 
         toast(`ToC Dispatch complete: ${decisions.length} jobs assigned (Demo Mode)`, 'success');
