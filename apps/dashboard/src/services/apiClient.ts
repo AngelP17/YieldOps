@@ -274,4 +274,44 @@ export const api = {
 
   generateKnowledgeGraph: () =>
     request<KnowledgeGraphData>(`/api/v1/aegis/knowledge-graph/generate`, { method: 'POST' }),
+
+  // Jobs Knowledge Graph
+  getJobsGraph: (params?: { include_completed?: boolean; customer_filter?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.include_completed !== undefined) searchParams.set('include_completed', String(params.include_completed));
+    if (params?.customer_filter) searchParams.set('customer_filter', params.customer_filter);
+    const qs = searchParams.toString();
+    return request<KnowledgeGraphData>(`/api/v1/graphs/jobs-graph${qs ? `?${qs}` : ''}`);
+  },
+
+  getJobsGraphStats: () =>
+    request<{
+      node_count: number;
+      edge_count: number;
+      central_concepts: Array<[string, number]>;
+      job_clusters: Record<string, string[]>;
+      customer_workload: Record<string, number>;
+    }>(`/api/v1/graphs/jobs-graph/stats`),
+
+  getJobsCustomers: () =>
+    request<string[]>(`/api/v1/graphs/jobs-graph/customers`),
+
+  // System Knowledge Graph
+  getSystemGraph: () =>
+    request<KnowledgeGraphData>(`/api/v1/graphs/system-graph`),
+
+  getSystemGraphStats: () =>
+    request<{
+      node_count: number;
+      edge_count: number;
+      central_concepts: Array<[string, number]>;
+      zone_summary: Record<string, { machine_count: number; running: number; utilization: number }>;
+      type_summary: Record<string, number>;
+      bottlenecks: Array<{ machine_id: string; centrality: number; label: string }>;
+    }>(`/api/v1/graphs/system-graph/stats`),
+
+  getSystemZones: () =>
+    request<Record<string, { machine_count: number; running: number; utilization: number }>>(
+      `/api/v1/graphs/system-graph/zones`
+    ),
 };

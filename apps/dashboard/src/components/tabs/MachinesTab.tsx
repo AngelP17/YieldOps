@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { IconSearch, IconTool, IconBolt, IconActivity, IconTrendingUp, IconStack, IconAlertTriangle, IconChartBar } from '@tabler/icons-react';
+import { IconSearch, IconTool, IconBolt, IconActivity, IconTrendingUp, IconStack, IconAlertTriangle, IconChartBar, IconMap, IconGrid3x3 } from '@tabler/icons-react';
 import { MachineNode } from '../MachineNode';
+import { MachineTopology } from '../aegis/MachineTopology';
 import { StatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
 import { AnalyticsModal } from '../AnalyticsModal';
@@ -23,6 +24,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'efficiency' | 'type'>('name');
+  const [viewMode, setViewMode] = useState<'grid' | 'topology'>('grid');
   const apiAvailable = isApiConfigured();
 
   // VM polling for all machines
@@ -211,29 +213,64 @@ export function MachinesTab({ machines }: MachinesTabProps) {
             <option value="type">Sort: Type</option>
           </select>
 
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <IconGrid3x3 className="w-4 h-4" />
+              Grid
+            </button>
+            <button
+              onClick={() => setViewMode('topology')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                viewMode === 'topology'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <IconMap className="w-4 h-4" />
+              Topology
+            </button>
+          </div>
+
           <span className="text-sm text-slate-500 whitespace-nowrap">{filtered.length} machines</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Machine Grid */}
+        {/* Machine View */}
         <div className="xl:col-span-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((machine) => (
-              <MachineNode
-                key={machine.machine_id}
-                machine={machine}
-                onClick={setSelectedMachine}
-                isSelected={selectedMachine?.machine_id === machine.machine_id}
-                vmStatus={vmStatuses[machine.machine_id]}
-              />
-            ))}
-            {filtered.length === 0 && (
-              <div className="col-span-full bg-slate-100 rounded-2xl border border-dashed border-slate-300 p-12 text-center">
-                <p className="text-sm text-slate-500">No machines match your filters</p>
-              </div>
-            )}
-          </div>
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map((machine) => (
+                <MachineNode
+                  key={machine.machine_id}
+                  machine={machine}
+                  onClick={setSelectedMachine}
+                  isSelected={selectedMachine?.machine_id === machine.machine_id}
+                  vmStatus={vmStatuses[machine.machine_id]}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <div className="col-span-full bg-slate-100 rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+                  <p className="text-sm text-slate-500">No machines match your filters</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <MachineTopology
+              machines={filtered}
+              selectedMachineId={selectedMachine?.machine_id}
+              onSelectMachine={setSelectedMachine}
+              vmStatuses={vmStatuses}
+            />
+          )}
         </div>
 
         {/* Detail Panel */}

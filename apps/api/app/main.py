@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import routers
-from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm, scheduler, simulation, aegis
+from app.api.v1 import dispatch, machines, jobs, chaos, analytics, vm, scheduler, simulation, aegis, graphs
 
 
 @asynccontextmanager
@@ -80,6 +80,7 @@ app.include_router(vm.router, prefix="/api/v1/vm", tags=["virtual-metrology"])
 app.include_router(scheduler.router, prefix="/api/v1", tags=["scheduler"])
 app.include_router(simulation.router, prefix="/api/v1/simulation", tags=["simulation"])
 app.include_router(aegis.router, prefix="/api/v1/aegis", tags=["aegis-sentinel"])
+app.include_router(graphs.router, prefix="/api/v1/graphs", tags=["knowledge-graphs"])
 
 
 @app.get("/health")
@@ -108,7 +109,8 @@ async def root():
             "analytics": "/api/v1/analytics",
             "vm": "/api/v1/vm",
             "scheduler": "/api/v1/scheduler",
-            "aegis": "/api/v1/aegis"
+            "aegis": "/api/v1/aegis",
+            "graphs": "/api/v1/graphs"
         }
     }
 
