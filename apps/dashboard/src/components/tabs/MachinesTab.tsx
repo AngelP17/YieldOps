@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { IconSearch, IconTool, IconBolt, IconActivity, IconTrendingUp, IconStack, IconAlertTriangle, IconChartBar, IconMap, IconGrid3x3 } from '@tabler/icons-react';
+import { IconSearch, IconTool, IconBolt, IconActivity, IconTrendingUp, IconStack, IconAlertTriangle, IconChartBar, IconMap, IconGrid3x3, IconList } from '@tabler/icons-react';
 import { MachineNode } from '../MachineNode';
 import { MachineTopology } from '../aegis/MachineTopology';
 import { StatusBadge } from '../ui/StatusBadge';
@@ -24,7 +24,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'efficiency' | 'type'>('name');
-  const [viewMode, setViewMode] = useState<'grid' | 'topology'>('grid');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'topology'>('grid');
   const apiAvailable = isApiConfigured();
 
   // VM polling for all machines
@@ -216,6 +216,17 @@ export function MachinesTab({ machines }: MachinesTabProps) {
           {/* View Toggle */}
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
             <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <IconList className="w-4 h-4" />
+              List
+            </button>
+            <button
               onClick={() => setViewMode('grid')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 viewMode === 'grid'
@@ -246,7 +257,53 @@ export function MachinesTab({ machines }: MachinesTabProps) {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Machine View */}
         <div className="xl:col-span-2">
-          {viewMode === 'grid' ? (
+          {viewMode === 'list' && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="divide-y divide-slate-100">
+                {filtered.map((machine) => (
+                  <div
+                    key={machine.machine_id}
+                    onClick={() => setSelectedMachine(machine)}
+                    className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
+                      selectedMachine?.machine_id === machine.machine_id
+                        ? 'bg-blue-50 hover:bg-blue-50'
+                        : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2.5 h-2.5 rounded-full ${
+                        machine.status === 'RUNNING' ? 'bg-emerald-400' :
+                        machine.status === 'IDLE' ? 'bg-amber-400' :
+                        machine.status === 'DOWN' ? 'bg-rose-400' :
+                        'bg-slate-400'
+                      }`} />
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-900">{machine.name}</h4>
+                        <p className="text-xs text-slate-500">{machine.type} · {machine.location_zone}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-slate-900">{(machine.efficiency_rating * 100).toFixed(0)}%</p>
+                        <p className="text-[10px] text-slate-500">Efficiency</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-slate-900">
+                          {machine.temperature ? `${machine.temperature.toFixed(1)}°C` : '—'}
+                        </p>
+                        <p className="text-[10px] text-slate-500">Temp</p>
+                      </div>
+                      <StatusBadge status={machine.status} />
+                    </div>
+                  </div>
+                ))}
+                {filtered.length === 0 && (
+                  <div className="px-6 py-12 text-center text-sm text-slate-400">No machines match your filters</div>
+                )}
+              </div>
+            </div>
+          )}
+          {viewMode === 'grid' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map((machine) => (
                 <MachineNode
@@ -263,7 +320,8 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                 </div>
               )}
             </div>
-          ) : (
+          )}
+          {viewMode === 'topology' && (
             <MachineTopology
               machines={filtered}
               selectedMachineId={selectedMachine?.machine_id}

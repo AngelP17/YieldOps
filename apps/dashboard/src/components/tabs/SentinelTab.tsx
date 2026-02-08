@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList } from '@tabler/icons-react';
 import { KpiCard } from '../ui/KpiCard';
 import { SentinelAgentCard } from '../aegis/SentinelAgentCard';
@@ -16,6 +16,7 @@ export function SentinelTab() {
     safetyCircuit,
     knowledgeGraph,
     loading,
+    isDemoMode,
     approveIncident,
     resolveIncident,
     fetchKnowledgeGraph,
@@ -29,6 +30,13 @@ export function SentinelTab() {
     await fetchKnowledgeGraph();
     setGraphLoading(false);
   };
+
+  // Auto-generate knowledge graph on mount
+  useEffect(() => {
+    if (!knowledgeGraph && !graphLoading) {
+      handleGenerateGraph();
+    }
+  }, [knowledgeGraph, graphLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -46,6 +54,17 @@ export function SentinelTab() {
 
   return (
     <div className="space-y-6">
+      {/* Demo Mode Banner */}
+      {isDemoMode && (
+        <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <IconAlertTriangle className="w-5 h-5 text-amber-500" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Demo Mode Active</p>
+            <p className="text-xs text-amber-700">Aegis Sentinel data is simulated. Configure VITE_API_URL to connect to real sentinel agents.</p>
+          </div>
+        </div>
+      )}
+
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
@@ -173,18 +192,23 @@ export function SentinelTab() {
           />
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
-            <IconShield className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+            <IconShield className={`w-8 h-8 mx-auto mb-3 ${graphLoading ? 'text-blue-400 animate-pulse' : 'text-slate-300'}`} />
             <h3 className="text-sm font-semibold text-slate-900 mb-1">Knowledge Graph</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Generate a relationship graph from incident data to visualize failure patterns and correlations.
+              {graphLoading 
+                ? 'Generating relationship graph from incident data...' 
+                : 'Visualize failure patterns and correlations across your system.'}
             </p>
-            <button
-              onClick={handleGenerateGraph}
-              disabled={graphLoading}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {graphLoading ? 'Generating...' : 'Generate Graph'}
-            </button>
+            {graphLoading ? (
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            ) : (
+              <button
+                onClick={handleGenerateGraph}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors"
+              >
+                Generate Graph
+              </button>
+            )}
           </div>
         )}
       </div>

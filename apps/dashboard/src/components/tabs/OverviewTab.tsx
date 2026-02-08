@@ -1,17 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   IconActivity, IconCpu, IconTrendingUp, IconStack, IconPackage, IconShield, IconBolt,
   IconPlayerPlay, IconAlertTriangle, IconArrowRight, IconClock, IconRefresh, IconTool,
-  IconChartBar, IconShieldCheck, IconShieldExclamation
+  IconChartBar, IconShieldCheck, IconShieldExclamation, IconGraph
 } from '@tabler/icons-react';
 import { KpiCard } from '../ui/KpiCard';
 import { StatusBadge, JobStatusBadge } from '../ui/StatusBadge';
 import { useToast } from '../ui/Toast';
 import { SystemAnalyticsModal } from '../SystemAnalyticsModal';
+import { SystemKnowledgeGraphViz } from '../overview/SystemKnowledgeGraphViz';
 import { api, DispatchQueueResponse, isApiConfigured } from '../../services/apiClient';
 import { useAppConfig } from '../../App';
 import { useAegisSentinel } from '../../hooks/useAegisSentinel';
-import type { Machine, ProductionJob } from '../../types';
+import type { Machine, ProductionJob, KnowledgeGraphData } from '../../types';
 
 interface OverviewTabProps {
   machines: Machine[];
@@ -97,6 +98,7 @@ function runToCDispatch(
 
   return decisions;
 }
+
 
 export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
@@ -305,6 +307,182 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
 
   const troubledMachines = machines.filter(m => m.status === 'DOWN' || m.status === 'MAINTENANCE');
   const { summary: sentinelSummary } = useAegisSentinel({ pollingInterval: 15000 });
+
+  // System Knowledge Graph state
+  const [systemGraphData, setSystemGraphData] = useState<KnowledgeGraphData | null>(null);
+  const [systemGraphLoading, setSystemGraphLoading] = useState(false);
+  const [showSystemGraph, setShowSystemGraph] = useState(false);
+
+  // Generate local system graph data (for demo mode)
+  const generateLocalSystemGraph = useCallback((): KnowledgeGraphData => {
+    const nodes: KnowledgeGraphData['nodes'] = [];
+    const edges: KnowledgeGraphData['edges'] = [];
+    const nodeIds = new Set<string>();
+
+    const addNode = (id: string, label: string, type: string, color: string) => {
+      if (!nodeIds.has(id)) {
+        nodes.push({ data: { id, label, type, color } });
+        nodeIds.add(id);
+      }
+    };
+
+    const statusColors: Record<string, string> = {
+      RUNNING: '#10B981',
+      IDLE: '#F59E0B',
+      DOWN: '#EF4444',
+      MAINTENANCE: '#6B7280',
+    };
+
+    const typeColors: Record<string, string> = {
+      lithography: '#8B5CF6',
+      etching: '#EF4444',
+      deposition: '#10B981',
+      inspection: '#3B82F6',
+      cleaning: '#06B6D4',
+    };
+
+    // Create active jobs lookup by machine
+    const machineJobs = new Map<string, ProductionJob[]>();
+    jobs.forEach(job => {
+      if (job.assigned_machine_id) {
+        if (!machineJobs.has(job.assigned_machine_id)) {
+          machineJobs.set(job.assigned_machine_id, []);
+        }
+        machineJobs.get(job.assigned_machine_id)!.push(job);
+      }
+    });
+
+    // Add machine nodes and relationships
+    machines.forEach(machine => {
+      const statusColor = statusColors[machine.status] || '#6B7280';
+      const nodeType = `machine_${machine.status.toLowerCase()}`;
+      
+      addNode(machine.machine_id, machine.name, nodeType, statusColor);
+
+      // Zone relationship
+      const zoneNode = `ZONE-${machine.location_zone}`;
+      addNode(zoneNode, `Zone ${machine.location_zone}`, 'zone', '#3B82F6');
+      edges.push({
+        data: { id: `${machine.machine_id}-${zoneNode}`, source: machine.machine_id, target: zoneNode, label: 'located_in', weight: 2 }
+      });
+
+      // Type relationship
+      const typeNode = `TYPE-${machine.type.toUpperCase()}`;
+      addNode(typeNode, machine.type, 'machine_type', typeColors[machine.type] || '#6B7280');
+      edges.push({
+        data: { id: `${machine.machine_id}-${typeNode}`, source: machine.machine_id, target: typeNode, label: 'is_type', weight: 1 }
+      });
+
+      // Job relationships
+      const assignedJobs = machineJobs.get(machine.machine_id) || [];
+      assignedJobs.forEach(job => {
+        const jobNode = job.job_id;
+        const jobColor = job.status === 'RUNNING' ? '#00F0FF' : job.status === 'QUEUED' ? '#F97316' : '#FBBF24';
+        const jobType = job.status === 'RUNNING' ? 'job_running' : job.status === 'QUEUED' ? 'job_queued' : 'job_pending';
+        const jobLabel = job.is_hot_lot ? `🔥 ${job.job_name}` : job.job_name;
+        
+        addNode(jobNode, jobLabel, jobType, jobColor);
+        const weight = job.status === 'RUNNING' ? 3 : 2;
+        edges.push({
+          data: { id: `${machine.machine_id}-${jobNode}`, source: machine.machine_id, target: jobNode, label: job.status === 'RUNNING' ? 'processing' : 'assigned', weight }
+        });
+      });
+
+      // Connect machines in same zone (weak connection)
+      machines.forEach(other => {
+        if (other.machine_id !== machine.machine_id && other.location_zone === machine.location_zone) {
+          const edgeId = `${machine.machine_id}-${other.machine_id}`;
+          if (!edges.some(e => e.data.id === edgeId || e.data.id === `${other.machine_id}-${machine.machine_id}`)) {
+            edges.push({
+              data: { id: edgeId, source: machine.machine_id, target: other.machine_id, label: 'same_zone', weight: 0.5 }
+            });
+          }
+        }
+      });
+    });
+
+    // Add system hub
+    const hubId = 'SYSTEM-HUB';
+    addNode(hubId, 'Fab System', 'system_hub', '#1E293B');
+
+    // Summary nodes
+    const runningCount = machines.filter(m => m.status === 'RUNNING').length;
+    const downCount = machines.filter(m => m.status === 'DOWN').length;
+    const activeJobs = jobs.filter(j => j.status === 'RUNNING').length;
+
+    if (runningCount > 0) {
+      const runningNode = 'SUMMARY-RUNNING';
+      addNode(runningNode, `Running (${runningCount})`, 'summary', '#10B981');
+      edges.push({ data: { id: `${hubId}-${runningNode}`, source: hubId, target: runningNode, label: 'has_running', weight: 1 } });
+    }
+
+    if (downCount > 0) {
+      const downNode = 'SUMMARY-DOWN';
+      addNode(downNode, `Down (${downCount})`, 'summary', '#EF4444');
+      edges.push({ data: { id: `${hubId}-${downNode}`, source: hubId, target: downNode, label: 'has_down', weight: 2 } });
+    }
+
+    if (activeJobs > 0) {
+      const jobsNode = 'SUMMARY-JOBS';
+      addNode(jobsNode, `Active Jobs (${activeJobs})`, 'summary', '#00F0FF');
+      edges.push({ data: { id: `${hubId}-${jobsNode}`, source: hubId, target: jobsNode, label: 'active_jobs', weight: 1 } });
+    }
+
+    // Calculate zone summary
+    const zoneSummary: Record<string, { machine_count: number; running: number; utilization: number }> = {};
+    machines.forEach(m => {
+      if (!zoneSummary[m.location_zone]) {
+        zoneSummary[m.location_zone] = { machine_count: 0, running: 0, utilization: 0 };
+      }
+      zoneSummary[m.location_zone].machine_count++;
+      if (m.status === 'RUNNING') zoneSummary[m.location_zone].running++;
+    });
+    Object.keys(zoneSummary).forEach(zone => {
+      const z = zoneSummary[zone];
+      z.utilization = z.running / z.machine_count;
+    });
+
+    return {
+      nodes,
+      edges,
+      stats: {
+        node_count: nodes.length,
+        edge_count: edges.length,
+        central_concepts: [],
+        zone_summary: zoneSummary,
+        type_summary: {},
+        bottlenecks: [],
+      } as any
+    };
+  }, [machines, jobs]);
+
+  // Fetch system graph data
+  const fetchSystemGraph = useCallback(async () => {
+    setSystemGraphLoading(true);
+    try {
+      if (!apiAvailable || isUsingMockData) {
+        // Generate local graph
+        const localData = generateLocalSystemGraph();
+        setSystemGraphData(localData);
+      } else {
+        // Fetch from API
+        const result = await api.getSystemGraph();
+        setSystemGraphData(result);
+      }
+    } catch (err) {
+      console.error('Failed to fetch system graph:', err);
+      toast('Failed to load system topology graph', 'error');
+    } finally {
+      setSystemGraphLoading(false);
+    }
+  }, [apiAvailable, isUsingMockData, generateLocalSystemGraph, toast]);
+
+  // Auto-generate graph when tab is opened
+  useEffect(() => {
+    if (showSystemGraph && !systemGraphData) {
+      fetchSystemGraph();
+    }
+  }, [showSystemGraph, systemGraphData, fetchSystemGraph]);
 
   return (
     <div className="space-y-6">
@@ -593,6 +771,56 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         </div>
       </div>
 
+      {/* System Topology Knowledge Graph */}
+      <div className="border-t border-slate-200 pt-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <IconGraph className="w-4 h-4 text-blue-600" />
+              System Topology
+            </h3>
+            <p className="text-xs text-slate-500">
+              Interactive visualization of machines, zones, jobs, and their relationships
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (!showSystemGraph) {
+                setShowSystemGraph(true);
+                fetchSystemGraph();
+              } else {
+                setShowSystemGraph(false);
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+          >
+            <IconGraph className="w-4 h-4" />
+            {showSystemGraph ? 'Hide Graph' : 'Show Graph'}
+          </button>
+        </div>
+
+        {showSystemGraph && (
+          systemGraphData ? (
+            <SystemKnowledgeGraphViz
+              data={systemGraphData}
+              onGenerate={fetchSystemGraph}
+              loading={systemGraphLoading}
+            />
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+              <IconGraph className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+              <h4 className="text-sm font-semibold text-slate-900 mb-1">System Topology Graph</h4>
+              <p className="text-xs text-slate-500 mb-4">
+                {systemGraphLoading ? 'Loading system topology...' : 'Click show graph to visualize system relationships'}
+              </p>
+              {systemGraphLoading && (
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              )}
+            </div>
+          )
+        )}
+      </div>
+
       {/* System Analytics Modal */}
       <SystemAnalyticsModal
         isOpen={showAnalytics}
@@ -600,6 +828,57 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         machines={machines}
         jobs={jobs}
       />
+
+      {/* System Knowledge Graph Section */}
+      <div className="border-t border-slate-200 pt-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <IconGraph className="w-4 h-4 text-blue-600" />
+              System Topology
+            </h3>
+            <p className="text-xs text-slate-500">
+              Visualize fab system relationships: machines, zones, jobs, and operational status
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (!showSystemGraph) {
+                setShowSystemGraph(true);
+              } else {
+                setShowSystemGraph(false);
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+          >
+            <IconGraph className="w-4 h-4" />
+            {showSystemGraph ? 'Hide Topology' : 'Show Topology'}
+          </button>
+        </div>
+
+        {showSystemGraph && (
+          systemGraphData ? (
+            <SystemKnowledgeGraphViz
+              data={systemGraphData}
+              onGenerate={fetchSystemGraph}
+              loading={systemGraphLoading}
+            />
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+              <IconGraph className={`w-8 h-8 mx-auto mb-3 ${systemGraphLoading ? 'text-blue-400 animate-pulse' : 'text-slate-300'}`} />
+              <h4 className="text-sm font-semibold text-slate-900 mb-1">System Topology Graph</h4>
+              <p className="text-xs text-slate-500 mb-4">
+                {systemGraphLoading 
+                  ? 'Generating system topology from machines and jobs...' 
+                  : 'Visualize the complete fab system: machines, zones, jobs, and their relationships.'}
+              </p>
+              {systemGraphLoading && (
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              )}
+            </div>
+          )
+        )}
+      </div>
     </div>
   );
 }

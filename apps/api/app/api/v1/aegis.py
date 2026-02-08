@@ -15,6 +15,7 @@ from app.core.sentinel_engine import (
     store_incident,
     get_incidents,
     get_incident_by_id,
+    update_incident,
     register_agent,
     get_agents,
     agent_heartbeat,
@@ -101,22 +102,34 @@ async def approve_incident(incident_id: str, approval: IncidentApproval):
     if inc.get("action_status") != "pending_approval":
         raise HTTPException(status_code=400, detail="Incident is not pending approval")
 
-    inc["action_status"] = "approved" if approval.approved else "rejected"
+    new_status = "approved" if approval.approved else "rejected"
+    updates = {"action_status": new_status}
     if approval.operator_notes:
-        inc["operator_notes"] = approval.operator_notes
+        updates["operator_notes"] = approval.operator_notes
+    
+    if not update_incident(incident_id, updates):
+        raise HTTPException(status_code=500, detail="Failed to update incident")
 
-    return {"incident_id": incident_id, "action_status": inc["action_status"]}
+    return {"incident_id": incident_id, "action_status": new_status}
 
 
 @router.post("/incidents/{incident_id}/resolve")
-async def resolve_incident(incident_id: str):
+async def resolve_incident(incident_id: str, notes: IncidentApproval = None):
     """Mark an incident as resolved."""
     inc = get_incident_by_id(incident_id)
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    inc["resolved"] = True
-    inc["resolved_at"] = datetime.utcnow().isoformat() + "Z"
+    updates = {
+        "resolved": True,
+        "resolved_at": datetime.utcnow().isoformat() + "Z"
+    }
+    if notes and notes.operator_notes:
+        updates["operator_notes"] = notes.operator_notes
+    
+    if not update_incident(incident_id, updates):
+        raise HTTPException(status_code=500, detail="Failed to resolve incident")
+        
     return {"incident_id": incident_id, "resolved": True}
 
 
