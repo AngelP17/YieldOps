@@ -1,0 +1,35 @@
+# Assembly Sentinel Configuration Example
+# 
+# This configuration defines the parameters for the Wire Bonding / Packaging Agent.
+# Place this in your main config.yaml under the agents section.
+#
+# Key Concepts:
+# - NSOP (Non-Stick on Pad): Detected via ultrasonic impedance
+# - OEE (Overall Equipment Effectiveness): Monitors throughput
+# - Thermal Drift: Compensates for capillary expansion
+
+agents:
+  - machine_id: "BOND-01"
+    agent_type: "assembly"
+    config:
+      # Machine identification
+      machine_id: "BOND-01"
+      
+      # Physics-based detection thresholds
+      max_bond_time_ms: 20.0          # Performance: Alert if cycle > 20ms
+      min_ultrasonic_impedance: 30.0  # Quality: NSOP threshold (Ohms)
+      target_oee: 0.85                # OEE target (85% industry standard)
+      
+      # Capillary thermal properties
+      material_cte: 5.5e-6            # CTE for tungsten carbide (1/°C)
+      capillary_length_mm: 10.0       # Standard capillary length
+
+  - machine_id: "BOND-02"
+    agent_type: "assembly"
+    config:
+      machine_id: "BOND-02"
+      max_bond_time_ms: 18.0          # Stricter target for high-speed line
+      min_ultrasonic_impedance: 35.0  # Higher threshold for gold wire
+      target_oee: 0.90                # World-class OEE target
+      material_cte: 3.0e-6            # Ceramic capillary (lower CTE)
+      capillary_length_mm: 8.0        # Shorter capillary for fine pitch

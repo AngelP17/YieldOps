@@ -1,0 +1,11 @@
+# SECS/GEM Bridge Dependencies
+# Install with: pip install -r requirements-gem.txt
+
+# SECS/GEM protocol library
+secsgem>=0.2.0
+
+# MQTT client for Python Bridge
+paho-mqtt>=1.6.0
+
+# Optional: For enhanced logging and monitoring
+# structlog>=23.0.0

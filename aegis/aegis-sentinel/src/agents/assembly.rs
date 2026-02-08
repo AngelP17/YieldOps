@@ -550,8 +550,9 @@ mod tests {
             let threats = agent.analyze(&telemetry);
             threats_found += threats.len();
             
-            // NSOP should trigger after 3 consecutive failures
-            if i >= 2 {
+            // NSOP should trigger on the 3rd consecutive failure (i == 2)
+            // After detection, counter resets, so next detection at i == 5 (if we continued)
+            if i == 2 {
                 assert!(!threats.is_empty(), "Should detect NSOP after 3 consecutive");
                 assert!(matches!(threats[0], Threat::QualityDefect { .. }));
             }
@@ -588,7 +589,7 @@ mod tests {
     #[test]
     fn test_oee_calculation() {
         let config = AssemblyConfig::default();
-        let mut agent = AssemblySentinel::new(config);
+        let mut agent = AssemblySentinel::new(config.clone());
 
         // Add some bond times
         for _ in 0..10 {
