@@ -53,7 +53,7 @@ export function AgentCoveragePanel({ facilitySummary, assemblySummary }: AgentCo
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-600">FFU Units</span>
               <span className="font-medium text-slate-900">
-                {facilitySummary?.total_ffus ?? '-'}
+                {facilitySummary?.total_ffus ?? 0}
               </span>
             </div>
             
@@ -64,7 +64,7 @@ export function AgentCoveragePanel({ facilitySummary, assemblySummary }: AgentCo
                   ? 'text-emerald-600' 
                   : 'text-slate-400'
               }`}>
-                {facilitySummary?.iso_compliant_zones ?? '-'}
+                {facilitySummary?.iso_compliant_zones ?? 0}
               </span>
             </div>
 
@@ -73,7 +73,7 @@ export function AgentCoveragePanel({ facilitySummary, assemblySummary }: AgentCo
               <span className="font-medium text-slate-900">
                 {facilitySummary?.avg_pressure_drop_pa 
                   ? `${facilitySummary.avg_pressure_drop_pa.toFixed(1)} Pa` 
-                  : '-'}
+                  : '0.0 Pa'}
               </span>
             </div>
 
@@ -125,7 +125,7 @@ export function AgentCoveragePanel({ facilitySummary, assemblySummary }: AgentCo
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-600">Wire Bonders</span>
               <span className="font-medium text-slate-900">
-                {assemblySummary?.total_bonders ?? '-'}
+                {assemblySummary?.total_bonders ?? 0}
               </span>
             </div>
 
@@ -140,7 +140,7 @@ export function AgentCoveragePanel({ facilitySummary, assemblySummary }: AgentCo
               }`}>
                 {assemblySummary?.avg_oee_percent 
                   ? `${assemblySummary.avg_oee_percent.toFixed(1)}%` 
-                  : '-'}
+                  : '0.0%'}
               </span>
             </div>
 
@@ -160,7 +160,7 @@ export function AgentCoveragePanel({ facilitySummary, assemblySummary }: AgentCo
               <span className="font-medium text-slate-900">
                 {assemblySummary?.avg_bond_time_ms 
                   ? `${assemblySummary.avg_bond_time_ms.toFixed(1)} ms` 
-                  : '-'}
+                  : '0.0 ms'}
               </span>
             </div>
 

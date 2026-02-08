@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList, IconWifiOff, IconLayoutGrid } from '@tabler/icons-react';
+import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList, IconWifiOff } from '@tabler/icons-react';
 import { KpiCard } from '../ui/KpiCard';
-import { SentinelAgentCard } from '../aegis/SentinelAgentCard';
 import { SafetyCircuitPanel } from '../aegis/SafetyCircuitPanel';
 import { IncidentFeed } from '../aegis/IncidentFeed';
 import { KnowledgeGraphViz } from '../aegis/KnowledgeGraphViz';
 import { AgentTopology } from '../aegis/AgentTopology';
 import { AgentCoveragePanel } from '../aegis/AgentCoveragePanel';
+import { SentinelAgentList } from '../aegis/SentinelAgentList';
 import { useAegisRealtime } from '../../hooks/useAegisRealtime';
 
 export function SentinelTab() {
@@ -26,7 +26,6 @@ export function SentinelTab() {
   const [knowledgeGraph, setKnowledgeGraph] = useState<any>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'topology'>('list');
-  const [agentViewMode, setAgentViewMode] = useState<'list' | 'grid'>('list');
 
   const handleGenerateGraph = () => {
     setGraphLoading(true);
@@ -147,25 +146,25 @@ export function SentinelTab() {
     );
   }
 
-  // Calculate stats - ensure no zeros show when we have data
-  const totalIncidents = summary?.total_incidents_24h ?? incidents.length ?? 0;
-  const criticalCount = summary?.critical_incidents_24h ?? incidents.filter(i => i.severity === 'critical').length ?? 0;
-  const activeAgentCount = summary?.active_agents ?? agents.filter(a => a.status === 'active').length ?? 0;
-  const totalAgentCount = agents.length || 48; // Default to 48 if no agents loaded
+  // Calculate stats from actual data
+  const totalIncidents = summary?.total_incidents_24h ?? incidents.length;
+  const criticalCount = summary?.critical_incidents_24h ?? incidents.filter(i => i.severity === 'critical').length;
+  const activeAgentCount = summary?.active_agents ?? agents.filter(a => a.status === 'active').length;
+  const totalAgentCount = agents.length;
   
-  const autoResolved = incidents.filter(i => i.action_status === 'auto_executed' && i.resolved).length || Math.floor(incidents.length * 0.3);
-  const pendingApproval = incidents.filter(i => i.action_status === 'pending_approval').length || Math.ceil(incidents.length * 0.2);
+  const autoResolved = incidents.filter(i => i.action_status === 'auto_executed' && i.resolved).length;
+  const pendingApproval = incidents.filter(i => i.action_status === 'pending_approval').length;
   
   // Build safety circuit status
-  const greenCount = incidents.filter(i => i.action_zone === 'green').length || Math.floor(incidents.length * 0.4);
-  const redCount = incidents.filter(i => i.action_zone === 'red').length || Math.ceil(incidents.length * 0.15);
+  const greenCount = incidents.filter(i => i.action_zone === 'green').length;
+  const redCount = incidents.filter(i => i.action_zone === 'red').length;
   
   const safetyCircuit = {
-    green_actions_24h: greenCount || 1,
-    yellow_pending: pendingApproval || 1,
-    red_alerts_24h: redCount || 1,
-    agents_active: activeAgentCount || 39,
-    agents_total: totalAgentCount || 48,
+    green_actions_24h: greenCount,
+    yellow_pending: pendingApproval,
+    red_alerts_24h: redCount,
+    agents_active: activeAgentCount,
+    agents_total: totalAgentCount,
   };
 
   return (
@@ -182,7 +181,7 @@ export function SentinelTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           label="Incidents (24h)"
-          value={totalIncidents || '-'}
+          value={totalIncidents}
           subtext={`${criticalCount} critical`}
           icon={IconAlertTriangle}
           trend={criticalCount > 0 ? `+${criticalCount}` : '+0'}
@@ -190,7 +189,7 @@ export function SentinelTab() {
         />
         <KpiCard
           label="Active Agents"
-          value={`${activeAgentCount || '-'}/${totalAgentCount}`}
+          value={`${activeAgentCount}/${totalAgentCount}`}
           subtext="Sentinel coverage"
           icon={IconActivity}
           trend="+100%"
@@ -198,7 +197,7 @@ export function SentinelTab() {
         />
         <KpiCard
           label="Auto-Resolved"
-          value={autoResolved || '-'}
+          value={autoResolved}
           subtext="Green zone actions"
           icon={IconCircleCheck}
           trend={`+${autoResolved}`}
@@ -206,7 +205,7 @@ export function SentinelTab() {
         />
         <KpiCard
           label="Pending Approval"
-          value={pendingApproval || '-'}
+          value={pendingApproval}
           subtext="Yellow zone actions"
           icon={IconShield}
           trend={pendingApproval > 0 ? `-${pendingApproval}` : '+0'}
@@ -254,49 +253,8 @@ export function SentinelTab() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left Column: Agents + Safety Circuit */}
           <div className="space-y-6">
-            {/* Agent Cards */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-900">Sentinel Agents</h3>
-                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setAgentViewMode('list')}
-                    className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
-                      agentViewMode === 'list'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                    title="List view"
-                  >
-                    <IconList className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setAgentViewMode('grid')}
-                    className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
-                      agentViewMode === 'grid'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                    title="Grid view"
-                  >
-                    <IconLayoutGrid className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              {agentViewMode === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {agents.map(agent => (
-                    <SentinelAgentCard key={agent.agent_id} agent={agent} variant="compact" />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {agents.map(agent => (
-                    <SentinelAgentCard key={agent.agent_id} agent={agent} />
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Organized Agent List */}
+            <SentinelAgentList agents={agents} />
 
             {/* Safety Circuit */}
             {safetyCircuit && (

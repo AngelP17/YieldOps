@@ -148,7 +148,9 @@ export const MachineNode: React.FC<MachineNodeProps> = ({
               <IconMicroscope className="w-3 h-3" />
               <span>VM: {vmStatus.predicted_thickness_nm?.toFixed(1)}nm</span>
               {vmStatus.needs_correction && (
-                <span className="ml-1 text-amber-600">⚠ R2R</span>
+                <span className="ml-1 text-amber-600 flex items-center gap-0.5">
+                  <IconAlertTriangle className="w-3 h-3" /> R2R
+                </span>
               )}
             </div>
           </div>

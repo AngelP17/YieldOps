@@ -47,28 +47,30 @@ flowchart TB
 
 Aegis uses a **Sidecar Pattern** for SECS/GEM integration:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    EQUIPMENT NODE                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────┐      ┌──────────────────────┐         │
-│  │  Rust Agent     │      │  Python Bridge       │         │
-│  │  (Aegis Core)   │◄────►│  (SECS/GEM Stack)    │         │
-│  │                 │ MQTT │                      │         │
-│  │  • Detection    │      │  • SECS-II Encode    │         │
-│  │  • Safety Logic │      │  • HSMS TCP/IP       │         │
-│  │  • Telemetry    │      │  • Message Routing   │         │
-│  └─────────────────┘      └──────────┬───────────┘         │
-│                                      │                      │
-│                                      │ HSMS over TCP/IP     │
-│                                      ▼                      │
-│                             ┌──────────────────┐           │
-│                             │  Wire Bonder     │           │
-│                             │  (SECS/GEM)      │           │
-│                             └──────────────────┘           │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph EquipmentNode["EQUIPMENT NODE"]
+        direction TB
+        
+        subgraph RustAgent["Rust Agent (Aegis Core)"]
+            R1["• Detection"]
+            R2["• Safety Logic"]
+            R3["• Telemetry"]
+        end
+        
+        subgraph PythonBridge["Python Bridge (SECS/GEM Stack)"]
+            P1["• SECS-II Encode"]
+            P2["• HSMS TCP/IP"]
+            P3["• Message Routing"]
+        end
+        
+        subgraph Equipment["Equipment"]
+            Bonder["Wire Bonder (SECS/GEM)"]
+        end
+        
+        RustAgent <-->|MQTT| PythonBridge
+        PythonBridge -->|HSMS over TCP/IP| Equipment
+    end
 ```
 
 **Why Sidecar Pattern?**

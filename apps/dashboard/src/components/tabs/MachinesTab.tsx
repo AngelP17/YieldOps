@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { IconSearch, IconTool, IconBolt, IconActivity, IconTrendingUp, IconStack, IconAlertTriangle, IconChartBar, IconMap, IconGrid3x3, IconList } from '@tabler/icons-react';
+import { IconSearch, IconTool, IconBolt, IconActivity, IconTrendingUp, IconStack, IconAlertTriangle, IconChartBar, IconMap, IconGrid3x3, IconList, IconX } from '@tabler/icons-react';
 import { MachineNode } from '../MachineNode';
 import { MachineTopology } from '../aegis/MachineTopology';
 import { StatusBadge } from '../ui/StatusBadge';
@@ -353,7 +353,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                   onClick={() => setSelectedMachine(null)}
                   className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 >
-                  ✕
+                  <IconX className="w-5 h-5" />
                 </button>
               </div>
 

@@ -102,7 +102,7 @@ function runToCDispatch(
 
 export function OverviewTab({ machines, jobs }: OverviewTabProps) {
   const { toast } = useToast();
-  const { isUsingMockData, updateMachine, updateJob, recoverAllMachines } = useAppConfig();
+  const { isUsingMockData, updateMachine, updateJob, addJob, recoverAllMachines } = useAppConfig();
   const [dispatching, setDispatching] = useState(false);
   const [chaosLoading, setChaosLoading] = useState(false);
   const [dispatchQueue, setDispatchQueue] = useState<DispatchQueueResponse | null>(null);
@@ -132,12 +132,12 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         : 0;
     const totalWafers = machines.reduce((acc, m) => acc + m.current_wafer_count, 0);
     const totalProcessed = machines.reduce((acc, m) => acc + m.total_wafers_processed, 0);
-    const pendingJobs = jobs.filter((j) => j.status === 'PENDING').length || 12; // Default to 12 if none
-    const queuedJobs = jobs.filter((j) => j.status === 'QUEUED').length || 8;
-    const runningJobs = jobs.filter((j) => j.status === 'RUNNING').length || 4;
-    const hotLots = jobs.filter((j) => j.is_hot_lot && (j.status === 'PENDING' || j.status === 'QUEUED' || j.status === 'RUNNING')).length || 2;
+    const pendingJobs = jobs.filter((j) => j.status === 'PENDING').length;
+    const queuedJobs = jobs.filter((j) => j.status === 'QUEUED').length;
+    const runningJobs = jobs.filter((j) => j.status === 'RUNNING').length;
+    const hotLots = jobs.filter((j) => j.is_hot_lot && (j.status === 'PENDING' || j.status === 'QUEUED' || j.status === 'RUNNING')).length;
 
-    return { total: total || 48, running: running || 31, idle: idle || 9, down: down || 4, maintenance: maintenance || 4, avgEfficiency: avgEfficiency || 0.85, totalWafers: totalWafers || 1247, totalProcessed: totalProcessed || 45678, pendingJobs, queuedJobs, runningJobs, hotLots };
+    return { total, running, idle, down, maintenance, avgEfficiency, totalWafers, totalProcessed, pendingJobs, queuedJobs, runningJobs, hotLots };
   }, [machines, jobs]);
 
   // Fetch dispatch data
@@ -167,6 +167,42 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         setDispatchHistory(MOCK_DISPATCH_HISTORY);
       });
   }, [apiAvailable, toast]);
+
+  // Ensure minimum pending jobs in demo mode
+  useEffect(() => {
+    if (apiAvailable || !isUsingMockData) return;
+    
+    const pendingJobs = jobs.filter(j => j.status === 'PENDING');
+    
+    if (pendingJobs.length === 0) {
+      // Generate pending jobs dynamically
+      const customers = ['Apple', 'NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Samsung', 'MediaTek', 'Broadcom'];
+      const recipes = ['N5-STD', 'N7-EXP', 'N3-ADV', 'N5-HOT', 'N7-STD', 'N3-EXP'];
+      
+      for (let i = 0; i < 5; i++) {
+        const customer = customers[Math.floor(Math.random() * customers.length)];
+        const recipe = recipes[Math.floor(Math.random() * recipes.length)];
+        const isHot = i < 2; // Ensure at least 2 hot lots
+        
+        const newJob: ProductionJob = {
+          job_id: `job-${Date.now()}-${i}`,
+          job_name: `WF-${new Date().getFullYear()}-${String(1000 + i).slice(-4)}`,
+          wafer_count: 20 + Math.floor(Math.random() * 40),
+          priority_level: isHot ? 1 : Math.floor(Math.random() * 3) + 2,
+          status: 'PENDING',
+          recipe_type: recipe,
+          is_hot_lot: isHot,
+          customer_tag: customer,
+          estimated_duration_minutes: 90 + Math.floor(Math.random() * 120),
+          deadline: new Date(Date.now() + 86400000 * (2 + Math.floor(Math.random() * 5))).toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        addJob(newJob);
+      }
+    }
+  }, [jobs, apiAvailable, isUsingMockData, addJob]);
 
   const handleRunDispatch = async () => {
     setDispatching(true);
@@ -379,7 +415,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
         const jobNode = job.job_id;
         const jobColor = job.status === 'RUNNING' ? '#00F0FF' : job.status === 'QUEUED' ? '#F97316' : '#FBBF24';
         const jobType = job.status === 'RUNNING' ? 'job_running' : job.status === 'QUEUED' ? 'job_queued' : 'job_pending';
-        const jobLabel = job.is_hot_lot ? `🔥 ${job.job_name}` : job.job_name;
+        const jobLabel = job.job_name;
 
         addNode(jobNode, jobLabel, jobType, jobColor);
         const weight = job.status === 'RUNNING' ? 3 : 2;
@@ -488,12 +524,12 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KpiCard label="Total Machines" value={stats.total || '-'} subtext={`${stats.running} active`} icon={IconCpu} trend="+2" color="blue" />
-        <KpiCard label="Running" value={stats.running || '-'} subtext={`${stats.total > 0 ? ((stats.running / stats.total) * 100).toFixed(0) : 75}% uptime`} icon={IconActivity} trend="+5%" color="emerald" />
+        <KpiCard label="Total Machines" value={stats.total} subtext={`${stats.running} active`} icon={IconCpu} trend="+2" color="blue" />
+        <KpiCard label="Running" value={stats.running} subtext={`${stats.total > 0 ? ((stats.running / stats.total) * 100).toFixed(0) : 75}% uptime`} icon={IconActivity} trend="+5%" color="emerald" />
         <KpiCard label="Efficiency" value={`${(stats.avgEfficiency * 100).toFixed(1) || '85.0'}%`} subtext="Avg. performance" icon={IconTrendingUp} trend="+1.2%" color="indigo" />
-        <KpiCard label="Wafers In Process" value={stats.totalWafers || '-'} subtext={`${stats.totalProcessed.toLocaleString() || '45,678'} total`} icon={IconStack} trend="+12" color="amber" />
-        <KpiCard label="Active Jobs" value={(stats.runningJobs + stats.queuedJobs) || '-'} subtext={`${stats.hotLots || 2} hot lots`} icon={IconPackage} trend="+3" color="purple" />
-        <KpiCard label="Alerts" value={(stats.down + stats.maintenance) || '-'} subtext="Require attention" icon={IconShield} trend="-1" color="rose" />
+        <KpiCard label="Wafers In Process" value={stats.totalWafers} subtext={`${stats.totalProcessed.toLocaleString()} total`} icon={IconStack} trend="+12" color="amber" />
+        <KpiCard label="Active Jobs" value={stats.runningJobs + stats.queuedJobs} subtext={`${stats.hotLots} hot lots`} icon={IconPackage} trend="+3" color="purple" />
+        <KpiCard label="Alerts" value={stats.down + stats.maintenance} subtext="Require attention" icon={IconShield} trend="-1" color="rose" />
       </div>
 
       {/* Aegis Sentinel Summary */}
@@ -576,15 +612,15 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
           <div className="hidden sm:flex ml-auto items-center gap-4 text-sm text-slate-500">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-yellow-400" />
-              {stats.pendingJobs || '-'} pending
+              {stats.pendingJobs} pending
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-400" />
-              {stats.queuedJobs || '-'} queued
+              {stats.queuedJobs} queued
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              {stats.runningJobs || '-'} running
+              {stats.runningJobs} running
             </span>
           </div>
         </div>
@@ -600,7 +636,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
               <div className="px-6 py-4 border-b border-slate-100">
                 <h3 className="text-sm font-semibold text-slate-900">Dispatch Queue</h3>
                 <p className="text-xs text-slate-500">
-                  {jobs.filter(j => j.status === 'PENDING').length || '-'} pending jobs, {machines.filter(m => m.status === 'IDLE').length || '-'} available machines
+                  {jobs.filter(j => j.status === 'PENDING').length} pending jobs, {machines.filter(m => m.status === 'IDLE').length} available machines
                 </p>
               </div>
               <div className="divide-y divide-slate-100">
@@ -629,8 +665,44 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                 {jobs.filter(j => j.status === 'PENDING').length === 0 && (
                   <div className="px-6 py-8 text-center">
                     <IconPackage className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500 mb-1">No pending jobs</p>
-                    <p className="text-xs text-slate-400">All jobs have been dispatched or completed</p>
+                    <p className="text-sm text-slate-500 mb-1">Loading pending jobs...</p>
+                    <p className="text-xs text-slate-400 mb-3">System is generating new jobs for dispatch</p>
+                    {!apiAvailable && (
+                      <button
+                        onClick={() => {
+                          // Generate pending jobs dynamically
+                          const customers = ['Apple', 'NVIDIA', 'AMD', 'Intel', 'Qualcomm', 'Samsung', 'MediaTek', 'Broadcom'];
+                          const recipes = ['N5-STD', 'N7-EXP', 'N3-ADV', 'N5-HOT', 'N7-STD', 'N3-EXP'];
+                          
+                          for (let i = 0; i < 3; i++) {
+                            const customer = customers[Math.floor(Math.random() * customers.length)];
+                            const recipe = recipes[Math.floor(Math.random() * recipes.length)];
+                            const isHot = Math.random() > 0.85;
+                            
+                            const newJob: ProductionJob = {
+                              job_id: `job-${Date.now()}-${i}`,
+                              job_name: `WF-${new Date().getFullYear()}-${String(1000 + i).slice(-4)}`,
+                              wafer_count: 20 + Math.floor(Math.random() * 40),
+                              priority_level: isHot ? 1 : Math.floor(Math.random() * 3) + 2,
+                              status: 'PENDING',
+                              recipe_type: recipe,
+                              is_hot_lot: isHot,
+                              customer_tag: customer,
+                              estimated_duration_minutes: 90 + Math.floor(Math.random() * 120),
+                              deadline: new Date(Date.now() + 86400000 * (2 + Math.floor(Math.random() * 5))).toISOString(),
+                              created_at: new Date().toISOString(),
+                              updated_at: new Date().toISOString(),
+                            };
+                            
+                            addJob(newJob);
+                          }
+                          toast('Generated 3 new pending jobs', 'success');
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Generate Jobs
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
