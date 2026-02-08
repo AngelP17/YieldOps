@@ -23,7 +23,8 @@ Intelligent Manufacturing & IIoT Portfolio Project
 - **Demo Mode**: Full functionality without backend configuration
 - **Aegis Sentinel**: Autonomous defense agents with 3-tier safety circuit (Green/Yellow/Red zones)
 - **Knowledge Graph**: Incident relationship visualization and concept extraction from telemetry
-- **Physics-Based Detection**: Thermal drift (CTE calculations), ISO 10816 vibration analysis, ultrasonic impedance monitoring
+- **Sand-to-Package**: Full value chain coverage from Front-End Fab to Back-End Packaging
+- **Physics-Based Detection**: Thermal drift (CTE calculations), ISO 10816 vibration analysis, ultrasonic impedance monitoring, filter impedance (Darcy-Weisbach)
 
 ---
 
@@ -55,7 +56,8 @@ flowchart TB
         VM["Virtual Metrology"]
         Chaos["Chaos API"]
         Simulation["Simulation API"]
-        Aegis["Aegis API"]
+        Aegis["Aegis Sentinel API"]
+        Graphs["Knowledge Graph API"]
         
         FastAPI --> ToC
         FastAPI --> ML
@@ -63,6 +65,7 @@ flowchart TB
         FastAPI --> Chaos
         FastAPI --> Simulation
         FastAPI --> Aegis
+        FastAPI --> Graphs
     end
 
     subgraph Database["Database - Supabase"]
@@ -71,12 +74,14 @@ flowchart TB
         SensorData[(Sensor Data)]
         Jobs[(Jobs)]
         SimFunctions["simulate_job_progression()"]
+        AegisTables[(Aegis Sentinel)]
         KnowledgeGraph[(Knowledge Graph)]
         
         PostgreSQL --> Machines
         PostgreSQL --> SensorData
         PostgreSQL --> Jobs
         PostgreSQL --> SimFunctions
+        PostgreSQL --> AegisTables
         PostgreSQL --> KnowledgeGraph
     end
 
@@ -96,11 +101,12 @@ flowchart TB
 | **Charts** | Recharts | Data Visualization | - |
 | **Icons** | Tabler Icons React | Icon Library | - |
 | **Knowledge Graph** | NetworkX | Graph analytics | - |
-| **Graph Viz** | react-force-graph-2d | Interactive visualization | - |
+| **Graph Viz** | react-force-graph-2d / Cytoscape | Interactive visualization | - |
 | **Backend** | FastAPI (Python 3.11) | API & ML Services | Koyeb |
 | **Database** | PostgreSQL 15 | Primary Data Store | Supabase |
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
 | **ML** | Scikit-Learn | Anomaly Detection & VM | - |
+| **Rust** | PyO3 + rayon | High-performance compute | - |
 
 ---
 
@@ -114,9 +120,10 @@ YieldOps/
 │   │   │   ├── components/    # React components
 │   │   │   │   ├── tabs/         # Overview, Machines, Jobs, Sentinel tabs
 │   │   │   │   ├── aegis/        # Sentinel, Knowledge Graph, Safety Circuit
-│   │   │   │   ├── ui/           # Reusable UI components
-│   │   │   │   └── *.tsx         # Component files
-│   │   │   ├── hooks/         # Custom hooks (useRealtime, useVirtualMetrology, useAegisSentinel)
+│   │   │   │   ├── jobs/         # Jobs knowledge graph
+│   │   │   │   ├── overview/     # System knowledge graph
+│   │   │   │   └── ui/           # Reusable UI components
+│   │   │   ├── hooks/         # Custom hooks (useRealtime, useVirtualMetrology, useAegisRealtime)
 │   │   │   ├── services/      # API & Supabase clients
 │   │   │   ├── lib/           # Utility libraries
 │   │   │   └── types/         # TypeScript types
@@ -126,6 +133,7 @@ YieldOps/
 │       ├── app/
 │       │   ├── api/v1/        # API endpoints
 │       │   │   └── aegis.py         # Aegis Sentinel API routes
+│       │   │   └── graphs.py        # Knowledge graph routes
 │       │   ├── core/          # ML & algorithms
 │       │   │   ├── sentinel_engine.py       # Sentinel agent logic
 │       │   │   └── knowledge_graph_engine.py # Graph analytics
@@ -134,19 +142,34 @@ YieldOps/
 │       └── requirements.txt
 │
 ├── aegis/                  # Aegis Sentinel Platform
-│   ├── sentinel-agent/     # Autonomous defense agents
-│   ├── simulator/          # Sentinel simulation environment
-│   └── knowledge-graph/    # Graph analytics & visualization
+│   ├── aegis-sentinel/     # Rust agent implementation
+│   │   ├── src/agents/
+│   │   │   ├── precision.rs     # CNC machining agent
+│   │   │   ├── facility.rs      # Cleanroom/HVAC agent
+│   │   │   └── assembly.rs      # Wire bonding agent
+│   │   └── Cargo.toml
+│   ├── supabase-bridge/    # MQTT to Supabase bridge
+│   ├── knowledge-graph/    # Graph analytics & visualization
+│   ├── simulator/          # Ghost CNC simulator
+│   └── SECS_GEM_INTEGRATION.md  # SECS/GEM protocol docs
+│
+├── rust/                   # Rust extensions
+│   ├── monte_carlo/        # Parallel Monte Carlo simulation
+│   └── scheduler/          # Constraint-based scheduler
 │
 ├── packages/
 │   └── types/              # Shared TypeScript types
 ├── database/               # Schema & seed files
-│   ├── schema.sql          # Core database schema
-│   ├── seed.sql            # Seed data (48 machines, 25 jobs)
-│   ├── reset_and_seed.sql  # Full reset + seed for Supabase
+│   ├── schema.sql
+│   ├── seed.sql
+│   ├── reset_and_seed.sql
 │   └── migrations/
-├── README.md               # This file
-└── Architecture.md         # Detailed architecture docs
+│       ├── 002_virtual_metrology.sql
+│       └── 003_aegis_sentinel_sand_to_package.sql
+├── README.md
+├── Architecture.md
+├── AEGIS_INTEGRATION_GUIDE.md
+└── AEGIS_SAND_TO_PACKAGE.md
 ```
 
 ### Database Seed Data
@@ -222,7 +245,7 @@ YieldOps/
 
 ---
 
-## Aegis Integration
+## Aegis Sentinel Integration
 
 The **Aegis Sentinel Platform** provides autonomous defense capabilities for the Smart Fab system:
 
@@ -230,33 +253,73 @@ The **Aegis Sentinel Platform** provides autonomous defense capabilities for the
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| **Sentinel Agents** | Custom Python Agents | Autonomous monitoring & response |
-| **Knowledge Graph** | NetworkX + PostgreSQL | Incident relationship mapping |
+| **Sentinel Agents** | Rust/Python Agents | Autonomous monitoring & response |
 | **Safety Circuit** | 3-Tier Zone System | Escalating response protocols |
+| **Knowledge Graph** | NetworkX + PostgreSQL | Incident relationship mapping |
+| **SECS/GEM Bridge** | Python Adapter | Wire bonder integration |
 
 ### Three-Agent Architecture
 
-1. **Perception Agent** - Continuous telemetry ingestion (thermal, vibration, ultrasonic)
-2. **Analysis Agent** - Physics-based anomaly detection using CTE calculations, ISO 10816 standards, and impedance analysis
-3. **Response Agent** - Automated interventions with escalating actions based on safety zones
+1. **Facility Agent** - Front-End Fab monitoring (FFU, HVAC, cleanroom)
+   - Physics: Fluid dynamics, ISO 14644 compliance
+   - Protocol: Modbus/BACnet
+   - Detection: Filter impedance (Darcy-Weisbach), particle counts
+
+2. **Precision Agent** - Tool-level monitoring (CNC, lithography)
+   - Physics: Thermal drift (CTE), ISO 10816 vibration
+   - Protocol: MTConnect/OPC-UA
+   - Detection: Bearing faults, chatter, thermal runaway
+
+3. **Assembly Agent** - Back-End Packaging monitoring (wire bonders)
+   - Physics: Ultrasonic impedance
+   - Protocol: SECS/GEM (S2F41)
+   - Detection: NSOP (Non-Stick on Pad), bond quality, OEE
 
 ### Safety Circuit Zones
 
 | Zone | Status | Response |
 |------|--------|----------|
-| **Green** | Normal | Continuous monitoring |
-| **Yellow** | Warning | Increased sampling, operator alert |
-| **Red** | Critical | Automated intervention, emergency protocols |
+| **Green** | Normal | Auto-execute actions (RPM adjust, coolant increase) |
+| **Yellow** | Warning | Queue for approval (speed reduction, maintenance) |
+| **Red** | Critical | Alert only, human intervention (emergency stop) |
+
+### Sand-to-Package Coverage
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SAND-TO-PACKAGE PLATFORM                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   FRONT-END (Fab)          BACK-END (Packaging)                 │
+│   ─────────────────        ───────────────────                  │
+│   • Lithography            • Wire Bonders                       │
+│   • Etching                • Die Attach                         │
+│   • Deposition             • Test Equipment                     │
+│   • FFU/HVAC                                                        │
+│                                                                  │
+│   Facility Agent           Assembly Agent                        │
+│   ──────────────           ─────────────                        │
+│   Modbus/BACnet            SECS/GEM                             │
+│   P/Q Impedance            USG Impedance                        │
+│   ISO 14644                NSOP Detection                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ### API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/aegis/status` | GET | Get sentinel status |
-| `/api/v1/aegis/telemetry` | POST | Submit telemetry data |
 | `/api/v1/aegis/incidents` | GET/POST | List/Create incidents |
-| `/api/v1/aegis/graph` | GET | Get knowledge graph data |
-| `/api/v1/aegis/safety-zone` | GET | Current safety zone status |
+| `/api/v1/aegis/agents` | GET/POST | List/Register agents |
+| `/api/v1/aegis/safety-circuit` | GET | Get safety zone status |
+| `/api/v1/aegis/summary` | GET | Get dashboard summary |
+| `/api/v1/aegis/knowledge-graph` | GET | Get incident graph |
+| `/api/v1/aegis/knowledge-graph/generate` | POST | Generate from incidents |
+| `/api/v1/graphs/jobs` | GET | Get jobs knowledge graph |
+| `/api/v1/graphs/system` | GET | Get system knowledge graph |
+
+See [AEGIS_INTEGRATION_GUIDE.md](AEGIS_INTEGRATION_GUIDE.md) and [AEGIS_SAND_TO_PACKAGE.md](AEGIS_SAND_TO_PACKAGE.md) for detailed documentation.
 
 ---
 
@@ -276,9 +339,11 @@ flowchart TD
 
 **Demo Mode Features:**
 
-- ✅ All three tabs functional (Overview, Machines, Jobs)
+- ✅ All four tabs functional (Overview, Machines, Jobs, Sentinel)
 - ✅ Realistic mock data (48 machines, 25 jobs with real customers)
 - ✅ **Working ToC Dispatch** - Actually assigns jobs to machines using Goldratt's algorithm
+- ✅ **Aegis Sentinel Demo** - Sample incidents, agents, safety circuit status
+- ✅ **Knowledge Graph Demo** - Mock graph visualization
 - ✅ **Immediate UI Updates** - All actions update state without page refresh
 - ✅ Machine detail panel with status controls, chaos injection, recovery
 - ✅ Job creation and cancellation with instant list updates
@@ -302,6 +367,7 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 - ✅ Persistent data storage in PostgreSQL
 - ✅ Autonomous simulation (jobs progress automatically)
 - ✅ Live VM predictions using sensor data
+- ✅ Live Aegis Sentinel data (incidents, agents, safety circuit)
 - ✅ Multi-user support (all users see same data)
 - ✅ Changes propagate instantly without page refresh
 
@@ -310,7 +376,7 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 1. **Create Supabase Project** at [supabase.com](https://supabase.com)
 2. **Run Database Migration** in Supabase SQL Editor:
    - Copy contents of `database/reset_and_seed.sql`
-   - Paste into SQL Editor and run
+   - Then run `database/migrations/003_aegis_sentinel_sand_to_package.sql`
 3. **Configure Environment Variables** in Vercel:
    - `VITE_SUPABASE_URL` - Your Supabase project URL
    - `VITE_SUPABASE_ANON_KEY` - Your Supabase anon key
@@ -329,6 +395,7 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 - Chaos Injection controls (machine down, sensor spike, efficiency drop)
 - Machine Status Summary with visual progress bar
 - Troubled Machines list with recover actions
+- **System Knowledge Graph** - Visualize machine-job relationships
 
 ### Machines Tab
 
@@ -353,10 +420,24 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 - Hot Lot indicators and Priority badges
 - Assigned machine display
 - **Inject Hot Lot** - Priority job injection (realistic MES terminology)
+- **Jobs Knowledge Graph** - Visualize job-machine-incident relationships
+
+### Sentinel Tab
+
+- **KPI Cards** - Incidents (24h), Active Agents, Auto-Resolved, Pending Approval
+- **Agent Coverage Panel** - Sand-to-Package coverage (Facility + Assembly summaries)
+- **Agent List** - All registered sentinel agents with status
+- **Safety Circuit Panel** - Green/Yellow/Red zone status with counts
+- **Incident Feed** - Real-time incident stream with approve/resolve actions
+- **Agent Topology** - Visual network of agents and incidents
+- **Knowledge Graph Viz** - Interactive incident relationship graph
+- Connection status indicator (Realtime/Demo/Offline)
 
 ---
 
 ## API Endpoints
+
+### Core Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -366,18 +447,44 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 | `/api/v1/jobs/{id}/cancel` | POST | Cancel job |
 | `/api/v1/dispatch/run` | POST | Execute ToC dispatch |
 | `/api/v1/dispatch/queue` | GET | View dispatch queue |
-| `/api/v1/simulation/tick` | POST | Run one simulation tick |
-| `/api/v1/simulation/fast` | POST | Run multiple ticks (fast forward) |
-| `/api/v1/simulation/status` | GET | Get simulation status |
-| `/api/v1/simulation/reset` | POST | Reset to initial distribution |
+
+### Analytics & VM
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
 | `/api/v1/analytics/monte-carlo` | POST | Run simulation |
 | `/api/v1/analytics/anomalies` | GET | Get anomaly stats |
-| `/api/v1/chaos/inject` | POST | Inject failure |
-| `/api/v1/chaos/recover/{id}` | POST | Recover machine |
 | `/api/v1/vm/status/{id}` | GET | Get VM status |
 | `/api/v1/vm/history/{id}` | GET | Get VM history (24h) |
-| `/api/v1/vm/model/info` | GET | Get VM model info |
 | `/api/v1/vm/predict` | POST | Request VM prediction |
+
+### Chaos & Simulation
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/chaos/inject` | POST | Inject failure |
+| `/api/v1/chaos/recover/{id}` | POST | Recover machine |
+| `/api/v1/simulation/tick` | POST | Run one simulation tick |
+| `/api/v1/simulation/fast` | POST | Fast forward (multiple ticks) |
+
+### Aegis Sentinel
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/aegis/incidents` | GET/POST | List/Report incidents |
+| `/api/v1/aegis/agents` | GET/POST | List/Register agents |
+| `/api/v1/aegis/safety-circuit` | GET | Get safety circuit status |
+| `/api/v1/aegis/summary` | GET | Get sentinel summary |
+| `/api/v1/aegis/knowledge-graph` | GET | Get knowledge graph |
+| `/api/v1/aegis/knowledge-graph/generate` | POST | Generate from incidents |
+
+### Knowledge Graphs
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/graphs/jobs` | GET | Get jobs knowledge graph |
+| `/api/v1/graphs/system` | GET | Get system knowledge graph |
+| `/api/v1/graphs/overview` | GET | Get overview knowledge graph |
 
 See [Architecture.md](Architecture.md) for complete documentation.
 
@@ -425,6 +532,14 @@ curl -X POST http://localhost:8000/api/v1/analytics/monte-carlo \
 
 # Get VM status
 curl http://localhost:8000/api/v1/vm/status/{machine_id}
+
+# Get Aegis summary
+curl http://localhost:8000/api/v1/aegis/summary
+
+# Generate knowledge graph
+curl -X POST http://localhost:8000/api/v1/aegis/knowledge-graph/generate \
+  -H "Content-Type: application/json" \
+  -d '{"include_resolved": false, "max_incidents": 500}'
 ```
 
 ---
@@ -432,6 +547,9 @@ curl http://localhost:8000/api/v1/vm/status/{machine_id}
 ## Documentation
 
 - **[Architecture.md](Architecture.md)** - Detailed architecture, database schema, API specs, Mermaid diagrams
+- **[AEGIS_INTEGRATION_GUIDE.md](AEGIS_INTEGRATION_GUIDE.md)** - Aegis integration with YieldOps
+- **[AEGIS_SAND_TO_PACKAGE.md](AEGIS_SAND_TO_PACKAGE.md)** - Sand-to-Package value chain coverage
+- **[aegis/SECS_GEM_INTEGRATION.md](aegis/SECS_GEM_INTEGRATION.md)** - SECS/GEM protocol integration
 - **[apps/api/README.md](apps/api/README.md)** - API-specific documentation
 - **[apps/dashboard/README.md](apps/dashboard/README.md)** - Frontend documentation
 

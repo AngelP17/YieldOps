@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList, IconWifiOff } from '@tabler/icons-react';
+import { IconShield, IconAlertTriangle, IconActivity, IconCircleCheck, IconMap, IconList, IconWifi, IconWifiOff, IconLayoutGrid } from '@tabler/icons-react';
 import { KpiCard } from '../ui/KpiCard';
 import { SentinelAgentCard } from '../aegis/SentinelAgentCard';
 import { SafetyCircuitPanel } from '../aegis/SafetyCircuitPanel';
@@ -8,10 +8,10 @@ import { KnowledgeGraphViz } from '../aegis/KnowledgeGraphViz';
 import { AgentTopology } from '../aegis/AgentTopology';
 import { AgentCoveragePanel } from '../aegis/AgentCoveragePanel';
 import { useAegisRealtime } from '../../hooks/useAegisRealtime';
-
+import { isSupabaseConfigured, api } from '../../services/apiClient';
 
 export function SentinelTab() {
-
+  const hasSupabase = isSupabaseConfigured();
   const {
     summary,
     incidents,
@@ -19,21 +19,31 @@ export function SentinelTab() {
     facilitySummary,
     assemblySummary,
     loading,
-
+    isConnected,
     isDemoMode,
     approveIncident,
     resolveIncident,
   } = useAegisRealtime();
 
-  // Mock knowledge graph data for demo
+  // Knowledge graph data
   const [knowledgeGraph, setKnowledgeGraph] = useState<any>(null);
   const [graphLoading, setGraphLoading] = useState(false);
+  const [graphError, setGraphError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'topology'>('list');
+  const [agentViewMode, setAgentViewMode] = useState<'list' | 'grid'>('list');
 
   const handleGenerateGraph = async () => {
     setGraphLoading(true);
-    // Generate mock graph from incident data
-    setTimeout(() => {
+    setGraphError(null);
+    try {
+      // Call the API to generate knowledge graph with proper edges
+      const graphData = await api.generateKnowledgeGraph();
+      setKnowledgeGraph(graphData);
+    } catch (error) {
+      console.error('Failed to generate knowledge graph:', error);
+      setGraphError('Failed to generate graph. Please try again.');
+      
+      // Fallback: generate a local graph with edges based on incident relationships
       const nodes = incidents.slice(0, 10).map(i => ({
         data: { 
           id: i.incident_id, 
@@ -42,10 +52,45 @@ export function SentinelTab() {
           color: i.severity === 'critical' ? '#EF4444' : i.severity === 'high' ? '#F59E0B' : '#3B82F6'
         }
       }));
+      
+      // Generate edges based on shared machine_id or agent_type
       const edges: any[] = [];
-      setKnowledgeGraph({ nodes, edges, stats: { node_count: nodes.length, edge_count: 0, central_concepts: [] } });
+      const machineGroups: Record<string, string[]> = {};
+      
+      incidents.slice(0, 10).forEach(i => {
+        if (!machineGroups[i.machine_id]) {
+          machineGroups[i.machine_id] = [];
+        }
+        machineGroups[i.machine_id].push(i.incident_id);
+      });
+      
+      // Connect incidents on the same machine
+      Object.values(machineGroups).forEach(group => {
+        for (let i = 0; i < group.length - 1; i++) {
+          edges.push({
+            data: {
+              id: `${group[i]}-${group[i+1]}`,
+              source: group[i],
+              target: group[i+1],
+              label: 'same_machine',
+              weight: 1
+            }
+          });
+        }
+      });
+      
+      setKnowledgeGraph({ 
+        nodes, 
+        edges, 
+        stats: { 
+          node_count: nodes.length, 
+          edge_count: edges.length, 
+          central_concepts: [] 
+        } 
+      });
+    } finally {
       setGraphLoading(false);
-    }, 1000);
+    }
   };
 
   // Auto-generate knowledge graph on mount
@@ -80,13 +125,40 @@ export function SentinelTab() {
 
   return (
     <div className="space-y-6">
-      {/* Connection Status - subtle indicator */}
-      {isDemoMode && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg">
-          <IconWifiOff className="w-4 h-4 text-amber-500" />
-          <span className="text-xs text-amber-700">Demo Mode - Sample Data</span>
-        </div>
-      )}
+      {/* Connection Status */}
+      <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+        {isDemoMode ? (
+          <>
+            <IconWifiOff className="w-5 h-5 text-amber-500" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Demo Mode</p>
+              <p className="text-xs text-amber-700">
+                Using sample data. Run database migration to see real Sentinel data.
+              </p>
+            </div>
+          </>
+        ) : isConnected ? (
+          <>
+            <IconWifi className="w-5 h-5 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium text-slate-900">Supabase Realtime Connected</p>
+              <p className="text-xs text-slate-500">Receiving live data from Aegis Sentinel agents</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <IconWifiOff className="w-5 h-5 text-amber-500" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Offline Mode</p>
+              <p className="text-xs text-amber-700">
+                {!hasSupabase 
+                  ? 'Configure VITE_SUPABASE_URL to enable real-time Sentinel data'
+                  : 'Connecting to Supabase...'}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -166,12 +238,46 @@ export function SentinelTab() {
           <div className="space-y-6">
             {/* Agent Cards */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 mb-3">Sentinel Agents</h3>
-              <div className="space-y-3">
-                {agents.map(agent => (
-                  <SentinelAgentCard key={agent.agent_id} agent={agent} />
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-900">Sentinel Agents</h3>
+                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setAgentViewMode('list')}
+                    className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
+                      agentViewMode === 'list'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                    title="List view"
+                  >
+                    <IconList className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setAgentViewMode('grid')}
+                    className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
+                      agentViewMode === 'grid'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                    title="Grid view"
+                  >
+                    <IconLayoutGrid className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+              {agentViewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {agents.map(agent => (
+                    <SentinelAgentCard key={agent.agent_id} agent={agent} variant="compact" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {agents.map(agent => (
+                    <SentinelAgentCard key={agent.agent_id} agent={agent} />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Safety Circuit */}
@@ -213,6 +319,11 @@ export function SentinelTab() {
 
       {/* Knowledge Graph */}
       <div>
+        {graphError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-xs text-red-600">{graphError}</p>
+          </div>
+        )}
         {knowledgeGraph ? (
           <KnowledgeGraphViz
             data={knowledgeGraph}

@@ -160,13 +160,18 @@ export function useAegisRealtime() {
         throw agentsError;
       }
 
-      // If no data from Supabase, use demo data (only if we never had real data)
-      const hasIncidents = allIncidents && allIncidents.length > 0;
+      // Filter out demo incidents - only keep real "Active incident" entries
+      const realIncidents = (allIncidents || []).filter(
+        (incident) => !incident.message?.includes('Demo incident')
+      );
+      
+      const hasRealIncidents = realIncidents.length > 0;
       const hasAgents = agentsData && agentsData.length > 0;
 
-      if (!hasIncidents && !hasAgents) {
+      // If NO real data from Supabase, use demo data (only if we never had real data before)
+      if (!hasRealIncidents && !hasAgents) {
         if (!hasReceivedRealData.current) {
-  
+          console.log('[Aegis] No real data found, using demo fallback');
           setIncidents(DEMO_INCIDENTS);
           setAgents(DEMO_AGENTS);
           setIsDemoMode(true);
@@ -193,9 +198,11 @@ export function useAegisRealtime() {
         return;
       }
 
-      // Use real data from Supabase
+      // Use REAL data from Supabase - we have actual incidents
       hasReceivedRealData.current = true;
-      const incidentsData = allIncidents || [];
+      console.log(`[Aegis] Using real data: ${realIncidents.length} incidents, ${agentsData?.length || 0} agents`);
+      
+      const incidentsData = realIncidents;
       const agentsList = agentsData || [];
 
       // Filter to last 24h for summary stats
@@ -275,19 +282,21 @@ export function useAegisRealtime() {
           table: 'aegis_incidents',
         },
         (payload) => {
-
+          // Skip demo incidents in realtime updates
+          const newIncident = payload.new as AegisIncident;
+          if (newIncident.message?.includes('Demo incident')) {
+            return;
+          }
 
           // Only update if not in demo mode (use ref to avoid stale closure)
           if (!isDemoModeRef.current) {
             setIncidents((prev) => {
               if (payload.eventType === 'INSERT') {
-                return [payload.new as AegisIncident, ...prev];
+                return [newIncident, ...prev];
               }
               if (payload.eventType === 'UPDATE') {
                 return prev.map((item) =>
-                  item.incident_id === (payload.new as AegisIncident).incident_id
-                    ? (payload.new as AegisIncident)
-                    : item
+                  item.incident_id === newIncident.incident_id ? newIncident : item
                 );
               }
               return prev;

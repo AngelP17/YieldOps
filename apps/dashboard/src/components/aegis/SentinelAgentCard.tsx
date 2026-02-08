@@ -3,6 +3,7 @@ import type { AegisAgent } from '../../types';
 
 interface SentinelAgentCardProps {
   agent: AegisAgent;
+  variant?: 'default' | 'compact';
 }
 
 const AGENT_CONFIG: Record<string, { label: string; icon: typeof IconShield; color: string; bgColor: string }> = {
@@ -11,10 +12,41 @@ const AGENT_CONFIG: Record<string, { label: string; icon: typeof IconShield; col
   assembly: { label: 'Assembly Agent', icon: IconActivity, color: 'text-purple-600', bgColor: 'bg-purple-50' },
 };
 
-export function SentinelAgentCard({ agent }: SentinelAgentCardProps) {
+export function SentinelAgentCard({ agent, variant = 'default' }: SentinelAgentCardProps) {
   const config = AGENT_CONFIG[agent.agent_type] || AGENT_CONFIG.precision;
   const Icon = config.icon;
   const isActive = agent.status === 'active';
+
+  if (variant === 'compact') {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-3 hover:shadow-md hover:shadow-slate-200/50 transition-all duration-300">
+        <div className="flex items-center justify-between mb-2">
+          <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${config.bgColor}`}>
+            <Icon className={`w-4 h-4 ${config.color}`} />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-300'}`} />
+          </div>
+        </div>
+
+        <div className="mb-2">
+          <h4 className="text-xs font-semibold text-slate-900 truncate">{config.label}</h4>
+          <p className="text-[10px] text-slate-500 truncate">{agent.machine_id}</p>
+        </div>
+
+        <div className="flex items-center justify-between text-[10px]">
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-slate-900">{agent.detections_24h}</span>
+            <span className="text-slate-500">detections</span>
+          </div>
+          <div className="flex items-center gap-1 text-slate-500">
+            <span className="font-medium">{agent.uptime_hours.toFixed(0)}h</span>
+            <span>up</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300">
