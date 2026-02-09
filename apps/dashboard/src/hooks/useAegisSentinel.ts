@@ -92,17 +92,21 @@ const DEMO_AGENTS: AegisAgent[] = [
 ];
 
 const DEMO_SAFETY_CIRCUIT: SafetyCircuitStatus = {
-  green_actions_24h: 1,
-  yellow_pending: 1,
-  red_alerts_24h: 0,
+  // CRITICAL FIX: green_actions_24h = auto-resolved (green zone + auto_executed + resolved)
+  green_actions_24h: DEMO_INCIDENTS.filter(i => 
+    i.action_zone === 'green' && i.action_status === 'auto_executed' && i.resolved
+  ).length,
+  yellow_pending: DEMO_INCIDENTS.filter(i => i.action_zone === 'yellow' && i.action_status === 'pending_approval').length,
+  red_alerts_24h: DEMO_INCIDENTS.filter(i => i.action_zone === 'red').length,
   agents_active: 3,
   agents_total: 3,
   last_incident: DEMO_INCIDENTS[0],
 };
 
+// CRITICAL FIX: Recalculate with proper auto-resolved count
 const DEMO_SUMMARY: SentinelSummary = {
-  total_incidents_24h: 2,
-  critical_incidents_24h: 0,
+  total_incidents_24h: DEMO_INCIDENTS.length,
+  critical_incidents_24h: DEMO_INCIDENTS.filter(i => i.severity === 'critical').length,
   active_agents: 3,
   safety_circuit: DEMO_SAFETY_CIRCUIT,
   recent_incidents: DEMO_INCIDENTS,

@@ -176,13 +176,16 @@ export function useAegisRealtime() {
           setAgents(DEMO_AGENTS);
           setIsDemoMode(true);
 
+          // CRITICAL FIX: green_actions_24h = auto-resolved (green zone + auto_executed + resolved)
           const demoSummary: SentinelSummary = {
             total_incidents_24h: DEMO_INCIDENTS.length,
             critical_incidents_24h: DEMO_INCIDENTS.filter(i => i.severity === 'critical').length,
             active_agents: DEMO_AGENTS.filter(a => a.status === 'active').length,
             safety_circuit: {
-              green_actions_24h: DEMO_INCIDENTS.filter(i => i.action_zone === 'green').length,
-              yellow_pending: DEMO_INCIDENTS.filter(i => i.action_zone === 'yellow' && !i.resolved).length,
+              green_actions_24h: DEMO_INCIDENTS.filter(i => 
+                i.action_zone === 'green' && i.action_status === 'auto_executed' && i.resolved
+              ).length,
+              yellow_pending: DEMO_INCIDENTS.filter(i => i.action_zone === 'yellow' && i.action_status === 'pending_approval').length,
               red_alerts_24h: DEMO_INCIDENTS.filter(i => i.action_zone === 'red').length,
               agents_active: DEMO_AGENTS.filter(a => a.status === 'active').length,
               agents_total: DEMO_AGENTS.length,
@@ -220,13 +223,16 @@ export function useAegisRealtime() {
       }
 
       // Calculate summary
+      // CRITICAL FIX: green_actions_24h = auto-resolved (green zone + auto_executed + resolved)
       const summaryData: SentinelSummary = {
         total_incidents_24h: recentIncidents.length,
         critical_incidents_24h: recentIncidents.filter(i => i.severity === 'critical').length,
         active_agents: activeAgents.length,
         safety_circuit: safetyData || {
-          green_actions_24h: recentIncidents.filter(i => i.action_zone === 'green').length,
-          yellow_pending: recentIncidents.filter(i => i.action_zone === 'yellow' && !i.resolved).length,
+          green_actions_24h: recentIncidents.filter(i => 
+            i.action_zone === 'green' && i.action_status === 'auto_executed' && i.resolved
+          ).length,
+          yellow_pending: recentIncidents.filter(i => i.action_zone === 'yellow' && i.action_status === 'pending_approval').length,
           red_alerts_24h: recentIncidents.filter(i => i.action_zone === 'red').length,
           agents_active: activeAgents.length,
           agents_total: agentsList.length,

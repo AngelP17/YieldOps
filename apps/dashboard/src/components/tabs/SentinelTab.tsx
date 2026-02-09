@@ -152,16 +152,18 @@ export function SentinelTab() {
   const activeAgentCount = summary?.active_agents ?? agents.filter(a => a.status === 'active').length;
   const totalAgentCount = agents.length;
   
-  const autoResolved = incidents.filter(i => i.action_status === 'auto_executed' && i.resolved).length;
+  // CRITICAL FIX: Auto-resolved = green zone actions that were auto-executed AND resolved
+  const autoResolved = incidents.filter(i => i.action_zone === 'green' && i.action_status === 'auto_executed' && i.resolved).length;
   const pendingApproval = incidents.filter(i => i.action_status === 'pending_approval').length;
   
-  // Build safety circuit status
-  const greenCount = incidents.filter(i => i.action_zone === 'green').length;
+  // Build safety circuit status - green_actions_24h should match auto-resolved count
+  const greenCount = autoResolved; // FIXED: Was counting all green zone, now counts auto-resolved
+  const yellowCount = incidents.filter(i => i.action_zone === 'yellow' && i.action_status === 'pending_approval').length;
   const redCount = incidents.filter(i => i.action_zone === 'red').length;
   
   const safetyCircuit = {
     green_actions_24h: greenCount,
-    yellow_pending: pendingApproval,
+    yellow_pending: yellowCount,
     red_alerts_24h: redCount,
     agents_active: activeAgentCount,
     agents_total: totalAgentCount,
