@@ -342,3 +342,7 @@ class SupabaseService:
             import logging
             logging.getLogger(__name__).warning(f"Could not ensure agent exists for {machine_name}: {e}")
             return {}
+
+
+# Singleton instance
+supabase_service = SupabaseService()
