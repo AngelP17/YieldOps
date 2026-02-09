@@ -37,6 +37,8 @@ export interface ProductionJob {
   is_hot_lot: boolean;
   created_at: string;
   updated_at: string;
+  // Internal flag to track simulated jobs (not persisted to database)
+  _isSimulated?: boolean;
 }
 
 export interface SensorReading {

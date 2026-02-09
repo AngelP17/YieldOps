@@ -177,23 +177,38 @@ export const useAppConfig = () => useContext(AppConfigContext);
 /**
  * Must be rendered INSIDE AppConfigContext.Provider so useAppConfig()
  * returns the real addJob/updateJob/updateMachine — not default no-ops.
+ * 
+ * CRITICAL FIX: Now exports simulated jobs so they can be merged with Supabase data
  */
-function SimulationManager() {
+function SimulationManager({ onSimulatedJobs }: { onSimulatedJobs?: (jobs: ProductionJob[]) => void }) {
   const { simulationEnabled } = useAppConfig();
-  useAutonomousSimulation({
+  const { simulatedJobs } = useAutonomousSimulation({
     enabled: simulationEnabled,
     jobProgressionInterval: 5000,
     machineEventInterval: 8000,
     newJobInterval: 8000,
     sensorDataInterval: 3000,
   });
+  
+  // Export simulated jobs to parent component
+  useEffect(() => {
+    if (onSimulatedJobs && simulatedJobs.length > 0) {
+      onSimulatedJobs(simulatedJobs);
+    }
+  }, [simulatedJobs, onSimulatedJobs]);
+  
   return null;
 }
 
 function App() {
   const { machines: realtimeMachines, isConnected: isSupabaseConnected, refresh: refreshMachines } = useRealtimeMachines();
   const { sensorData } = useLatestSensorData();
-  const { jobs: realtimeJobs, refresh: refreshJobs } = useRealtimeJobs();
+  
+  // Track simulated jobs from the simulation manager
+  const [simulatedJobs, setSimulatedJobs] = useState<ProductionJob[]>([]);
+  
+  // Pass simulated jobs to useRealtimeJobs for merging with Supabase data
+  const { jobs: realtimeJobs, refresh: refreshJobs } = useRealtimeJobs(undefined, simulatedJobs);
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs' | 'sentinel'>('overview');
 
   const hasSupabase = isSupabaseConfigured();
@@ -335,7 +350,7 @@ function App() {
 
   return (
     <AppConfigContext.Provider value={appConfigValue}>
-      <SimulationManager />
+      <SimulationManager onSimulatedJobs={setSimulatedJobs} />
       <div className="min-h-screen bg-slate-50">
         <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
           <div className="px-4 sm:px-6 lg:px-8">

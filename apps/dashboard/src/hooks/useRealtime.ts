@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, DatabaseMachine, DatabaseSensorReading, DatabaseProductionJob } from '../services/supabaseClient';
+import type { ProductionJob } from '../types';
 
 export interface RealtimeConfig {
   table: string;
@@ -148,7 +149,8 @@ export function useRealtimeSensorReadings(machineId?: string) {
 }
 
 // Specialized hook for production jobs
-export function useRealtimeJobs(status?: string) {
+// Merges Supabase real-time data with simulation-generated jobs
+export function useRealtimeJobs(status?: string, simulationJobs?: ProductionJob[]) {
   const config: RealtimeConfig = {
     table: 'production_jobs',
     event: '*',
@@ -159,6 +161,7 @@ export function useRealtimeJobs(status?: string) {
   }
 
   const { data, isConnected, error, setData } = useRealtime<DatabaseProductionJob>(config);
+  const [mergedJobs, setMergedJobs] = useState<ProductionJob[]>([]);
 
   const refresh = useCallback(async () => {
     let query = supabase
@@ -184,7 +187,43 @@ export function useRealtimeJobs(status?: string) {
     refresh();
   }, [refresh]);
 
-  return { jobs: data, isConnected, error, refresh };
+  // Use ref to track previous simulation jobs to avoid unnecessary merges
+  const prevSimJobsRef = useRef<ProductionJob[] | undefined>(undefined);
+  
+  // Merge Supabase data with simulation jobs
+  // Simulation jobs take precedence for jobs with the same ID
+  useEffect(() => {
+    // Skip if simulation jobs haven't changed
+    if (simulationJobs === prevSimJobsRef.current) {
+      // Still need to update if data changed
+      if (!simulationJobs || simulationJobs.length === 0) {
+        setMergedJobs(data);
+      }
+      return;
+    }
+    
+    prevSimJobsRef.current = simulationJobs;
+    
+    if (!simulationJobs || simulationJobs.length === 0) {
+      setMergedJobs(data);
+      return;
+    }
+
+    const supabaseJobIds = new Set(data.map(j => j.job_id));
+    
+    // Keep all Supabase jobs
+    // Add simulation jobs that don't exist in Supabase
+    const uniqueSimJobs = simulationJobs.filter(j => !supabaseJobIds.has(j.job_id));
+    
+    const merged = [...data, ...uniqueSimJobs];
+    
+    // Sort by created_at descending
+    merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    setMergedJobs(merged);
+  }, [data, simulationJobs]);
+
+  return { jobs: mergedJobs, isConnected, error, refresh };
 }
 
 // Hook for fetching latest sensor data for all machines

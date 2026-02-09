@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAppConfig } from '../App';
 import type { Machine, ProductionJob } from '../types';
 
@@ -70,6 +70,9 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   
   const { machines, jobs, updateMachine, updateJob, addJob, isUsingMockData } = useAppConfig();
   
+  // Track simulated jobs separately so they can be merged with real data
+  const [simulatedJobs, setSimulatedJobs] = useState<ProductionJob[]>([]);
+  
   // Refs to track intervals
   const jobIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const machineIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -89,20 +92,28 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   // Use refs to store latest state and callbacks to avoid stale closures
   const stateRef = useRef({ machines, jobs, updateMachine, updateJob, addJob, isUsingMockData });
   stateRef.current = { machines, jobs, updateMachine, updateJob, addJob, isUsingMockData };
+  
+  // Ref to track simulated jobs to avoid dependency cycles
+  const simulatedJobsRef = useRef<ProductionJob[]>([]);
+  simulatedJobsRef.current = simulatedJobs;
 
   /**
-   * Simulate job progression
-   * - QUEUED jobs with assigned machines -> RUNNING
-   * - RUNNING jobs progress wafer count -> COMPLETED when done
+   * Simulate job progression - CRITICAL FIX
+   * - Simulated jobs flow: PENDING -> QUEUED -> RUNNING -> COMPLETED
+   * - This runs on SIMULATED jobs regardless of isUsingMockData
+   * - Real Supabase jobs are left alone (backend handles them)
    */
   const simulateJobProgression = useCallback(() => {
     const { isUsingMockData, jobs, machines, updateJob, updateMachine } = stateRef.current;
-    if (!isUsingMockData) return;
+    const currentSimulated = simulatedJobsRef.current;
     
-    // Process RUNNING jobs - increment wafer progress
+    // Get only simulated jobs that need progression
+    const simulatedJobIds = new Set(currentSimulated.map(j => j.job_id));
+    
+    // Process RUNNING simulated jobs - chance to complete
     jobs.forEach(job => {
-      if (job.status === 'RUNNING' && job.assigned_machine_id) {
-        // Lower chance to complete so jobs stay running longer
+      if (job.status === 'RUNNING' && job.assigned_machine_id && simulatedJobIds.has(job.job_id)) {
+        // 2% chance to complete per cycle - keeps jobs running for ~50 cycles
         if (Math.random() > 0.98) {
           updateJob(job.job_id, { 
             status: 'COMPLETED',
@@ -117,19 +128,25 @@ export function useAutonomousSimulation(config: SimulationConfig) {
               current_wafer_count: 0,
             });
           }
+          
+          // Also update in simulatedJobs tracking
+          setSimulatedJobs(prev => prev.map(j => 
+            j.job_id === job.job_id 
+              ? { ...j, status: 'COMPLETED' as const, actual_end_time: new Date().toISOString() }
+              : j
+          ));
         }
       }
     });
     
-    // Process QUEUED jobs - start them if machine is available
-    // Only start a few at a time to prevent draining the queue too fast
+    // Process QUEUED simulated jobs - start them if machine is available
     let startedCount = 0;
     const maxToStart = 2;
     
     jobs.forEach(job => {
       if (startedCount >= maxToStart) return;
       
-      if (job.status === 'QUEUED' && job.assigned_machine_id) {
+      if (job.status === 'QUEUED' && job.assigned_machine_id && simulatedJobIds.has(job.job_id)) {
         const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
         if (machine && machine.status === 'IDLE') {
           updateJob(job.job_id, { 
@@ -141,14 +158,20 @@ export function useAutonomousSimulation(config: SimulationConfig) {
             current_wafer_count: job.wafer_count,
           });
           startedCount++;
+          
+          // Also update in simulatedJobs tracking
+          setSimulatedJobs(prev => prev.map(j => 
+            j.job_id === job.job_id 
+              ? { ...j, status: 'RUNNING' as const, actual_start_time: new Date().toISOString() }
+              : j
+          ));
         }
       }
     });
     
-    // Auto-dispatch: Move PENDING jobs to QUEUED when machines are available
-    // Only dispatch if we have enough pending jobs to keep the queue visible
-    const pendingJobs = jobs
-      .filter(j => j.status === 'PENDING')
+    // Auto-dispatch: Move PENDING simulated jobs to QUEUED when machines are available
+    const pendingSimulatedJobs = jobs
+      .filter(j => j.status === 'PENDING' && simulatedJobIds.has(j.job_id))
       .sort((a, b) => {
         if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
         return a.priority_level - b.priority_level;
@@ -156,13 +179,85 @@ export function useAutonomousSimulation(config: SimulationConfig) {
 
     const idleMachines = machines.filter(m => m.status === 'IDLE');
 
-    // Never drain pending below 3 — the system must always look alive
-    if (pendingJobs.length > 3 && idleMachines.length > 0) {
+    // Dispatch simulated jobs to keep the system flowing
+    // Never drain below 5 simulated pending jobs
+    if (pendingSimulatedJobs.length > 5 && idleMachines.length > 0) {
       const machine = idleMachines[0];
-      updateJob(pendingJobs[0].job_id, {
+      const jobToDispatch = pendingSimulatedJobs[0];
+      
+      updateJob(jobToDispatch.job_id, {
         status: 'QUEUED',
         assigned_machine_id: machine.machine_id,
       });
+      
+      // Also update in simulatedJobs tracking
+      setSimulatedJobs(prev => prev.map(j => 
+        j.job_id === jobToDispatch.job_id 
+          ? { ...j, status: 'QUEUED' as const, assigned_machine_id: machine.machine_id }
+          : j
+      ));
+    }
+    
+    // In mock mode, also process non-simulated jobs for full demo experience
+    if (isUsingMockData) {
+      // Process non-simulated RUNNING jobs
+      jobs.forEach(job => {
+        if (job.status === 'RUNNING' && job.assigned_machine_id && !simulatedJobIds.has(job.job_id)) {
+          if (Math.random() > 0.98) {
+            updateJob(job.job_id, { 
+              status: 'COMPLETED',
+              actual_end_time: new Date().toISOString(),
+            });
+            
+            const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
+            if (machine) {
+              updateMachine(machine.machine_id, { 
+                status: 'IDLE',
+                current_wafer_count: 0,
+              });
+            }
+          }
+        }
+      });
+      
+      // Process non-simulated QUEUED jobs
+      let mockStartedCount = 0;
+      jobs.forEach(job => {
+        if (mockStartedCount >= maxToStart) return;
+        
+        if (job.status === 'QUEUED' && job.assigned_machine_id && !simulatedJobIds.has(job.job_id)) {
+          const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
+          if (machine && machine.status === 'IDLE') {
+            updateJob(job.job_id, { 
+              status: 'RUNNING',
+              actual_start_time: new Date().toISOString(),
+            });
+            updateMachine(machine.machine_id, { 
+              status: 'RUNNING',
+              current_wafer_count: job.wafer_count,
+            });
+            mockStartedCount++;
+          }
+        }
+      });
+      
+      // Auto-dispatch from mock PENDING jobs
+      const pendingMockJobs = jobs
+        .filter(j => j.status === 'PENDING' && !simulatedJobIds.has(j.job_id))
+        .sort((a, b) => {
+          if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
+          return a.priority_level - b.priority_level;
+        });
+
+      if (pendingMockJobs.length > 3 && idleMachines.length > mockStartedCount) {
+        const machine = idleMachines[mockStartedCount];
+        if (machine) {
+          updateJob(pendingMockJobs[0].job_id, {
+            status: 'QUEUED',
+            assigned_machine_id: machine.machine_id,
+          });
+        }
+      }
     }
   }, []);
 
@@ -214,36 +309,65 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   }, []);
 
   /**
-   * Ensure minimum jobs in each category - always maintain data
-   * Adds jobs gradually to simulate realistic fab workflow
+   * Ensure minimum jobs in each category - CRITICAL FIX
+   * This now works in BOTH mock and Supabase modes
+   * Simulated jobs are tracked separately and merged with real data
+   * 
+   * NOTE: Uses refs to avoid dependency cycles
    */
   const ensureMinimumJobs = useCallback(() => {
-    const { isUsingMockData, jobs, addJob } = stateRef.current;
-    if (!isUsingMockData) return;
+    const { jobs, isUsingMockData, addJob } = stateRef.current;
+    const currentSimulated = simulatedJobsRef.current;
 
-    const pendingJobs = jobs.filter(j => j.status === 'PENDING');
-    const hotLots = jobs.filter(j => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED');
-
-    // Keep pending queue healthy — add up to 2 jobs per cycle until we hit 8
-    const deficit = 8 - pendingJobs.length;
-    const toAdd = Math.min(deficit, 2);
-    for (let i = 0; i < toAdd; i++) {
-      const newJob = generateNewJob(jobs.length + Date.now() + i);
-      newJob.status = 'PENDING';
-      newJob.priority_level = Math.floor(Math.random() * 3) + 2;
-      newJob.is_hot_lot = false;
-      addJob(newJob);
+    // Count all pending jobs (both real and simulated)
+    const allPendingJobs = jobs.filter(j => j.status === 'PENDING');
+    const pendingSimulatedCount = currentSimulated.filter(j => j.status === 'PENDING').length;
+    const realPendingCount = allPendingJobs.length - pendingSimulatedCount;
+    
+    // We want at least 8 pending jobs total
+    // If we have real pending jobs from Supabase, respect those
+    // Only add simulated jobs if real pending jobs are insufficient
+    const deficit = Math.max(0, 8 - realPendingCount);
+    const toAdd = Math.min(deficit, 2); // Add up to 2 per cycle
+    
+    if (toAdd > 0) {
+      const newSimulatedJobs: ProductionJob[] = [];
+      
+      for (let i = 0; i < toAdd; i++) {
+        const newJob = generateNewJob(jobs.length + currentSimulated.length + Date.now() + i);
+        newJob.status = 'PENDING';
+        newJob.priority_level = Math.floor(Math.random() * 3) + 2;
+        newJob.is_hot_lot = false;
+        newJob._isSimulated = true; // Mark as simulated
+        newSimulatedJobs.push(newJob);
+        
+        // Also add via addJob for immediate UI feedback in mock mode
+        if (isUsingMockData) {
+          addJob(newJob);
+        }
+      }
+      
+      setSimulatedJobs(prev => [...prev, ...newSimulatedJobs].slice(-50)); // Keep last 50
     }
 
-    // Add hot lots sparingly (max 3)
-    if (hotLots.length < 3 && Math.random() > 0.7) {
-      const newJob = generateNewJob(jobs.length + Date.now() + 99);
+    // Ensure at least 2 hot lots in pending/queued/running
+    const hotLots = jobs.filter(j => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED');
+    const simulatedHotLots = currentSimulated.filter(j => j.is_hot_lot && j.status !== 'COMPLETED' && j.status !== 'CANCELLED');
+    
+    if (hotLots.length - simulatedHotLots.length < 2 && Math.random() > 0.7) {
+      const newJob = generateNewJob(jobs.length + currentSimulated.length + Date.now() + 99);
       newJob.status = 'PENDING';
       newJob.priority_level = 1;
       newJob.is_hot_lot = true;
-      addJob(newJob);
+      newJob._isSimulated = true;
+      
+      setSimulatedJobs(prev => [...prev, newJob].slice(-50));
+      
+      if (isUsingMockData) {
+        addJob(newJob);
+      }
     }
-  }, []);
+  }, []); // No dependencies - uses refs instead
 
   /**
    * Generate sensor data for VM
@@ -264,49 +388,68 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     return sensorDataRef.current;
   }, []);
 
-  // Start/stop simulation
+  // CRITICAL FIX: Job generation runs ALWAYS (not just when enabled)
+  // This ensures pending jobs exist even when simulation is "paused"
+  useEffect(() => {
+    // Small delay to ensure initial render is complete
+    const initialTimeout = setTimeout(() => {
+      ensureMinimumJobs();
+    }, 100);
+    
+    // Set up interval for job generation regardless of enabled state
+    newJobIntervalRef.current = setInterval(ensureMinimumJobs, newJobInterval);
+    
+    return () => {
+      clearTimeout(initialTimeout);
+      if (newJobIntervalRef.current) clearInterval(newJobIntervalRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newJobInterval]); // Only re-run when interval changes
+
+  // Job progression runs ALWAYS for simulated jobs (not just when enabled)
+  // This ensures the system looks alive even when "paused"
+  useEffect(() => {
+    // Run immediately
+    simulateJobProgression();
+    
+    // Start interval - slower when "paused" (10s vs 5s)
+    const interval = enabled ? jobProgressionInterval : jobProgressionInterval * 2;
+    jobIntervalRef.current = setInterval(simulateJobProgression, interval);
+    
+    return () => {
+      if (jobIntervalRef.current) clearInterval(jobIntervalRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, jobProgressionInterval]);
+  
+  // Machine events and sensor data only run when enabled AND in mock mode
   useEffect(() => {
     if (!enabled || !isUsingMockData) {
-      // Clear all intervals
-      if (jobIntervalRef.current) clearInterval(jobIntervalRef.current);
       if (machineIntervalRef.current) clearInterval(machineIntervalRef.current);
-      if (newJobIntervalRef.current) clearInterval(newJobIntervalRef.current);
       if (sensorIntervalRef.current) clearInterval(sensorIntervalRef.current);
       return;
     }
     
-    // Run immediately on start
-    ensureMinimumJobs();
-    simulateJobProgression();
     simulateMachineEvents();
     generateSensorDataForMachines();
     
-    // Start intervals
-    jobIntervalRef.current = setInterval(simulateJobProgression, jobProgressionInterval);
     machineIntervalRef.current = setInterval(simulateMachineEvents, machineEventInterval);
-    newJobIntervalRef.current = setInterval(ensureMinimumJobs, newJobInterval);
     sensorIntervalRef.current = setInterval(generateSensorDataForMachines, sensorDataInterval);
     
     return () => {
-      if (jobIntervalRef.current) clearInterval(jobIntervalRef.current);
       if (machineIntervalRef.current) clearInterval(machineIntervalRef.current);
-      if (newJobIntervalRef.current) clearInterval(newJobIntervalRef.current);
       if (sensorIntervalRef.current) clearInterval(sensorIntervalRef.current);
     };
   }, [
     enabled, 
     isUsingMockData, 
-    jobProgressionInterval, 
-    machineEventInterval, 
-    newJobInterval,
+    machineEventInterval,
     sensorDataInterval,
-    simulateJobProgression, 
-    simulateMachineEvents, 
-    ensureMinimumJobs,
+    simulateMachineEvents,
     generateSensorDataForMachines
   ]);
 
-  return { getSensorData };
+  return { getSensorData, simulatedJobs };
 }
 
 export default useAutonomousSimulation;
