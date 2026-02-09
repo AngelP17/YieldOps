@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { IconMaximize, IconRefresh, IconAlertTriangle } from '@tabler/icons-react';
 import type { KnowledgeGraphData } from '../../types';
@@ -31,6 +31,7 @@ export function SystemKnowledgeGraphViz({
   loading
 }: SystemKnowledgeGraphVizProps) {
   const fgRef = useRef<any>(null);
+  const hasZoomedRef = useRef(false);
 
   const graphData = useMemo(() => {
     const nodes: GraphNode[] = data.nodes.map(n => ({
@@ -51,10 +52,16 @@ export function SystemKnowledgeGraphViz({
   }, [data]);
 
   const handleZoomToFit = useCallback(() => {
-    if (fgRef.current) {
+    if (fgRef.current && !hasZoomedRef.current) {
       fgRef.current.zoomToFit(400);
+      hasZoomedRef.current = true;
     }
   }, []);
+  
+  // Reset zoom flag when data changes
+  useEffect(() => {
+    hasZoomedRef.current = false;
+  }, [data]);
 
   const nodeCanvasObject = useCallback((node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const isMachine = node.type?.startsWith('machine_');
@@ -202,8 +209,10 @@ export function SystemKnowledgeGraphViz({
           linkDirectionalArrowLength={3}
           linkDirectionalArrowRelPos={1}
           linkLabel={(link: GraphLink) => link.label.replace(/_/g, ' ')}
-          cooldownTicks={80}
+          cooldownTicks={100}
           onEngineStop={handleZoomToFit}
+          enableZoomInteraction={true}
+          enableNodeDrag={true}
           width={undefined}
           height={350}
         />

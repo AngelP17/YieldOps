@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { IconMaximize, IconRefresh, IconFilter } from '@tabler/icons-react';
 import type { KnowledgeGraphData } from '../../types';
@@ -37,6 +37,7 @@ export function JobsKnowledgeGraphViz({
   currentFilter = { includeCompleted: true, customerFilter: '' }
 }: JobsKnowledgeGraphVizProps) {
   const fgRef = useRef<any>(null);
+  const hasZoomedRef = useRef(false);
 
   const graphData = useMemo(() => {
     const nodes: GraphNode[] = data.nodes.map(n => ({
@@ -57,10 +58,16 @@ export function JobsKnowledgeGraphViz({
   }, [data]);
 
   const handleZoomToFit = useCallback(() => {
-    if (fgRef.current) {
+    if (fgRef.current && !hasZoomedRef.current) {
       fgRef.current.zoomToFit(400);
+      hasZoomedRef.current = true;
     }
   }, []);
+  
+  // Reset zoom flag when data changes
+  useEffect(() => {
+    hasZoomedRef.current = false;
+  }, [data]);
 
   const handleToggleCompleted = () => {
     onFilterChange?.({
@@ -234,8 +241,10 @@ export function JobsKnowledgeGraphViz({
           linkDirectionalArrowLength={3}
           linkDirectionalArrowRelPos={1}
           linkLabel={(link: GraphLink) => link.label.replace(/_/g, ' ')}
-          cooldownTicks={80}
+          cooldownTicks={100}
           onEngineStop={handleZoomToFit}
+          enableZoomInteraction={true}
+          enableNodeDrag={true}
           width={undefined}
           height={350}
         />
