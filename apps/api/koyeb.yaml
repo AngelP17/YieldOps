@@ -27,3 +27,4 @@ service:
     http:
       port: 8000
       path: /health
+  skip_cache: true
