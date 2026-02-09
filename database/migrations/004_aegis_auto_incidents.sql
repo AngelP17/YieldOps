@@ -25,7 +25,7 @@ $$ LANGUAGE plpgsql;
 
 -- Function to determine severity and action zone from sensor values
 CREATE OR REPLACE FUNCTION analyze_sensor_thresholds(
-    p_machine_id TEXT,
+    p_machine_id UUID,
     p_temperature DOUBLE PRECISION,
     p_vibration DOUBLE PRECISION
 ) RETURNS TABLE (
