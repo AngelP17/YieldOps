@@ -47,10 +47,18 @@ export function KnowledgeGraphViz({ data, onGenerate, loading }: KnowledgeGraphV
     return { nodes, links };
   }, [data]);
 
-  const handleZoomToFit = useCallback(() => {
+  // Auto-zoom only once when data loads
+  const handleAutoZoom = useCallback(() => {
     if (fgRef.current && !hasZoomedRef.current) {
       fgRef.current.zoomToFit(400);
       hasZoomedRef.current = true;
+    }
+  }, []);
+  
+  // Manual zoom button - always works
+  const handleZoomToFit = useCallback(() => {
+    if (fgRef.current) {
+      fgRef.current.zoomToFit(400);
     }
   }, []);
   
@@ -144,7 +152,7 @@ export function KnowledgeGraphViz({ data, onGenerate, loading }: KnowledgeGraphV
           linkDirectionalArrowRelPos={1}
           linkLabel={(link: GraphLink) => link.label.replace(/_/g, ' ')}
           cooldownTicks={100}
-          onEngineStop={handleZoomToFit}
+          onEngineStop={handleAutoZoom}
           enableZoomInteraction={true}
           enableNodeDrag={true}
           width={undefined}

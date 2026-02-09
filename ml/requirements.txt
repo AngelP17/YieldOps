@@ -9,6 +9,19 @@ jupyter==1.0.0
 matplotlib==3.8.2
 seaborn==0.13.1
 
+# Interactive Widgets
+ipywidgets==8.1.1
+
+# Notebook Parameterization & Execution
+papermill==2.5.0
+
+# Notebook Export (HTML/PDF/Slides)
+nbconvert==7.16.0
+# Uncomment for PDF export (requires TeX):
+# notebook-as-pdf==0.5.0
+
+# Notebook Version Control (Sync .ipynb ↔ .py)
+jupytext==1.16.1
 
 # Data
 supabase==2.3.0

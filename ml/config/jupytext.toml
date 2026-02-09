@@ -1,0 +1,35 @@
+# Jupytext Configuration
+# This file configures how notebooks are synchronized with Python scripts
+
+# Default formats for paired notebooks
+# "ipynb,py:percent" means: keep .ipynb paired with .py using percent format
+formats = "ipynb,notebooks_py//py:percent"
+
+# Preferred formats for text notebooks
+# percent format uses # %% for cell markers (compatible with Spyder, VS Code, PyCharm)
+[formats]
+"notebooks_py/" = "py:percent"
+"scripts/" = "py"
+
+# Ignore certain cells when syncing
+# Skip raw cells and cells tagged with "parameters" (for papermill)
+[filtering]
+remove_raw_cells = true
+
+# Custom comment markers
+[comment_magics]
+# Don't comment out magics like %matplotlib
+comment_magics = false
+
+# Split markdown at this character count (0 = no split)
+split_at_heading = true
+
+# Cell metadata to preserve
+[cell_metadata]
+# These cell metadata keys will be preserved in the text representation
+default_cell_metadata = ["tags", "papermill"]
+
+# Notebook metadata to preserve
+[notebook_metadata]
+# These notebook metadata keys will be preserved
+filter = ["kernelspec", "language_info", "papermill"]

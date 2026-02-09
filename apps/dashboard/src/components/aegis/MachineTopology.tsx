@@ -1,4 +1,4 @@
-import { useRef, useMemo, useCallback } from 'react';
+import { useRef, useMemo, useCallback, useEffect } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import type { Machine } from '../../types';
 
@@ -48,6 +48,12 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function MachineTopology({ machines, selectedMachineId, onSelectMachine, vmStatuses }: MachineTopologyProps) {
   const fgRef = useRef<any>(null);
+  const hasZoomedRef = useRef(false);
+  
+  // Reset zoom flag when machines change
+  useEffect(() => {
+    hasZoomedRef.current = false;
+  }, [machines]);
 
   const { nodes, links } = useMemo(() => {
     const zoneNodes: TopologyNode[] = [];
@@ -119,6 +125,16 @@ export function MachineTopology({ machines, selectedMachineId, onSelectMachine, 
 
     return { nodes: [...zoneNodes, ...machineNodes], links: topologyLinks };
   }, [machines, vmStatuses]);
+
+  // Auto-zoom only once when data loads
+  const handleAutoZoom = useCallback(() => {
+    if (fgRef.current && !hasZoomedRef.current) {
+      fgRef.current.zoomToFit(400, 20);
+      hasZoomedRef.current = true;
+    }
+  }, []);
+
+
 
   const handleNodeClick = useCallback((node: TopologyNode) => {
     if (node.type === 'machine') {
@@ -199,8 +215,9 @@ export function MachineTopology({ machines, selectedMachineId, onSelectMachine, 
           onNodeClick={handleNodeClick}
           enableZoomInteraction={true}
           enablePanInteraction={true}
-          warmupTicks={100}
-          cooldownTicks={50}
+          warmupTicks={50}
+          cooldownTicks={30}
+          onEngineStop={handleAutoZoom}
         />
       </div>
     </div>

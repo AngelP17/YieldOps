@@ -1,0 +1,14 @@
+{
+  "TIME_HORIZON_DAYS": 60,
+  "N_SIMULATIONS": 15000,
+  "RANDOM_SEED": 123,
+  "BASE_THROUGHPUT": 130,
+  "EFFICIENCY_MEAN": 0.94,
+  "EFFICIENCY_STD": 0.02,
+  "DOWNTIME_PROB": 0.015,
+  "REPORT_TITLE": "Optimistic Capacity Analysis - High Throughput",
+  "FABRICATION_LINE": "Line-A-Optimized",
+  "TARGET_OUTPUT": 120000,
+  "OUTPUT_DIR": "../reports",
+  "SAVE_PLOTS": true
+}

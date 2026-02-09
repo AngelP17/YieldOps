@@ -346,19 +346,14 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   }, []);
 
   // CRITICAL FIX: Job generation runs ALWAYS (not just when enabled)
-  // SLOWER: Generate jobs less frequently so queue doesn't grow too fast
   useEffect(() => {
-    // Small delay to ensure initial render is complete
-    const initialTimeout = setTimeout(() => {
-      ensureMinimumJobs();
-    }, 100);
+    // Run immediately for fast initial load, no delay
+    ensureMinimumJobs();
     
-    // Set up interval for job generation - SLOWER (20 seconds)
-    // This keeps the queue from growing too fast while still ensuring minimum jobs
+    // Set up interval for job generation (20 seconds)
     newJobIntervalRef.current = setInterval(ensureMinimumJobs, 20000);
     
     return () => {
-      clearTimeout(initialTimeout);
       if (newJobIntervalRef.current) clearInterval(newJobIntervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

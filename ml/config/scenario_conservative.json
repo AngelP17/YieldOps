@@ -1,0 +1,14 @@
+{
+  "TIME_HORIZON_DAYS": 30,
+  "N_SIMULATIONS": 10000,
+  "RANDOM_SEED": 42,
+  "BASE_THROUGHPUT": 90,
+  "EFFICIENCY_MEAN": 0.85,
+  "EFFICIENCY_STD": 0.04,
+  "DOWNTIME_PROB": 0.05,
+  "REPORT_TITLE": "Conservative Capacity Analysis",
+  "FABRICATION_LINE": "Line-B-Conservative",
+  "TARGET_OUTPUT": 40000,
+  "OUTPUT_DIR": "../reports",
+  "SAVE_PLOTS": true
+}
