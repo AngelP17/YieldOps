@@ -99,21 +99,24 @@ export function useAutonomousSimulation(config: SimulationConfig) {
 
   /**
    * Simulate job progression - CRITICAL FIX
-   * - Simulated jobs flow: PENDING -> QUEUED -> RUNNING -> COMPLETED
-   * - This runs on SIMULATED jobs regardless of isUsingMockData
-   * - Real Supabase jobs are left alone (backend handles them)
+   * - ALL jobs flow dynamically: PENDING -> QUEUED -> RUNNING -> COMPLETED
+   * - Works for BOTH real (Supabase) and simulated jobs
+   * - Makes the system realistic and fully functional
    */
   const simulateJobProgression = useCallback(() => {
-    const { isUsingMockData, jobs, machines, updateJob, updateMachine } = stateRef.current;
+    const { jobs, machines, updateJob, updateMachine } = stateRef.current;
     const currentSimulated = simulatedJobsRef.current;
     
-    // Get only simulated jobs that need progression
+    // Track which jobs are simulated vs real
     const simulatedJobIds = new Set(currentSimulated.map(j => j.job_id));
+    const idleMachines = machines.filter(m => m.status === 'IDLE');
     
-    // Process RUNNING simulated jobs - chance to complete
+    // ==========================================
+    // STEP 1: Complete RUNNING jobs (2% chance)
+    // ==========================================
     jobs.forEach(job => {
-      if (job.status === 'RUNNING' && job.assigned_machine_id && simulatedJobIds.has(job.job_id)) {
-        // 2% chance to complete per cycle - keeps jobs running for ~50 cycles
+      if (job.status === 'RUNNING' && job.assigned_machine_id) {
+        // 2% chance to complete per cycle
         if (Math.random() > 0.98) {
           updateJob(job.job_id, { 
             status: 'COMPLETED',
@@ -129,24 +132,28 @@ export function useAutonomousSimulation(config: SimulationConfig) {
             });
           }
           
-          // Also update in simulatedJobs tracking
-          setSimulatedJobs(prev => prev.map(j => 
-            j.job_id === job.job_id 
-              ? { ...j, status: 'COMPLETED' as const, actual_end_time: new Date().toISOString() }
-              : j
-          ));
+          // If it's a simulated job, update tracking too
+          if (simulatedJobIds.has(job.job_id)) {
+            setSimulatedJobs(prev => prev.map(j => 
+              j.job_id === job.job_id 
+                ? { ...j, status: 'COMPLETED' as const, actual_end_time: new Date().toISOString() }
+                : j
+            ));
+          }
         }
       }
     });
     
-    // Process QUEUED simulated jobs - start them if machine is available
+    // ==========================================
+    // STEP 2: Start QUEUED jobs on IDLE machines
+    // ==========================================
     let startedCount = 0;
     const maxToStart = 2;
     
     jobs.forEach(job => {
       if (startedCount >= maxToStart) return;
       
-      if (job.status === 'QUEUED' && job.assigned_machine_id && simulatedJobIds.has(job.job_id)) {
+      if (job.status === 'QUEUED' && job.assigned_machine_id) {
         const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
         if (machine && machine.status === 'IDLE') {
           updateJob(job.job_id, { 
@@ -159,105 +166,57 @@ export function useAutonomousSimulation(config: SimulationConfig) {
           });
           startedCount++;
           
-          // Also update in simulatedJobs tracking
-          setSimulatedJobs(prev => prev.map(j => 
-            j.job_id === job.job_id 
-              ? { ...j, status: 'RUNNING' as const, actual_start_time: new Date().toISOString() }
-              : j
-          ));
+          // If it's a simulated job, update tracking too
+          if (simulatedJobIds.has(job.job_id)) {
+            setSimulatedJobs(prev => prev.map(j => 
+              j.job_id === job.job_id 
+                ? { ...j, status: 'RUNNING' as const, actual_start_time: new Date().toISOString() }
+                : j
+            ));
+          }
         }
       }
     });
     
-    // Auto-dispatch: Move PENDING simulated jobs to QUEUED when machines are available
-    const pendingSimulatedJobs = jobs
-      .filter(j => j.status === 'PENDING' && simulatedJobIds.has(j.job_id))
+    // ==========================================
+    // STEP 3: Auto-dispatch PENDING jobs
+    // Prioritize hot lots, then by priority level
+    // ==========================================
+    const pendingJobs = jobs
+      .filter(j => j.status === 'PENDING')
       .sort((a, b) => {
         if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
         return a.priority_level - b.priority_level;
       });
 
-    const idleMachines = machines.filter(m => m.status === 'IDLE');
-
-    // Dispatch simulated jobs to keep the system flowing
-    // Never drain below 5 simulated pending jobs
-    if (pendingSimulatedJobs.length > 5 && idleMachines.length > 0) {
-      const machine = idleMachines[0];
-      const jobToDispatch = pendingSimulatedJobs[0];
+    // Use available idle machines (accounting for jobs just started)
+    const availableMachines = idleMachines.slice(startedCount);
+    
+    // Dispatch up to 2 pending jobs per cycle
+    let dispatchedCount = 0;
+    const maxToDispatch = 2;
+    
+    for (const job of pendingJobs) {
+      if (dispatchedCount >= maxToDispatch || availableMachines.length === 0) break;
+      if (dispatchedCount >= availableMachines.length) break;
       
-      updateJob(jobToDispatch.job_id, {
+      const machine = availableMachines[dispatchedCount];
+      
+      updateJob(job.job_id, {
         status: 'QUEUED',
         assigned_machine_id: machine.machine_id,
       });
       
-      // Also update in simulatedJobs tracking
-      setSimulatedJobs(prev => prev.map(j => 
-        j.job_id === jobToDispatch.job_id 
-          ? { ...j, status: 'QUEUED' as const, assigned_machine_id: machine.machine_id }
-          : j
-      ));
-    }
-    
-    // In mock mode, also process non-simulated jobs for full demo experience
-    if (isUsingMockData) {
-      // Process non-simulated RUNNING jobs
-      jobs.forEach(job => {
-        if (job.status === 'RUNNING' && job.assigned_machine_id && !simulatedJobIds.has(job.job_id)) {
-          if (Math.random() > 0.98) {
-            updateJob(job.job_id, { 
-              status: 'COMPLETED',
-              actual_end_time: new Date().toISOString(),
-            });
-            
-            const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
-            if (machine) {
-              updateMachine(machine.machine_id, { 
-                status: 'IDLE',
-                current_wafer_count: 0,
-              });
-            }
-          }
-        }
-      });
-      
-      // Process non-simulated QUEUED jobs
-      let mockStartedCount = 0;
-      jobs.forEach(job => {
-        if (mockStartedCount >= maxToStart) return;
-        
-        if (job.status === 'QUEUED' && job.assigned_machine_id && !simulatedJobIds.has(job.job_id)) {
-          const machine = machines.find(m => m.machine_id === job.assigned_machine_id);
-          if (machine && machine.status === 'IDLE') {
-            updateJob(job.job_id, { 
-              status: 'RUNNING',
-              actual_start_time: new Date().toISOString(),
-            });
-            updateMachine(machine.machine_id, { 
-              status: 'RUNNING',
-              current_wafer_count: job.wafer_count,
-            });
-            mockStartedCount++;
-          }
-        }
-      });
-      
-      // Auto-dispatch from mock PENDING jobs
-      const pendingMockJobs = jobs
-        .filter(j => j.status === 'PENDING' && !simulatedJobIds.has(j.job_id))
-        .sort((a, b) => {
-          if (a.is_hot_lot !== b.is_hot_lot) return a.is_hot_lot ? -1 : 1;
-          return a.priority_level - b.priority_level;
-        });
-
-      if (pendingMockJobs.length > 3 && idleMachines.length > mockStartedCount) {
-        const machine = idleMachines[mockStartedCount];
-        if (machine) {
-          updateJob(pendingMockJobs[0].job_id, {
-            status: 'QUEUED',
-            assigned_machine_id: machine.machine_id,
-          });
-        }
+      // If it's a simulated job, update tracking too
+      if (simulatedJobIds.has(job.job_id)) {
+        setSimulatedJobs(prev => prev.map(j => 
+          j.job_id === job.job_id 
+            ? { ...j, status: 'QUEUED' as const, assigned_machine_id: machine.machine_id }
+            : j
+        ));
       }
+      
+      dispatchedCount++;
     }
   }, []);
 

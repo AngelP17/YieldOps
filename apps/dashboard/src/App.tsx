@@ -208,7 +208,15 @@ function App() {
   const [simulatedJobs, setSimulatedJobs] = useState<ProductionJob[]>([]);
   
   // Pass simulated jobs to useRealtimeJobs for merging with Supabase data
-  const { jobs: realtimeJobs, refresh: refreshJobs } = useRealtimeJobs(undefined, simulatedJobs);
+  // CRITICAL: updateJob and addJob work for both real and simulated jobs
+  const { 
+    jobs: realtimeJobs, 
+    refresh: refreshJobs, 
+    updateJob: updateRealtimeJob,
+    addJob: addRealtimeJob,
+    realJobIds 
+  } = useRealtimeJobs(undefined, simulatedJobs);
+  
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs' | 'sentinel'>('overview');
 
   const hasSupabase = isSupabaseConfigured();
@@ -240,8 +248,8 @@ function App() {
 
   useEffect(() => {
     if (hasSupabase) {
-      // Only update from realtime if we have actual data
-      if (realtimeJobs.length > 0) {
+      // Use merged jobs (real + simulated) when Supabase is connected
+      if (realtimeJobs.length > 0 || hasInitialized.current) {
         setDisplayJobs(realtimeJobs);
         hasInitialized.current = true;
       }
@@ -279,21 +287,25 @@ function App() {
   }, []);
 
   // Add job - works for both real and mock data with immediate UI update
-  const addJob = useCallback((job: ProductionJob) => {
-    // Always add to local state for immediate UI feedback
+  // CRITICAL: When Supabase is connected, this creates a REAL job in the database
+  const addJob = useCallback(async (job: ProductionJob) => {
+    // Always update local state for immediate UI feedback
     setLocalJobs(prev => [job, ...prev]);
-    
-    // Also update display jobs immediately
     setDisplayJobs(prev => [job, ...prev]);
     
-    // If using Supabase, refresh to get the real data
+    // If using Supabase, add to database
     if (hasSupabase) {
-      setTimeout(() => refreshJobs(), 500);
+      try {
+        await addRealtimeJob(job);
+      } catch (err) {
+        console.error('Failed to add job to Supabase:', err);
+      }
     }
-  }, [hasSupabase, refreshJobs]);
+  }, [hasSupabase, addRealtimeJob]);
 
-  // Update job - works for both real and mock data with immediate UI update
-  const updateJob = useCallback((jobId: string, updates: Partial<ProductionJob>) => {
+  // Update job - CRITICAL: works for BOTH real (Supabase) and mock jobs
+  // Real jobs get persisted to database, simulated jobs stay in memory
+  const updateJob = useCallback(async (jobId: string, updates: Partial<ProductionJob>) => {
     const updatedJob = { ...updates, updated_at: new Date().toISOString() };
     
     // Always update local state for immediate UI feedback
@@ -306,8 +318,15 @@ function App() {
       j.job_id === jobId ? { ...j, ...updatedJob } : j
     ));
     
-    // If using Supabase, the realtime subscription will eventually sync the real data
-  }, []);
+    // Update in Supabase if it's a real job - this persists the changes!
+    if (hasSupabase && realJobIds.has(jobId)) {
+      try {
+        await updateRealtimeJob(jobId, updates);
+      } catch (err) {
+        console.error('Failed to update job in Supabase:', err);
+      }
+    }
+  }, [hasSupabase, updateRealtimeJob, realJobIds]);
 
   // Refresh data
   const refreshData = useCallback(() => {

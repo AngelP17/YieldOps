@@ -190,6 +190,10 @@ export function useRealtimeJobs(status?: string, simulationJobs?: ProductionJob[
   // Use ref to track previous simulation jobs to avoid unnecessary merges
   const prevSimJobsRef = useRef<ProductionJob[] | undefined>(undefined);
   
+  // Track which jobs are from Supabase (real) vs simulated
+  const realJobIdsRef = useRef<Set<string>>(new Set());
+  realJobIdsRef.current = new Set(data.map(j => j.job_id));
+  
   // Merge Supabase data with simulation jobs
   // Simulation jobs take precedence for jobs with the same ID
   useEffect(() => {
@@ -223,7 +227,51 @@ export function useRealtimeJobs(status?: string, simulationJobs?: ProductionJob[
     setMergedJobs(merged);
   }, [data, simulationJobs]);
 
-  return { jobs: mergedJobs, isConnected, error, refresh };
+  // Update a job - works for both real (Supabase) and simulated jobs
+  const updateJob = useCallback(async (jobId: string, updates: Partial<ProductionJob>) => {
+    const isRealJob = realJobIdsRef.current.has(jobId);
+    
+    if (isRealJob && supabase) {
+      // Update in Supabase
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('job_id', jobId);
+      
+      if (error) {
+        console.error('Error updating job in Supabase:', error);
+        throw error;
+      }
+      
+      // Local state will be updated via realtime subscription
+    } else {
+      // For simulated jobs, just update local state
+      setMergedJobs(prev => prev.map(j => 
+        j.job_id === jobId ? { ...j, ...updates, updated_at: new Date().toISOString() } : j
+      ));
+    }
+  }, []);
+
+  // Add a new job to Supabase (for real mode)
+  const addJob = useCallback(async (job: ProductionJob) => {
+    if (supabase) {
+      const { error } = await supabase
+        .from('production_jobs')
+        .insert(job);
+      
+      if (error) {
+        console.error('Error adding job to Supabase:', error);
+        throw error;
+      }
+      
+      // Local state will be updated via realtime subscription
+    }
+  }, []);
+
+  return { jobs: mergedJobs, isConnected, error, refresh, updateJob, addJob, realJobIds: realJobIdsRef.current };
 }
 
 // Hook for fetching latest sensor data for all machines
