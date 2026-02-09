@@ -41,6 +41,77 @@ except PermissionError:
     SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
     logger.warning(f"Using temp directories: {TEMP_ROOT}")
 
+# Create default notebook if none exist
+def create_default_notebook():
+    """Create a sample analysis notebook if notebooks directory is empty"""
+    if list(NOTEBOOKS_DIR.glob("*.ipynb")):
+        return
+    
+    default_notebook = {
+        "cells": [
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": ["# YieldOps Fab Analysis\n", "\n", "This notebook analyzes fab production metrics."]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "import pandas as pd\n",
+                    "import matplotlib.pyplot as plt\n",
+                    "\n",
+                    "# Parameters (injected by Papermill)\n",
+                    "demand_growth = 1.05\n",
+                    "efficiency_improvement = 1.02\n",
+                    "yield_target = 0.95\n",
+                    "planning_horizon_months = 12\n",
+                    "capacity_buffer = 0.15"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "# Calculate projected throughput\n",
+                    "base_throughput = 1000  # wafers/month\n",
+                    "projected = base_throughput * (demand_growth ** (planning_horizon_months/12))\n",
+                    "print(f'Projected throughput: {projected:.0f} wafers/month')\n",
+                    "print(f'Yield target: {yield_target:.0%}')\n",
+                    "print(f'Capacity buffer: {capacity_buffer:.0%}')"
+                ]
+            }
+        ],
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3"
+            },
+            "language_info": {
+                "name": "python",
+                "version": "3.11"
+            }
+        },
+        "nbformat": 4,
+        "nbformat_minor": 4
+    }
+    
+    try:
+        notebook_path = NOTEBOOKS_DIR / "fab_analysis.ipynb"
+        with open(notebook_path, 'w') as f:
+            json.dump(default_notebook, f, indent=2)
+        logger.info(f"Created default notebook: {notebook_path}")
+    except Exception as e:
+        logger.warning(f"Could not create default notebook: {e}")
+
+# Create default notebook on module load
+create_default_notebook()
+
 # Predefined scenarios
 PREDEFINED_SCENARIOS = {
     "base": {
