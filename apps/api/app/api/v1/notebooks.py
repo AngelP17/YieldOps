@@ -219,15 +219,18 @@ class ReportInfo(BaseModel):
 
 def find_notebooks() -> List[NotebookInfo]:
     """Find all notebooks in the notebooks directory"""
+    from datetime import datetime
     notebooks = []
     if NOTEBOOKS_DIR.exists():
         for notebook_file in sorted(NOTEBOOKS_DIR.glob("*.ipynb")):
             stat = notebook_file.stat()
+            # Convert timestamp to ISO format string
+            last_modified_str = datetime.fromtimestamp(stat.st_mtime).isoformat()
             notebooks.append(NotebookInfo(
                 name=notebook_file.stem,
                 path=str(notebook_file.relative_to(PROJECT_ROOT)),
                 description=get_notebook_description(notebook_file),
-                last_modified=stat.st_mtime
+                last_modified=last_modified_str
             ))
     return notebooks
 
@@ -250,15 +253,18 @@ def get_notebook_description(notebook_path: Path) -> Optional[str]:
 
 def find_reports() -> List[ReportInfo]:
     """Find all generated reports"""
+    from datetime import datetime
     reports = []
     if REPORTS_DIR.exists():
         for report_file in sorted(REPORTS_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
             if report_file.is_file():
                 stat = report_file.stat()
+                # Convert timestamp to ISO format string
+                created_at_str = datetime.fromtimestamp(stat.st_mtime).isoformat()
                 reports.append(ReportInfo(
                     name=report_file.name,
                     path=str(report_file.relative_to(PROJECT_ROOT)),
-                    created_at=stat.st_mtime,
+                    created_at=created_at_str,
                     size_bytes=stat.st_size,
                     format=report_file.suffix.lstrip('.')
                 ))
