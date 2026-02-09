@@ -18,15 +18,28 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Configuration
-NOTEBOOKS_DIR = Path("/Users/angell_pt/Desktop/YieldOps/ml/notebooks")
-REPORTS_DIR = Path("/Users/angell_pt/Desktop/YieldOps/ml/reports")
-SCRIPTS_DIR = Path("/Users/angell_pt/Desktop/YieldOps/ml/scripts")
+# Configuration - use environment variable or default to project root
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).parent.parent.parent.parent.parent))
+NOTEBOOKS_DIR = PROJECT_ROOT / "ml" / "notebooks"
+REPORTS_DIR = PROJECT_ROOT / "ml" / "reports"
+SCRIPTS_DIR = PROJECT_ROOT / "ml" / "scripts"
 
-# Ensure directories exist
-NOTEBOOKS_DIR.mkdir(parents=True, exist_ok=True)
-REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure directories exist (only if writable)
+try:
+    NOTEBOOKS_DIR.mkdir(parents=True, exist_ok=True)
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+except PermissionError:
+    # Running in read-only environment (e.g., Koyeb) - use temp directories
+    import tempfile
+    TEMP_ROOT = Path(tempfile.gettempdir()) / "yieldops"
+    NOTEBOOKS_DIR = TEMP_ROOT / "notebooks"
+    REPORTS_DIR = TEMP_ROOT / "reports"
+    SCRIPTS_DIR = TEMP_ROOT / "scripts"
+    NOTEBOOKS_DIR.mkdir(parents=True, exist_ok=True)
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+    logger.warning(f"Using temp directories: {TEMP_ROOT}")
 
 # Predefined scenarios
 PREDEFINED_SCENARIOS = {
@@ -141,7 +154,7 @@ def find_notebooks() -> List[NotebookInfo]:
             stat = notebook_file.stat()
             notebooks.append(NotebookInfo(
                 name=notebook_file.stem,
-                path=str(notebook_file.relative_to(Path("/Users/angell_pt/Desktop/YieldOps"))),
+                path=str(notebook_file.relative_to(PROJECT_ROOT)),
                 description=get_notebook_description(notebook_file),
                 last_modified=stat.st_mtime
             ))
@@ -173,7 +186,7 @@ def find_reports() -> List[ReportInfo]:
                 stat = report_file.stat()
                 reports.append(ReportInfo(
                     name=report_file.name,
-                    path=str(report_file.relative_to(Path("/Users/angell_pt/Desktop/YieldOps"))),
+                    path=str(report_file.relative_to(PROJECT_ROOT)),
                     created_at=stat.st_mtime,
                     size_bytes=stat.st_size,
                     format=report_file.suffix.lstrip('.')
@@ -243,7 +256,7 @@ async def execute_notebook(
             capture_output=True,
             text=True,
             timeout=300,  # 5 minute timeout
-            cwd="/Users/angell_pt/Desktop/YieldOps"
+            cwd=str(PROJECT_ROOT)
         )
         
         if result.returncode != 0:
@@ -268,7 +281,7 @@ async def execute_notebook(
         return NotebookExecutionResponse(
             success=True,
             message=f"Notebook executed successfully with {request.scenario} scenario",
-            output_path=str(output_path.relative_to(Path("/Users/angell_pt/Desktop/YieldOps"))),
+            output_path=str(output_path.relative_to(PROJECT_ROOT)),
             report_url=f"/api/v1/notebooks/reports/{output_name}.html"
         )
         
@@ -324,7 +337,7 @@ async def export_notebook(request: ExportNotebookRequest):
             capture_output=True,
             text=True,
             timeout=60,
-            cwd="/Users/angell_pt/Desktop/YieldOps"
+            cwd=str(PROJECT_ROOT)
         )
         
         if result.returncode != 0:
@@ -337,7 +350,7 @@ async def export_notebook(request: ExportNotebookRequest):
         return NotebookExecutionResponse(
             success=True,
             message=f"Notebook exported to {request.format.upper()}",
-            output_path=str(output_path.relative_to(Path("/Users/angell_pt/Desktop/YieldOps"))),
+            output_path=str(output_path.relative_to(PROJECT_ROOT)),
             report_url=None
         )
         
@@ -390,7 +403,7 @@ async def sync_notebooks(request: SyncNotebooksRequest):
         return NotebookExecutionResponse(
             success=True,
             message=direction_msg.get(request.direction, "Sync completed"),
-            output_path=str(SCRIPTS_DIR.relative_to(Path("/Users/angell_pt/Desktop/YieldOps")))
+            output_path=str(SCRIPTS_DIR.relative_to(PROJECT_ROOT))
         )
         
     except Exception as e:
@@ -424,7 +437,7 @@ async def launch_jupyter():
         subprocess.Popen(
             [
                 "python", "-m", "jupyter", "lab",
-                "--notebook-dir=/Users/angell_pt/Desktop/YieldOps/ml",
+                f"--notebook-dir={PROJECT_ROOT / 'ml'}",
                 "--no-browser",
                 "--port=8888",
                 "--ip=0.0.0.0",
@@ -432,7 +445,7 @@ async def launch_jupyter():
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            cwd="/Users/angell_pt/Desktop/YieldOps"
+            cwd=str(PROJECT_ROOT)
         )
         
         return {
