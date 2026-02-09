@@ -31,6 +31,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       headers: { 'Content-Type': 'application/json' },
       ...options,
     });
+    
+
 
     if (!res.ok) {
       let errorDetail = res.statusText;
@@ -182,7 +184,7 @@ export const api = {
     ),
 
   // VM Status & History (for frontend integration)
-  getVMStatus: (machineId: string) =>
+  getVMStatus: (machineId: string, options?: { signal?: AbortSignal }) =>
     request<{
       machine_id: string;
       has_prediction: boolean;
@@ -193,7 +195,7 @@ export const api = {
       needs_correction?: boolean;
       last_updated?: string;
       message?: string;
-    }>(`/api/v1/vm/status/${machineId}`),
+    }>(`/api/v1/vm/status/${machineId}`, options ? { signal: options.signal } : undefined),
 
   getVMHistory: (machineId: string, hours = 24) =>
     request<{
@@ -313,5 +315,45 @@ export const api = {
   getSystemZones: () =>
     request<Record<string, { machine_count: number; running: number; utilization: number }>>(
       `/api/v1/graphs/system-graph/zones`
+    ),
+
+  // Notebooks
+  getNotebooks: () =>
+    request<Array<{ name: string; path: string; description?: string; last_modified?: number }>>(
+      `/api/v1/notebooks/list`
+    ),
+
+  getNotebookScenarios: () =>
+    request<Record<string, { name: string; description: string; params: Record<string, number> }>>(
+      `/api/v1/notebooks/scenarios`
+    ),
+
+  executeNotebook: (body: { notebook_name: string; scenario: string; custom_params?: Record<string, unknown>; output_name?: string }) =>
+    request<{ success: boolean; message: string; output_path?: string; report_url?: string }>(
+      `/api/v1/notebooks/execute`,
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
+
+  exportNotebook: (body: { notebook_name: string; format: string; output_name?: string }) =>
+    request<{ success: boolean; message: string; output_path?: string }>(
+      `/api/v1/notebooks/export`,
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
+
+  syncNotebooks: (body: { direction: string }) =>
+    request<{ success: boolean; message: string; output_path?: string }>(
+      `/api/v1/notebooks/sync`,
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
+
+  launchJupyter: () =>
+    request<{ success: boolean; message: string; url?: string }>(
+      `/api/v1/notebooks/launch-jupyter`,
+      { method: 'POST' }
+    ),
+
+  getNotebookReports: () =>
+    request<Array<{ name: string; path: string; created_at: number; size_bytes: number; format: string }>>(
+      `/api/v1/notebooks/reports`
     ),
 };

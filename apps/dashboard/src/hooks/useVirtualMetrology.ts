@@ -1,6 +1,23 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api, isApiConfigured } from '../services/apiClient';
 
+// Global request deduplication cache - prevents duplicate in-flight requests
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+// Helper to deduplicate concurrent requests for the same resource
+async function dedupedRequest<T>(key: string, fetchFn: () => Promise<T>): Promise<T> {
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key) as Promise<T>;
+  }
+  
+  const promise = fetchFn().finally(() => {
+    inFlightRequests.delete(key);
+  });
+  
+  inFlightRequests.set(key, promise);
+  return promise;
+}
+
 export interface VMStatus {
   machine_id: string;
   has_prediction: boolean;
@@ -281,6 +298,9 @@ export function useVirtualMetrologyBatch(
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllersRef = useRef<AbortController[]>([]);
+  const machineIdsRef = useRef<string[]>(machineIds);
+  machineIdsRef.current = machineIds;
 
   // Only run useEffect for API mode
   useEffect(() => {
@@ -289,6 +309,9 @@ export function useVirtualMetrologyBatch(
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      // Abort all in-flight requests
+      abortControllersRef.current.forEach(controller => controller.abort());
+      abortControllersRef.current = [];
     };
 
     if (machineIds.length === 0 || !enabled) {
@@ -302,51 +325,60 @@ export function useVirtualMetrologyBatch(
       return cleanup;
     }
 
-    // API is available - do async fetch
+    // API is available - do async fetch with rate limiting
     const fetchAllStatuses = async () => {
       setIsLoading(true);
       setError(null);
 
-      try {
-        const results = await Promise.allSettled(
-          machineIds.map(id => api.getVMStatus(id))
-        );
+      // Clear previous abort controllers
+      abortControllersRef.current.forEach(controller => controller.abort());
+      abortControllersRef.current = [];
 
-        const newStatuses: Record<string, VMStatus> = {};
+      const newStatuses: Record<string, VMStatus> = {};
+      const currentMachineIds = machineIdsRef.current;
 
-        results.forEach((result, index) => {
-          const machineId = machineIds[index];
-          if (result.status === 'fulfilled') {
-            const statusData = result.value;
+      // Process requests in batches of 5 to avoid overwhelming the browser
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < currentMachineIds.length; i += BATCH_SIZE) {
+        const batch = currentMachineIds.slice(i, i + BATCH_SIZE);
+        
+        const batchPromises = batch.map(async (machineId) => {
+          const controller = new AbortController();
+          abortControllersRef.current.push(controller);
+          
+          try {
+            // Use deduplication to prevent duplicate requests for same machine
+            const statusData = await dedupedRequest(
+              `vm-status-${machineId}`,
+              () => api.getVMStatus(machineId, { signal: controller.signal })
+            );
+            
             // If API returns empty/unrealistic data, use mock data
             if (!statusData.has_prediction || !statusData.predicted_thickness_nm) {
               newStatuses[machineId] = getMockStatus(machineId);
             } else {
               newStatuses[machineId] = statusData;
             }
-          } else {
-            // On error, use mock data
-            newStatuses[machineId] = getMockStatus(machineId);
+          } catch (err) {
+            // On error, use mock data (don't update error state for individual failures)
+            if ((err as Error).name !== 'AbortError') {
+              newStatuses[machineId] = getMockStatus(machineId);
+            }
           }
         });
 
-        setApiStatuses(newStatuses);
-        setLastUpdated(new Date());
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err);
-          console.error('VM batch fetch error:', err);
-          // Fall back to mock data on error
-          const fallbackStatuses: Record<string, VMStatus> = {};
-          machineIds.forEach(id => {
-            fallbackStatuses[id] = getMockStatus(id);
-          });
-          setApiStatuses(fallbackStatuses);
-          setLastUpdated(new Date());
+        // Wait for this batch to complete before starting next batch
+        await Promise.allSettled(batchPromises);
+        
+        // Small delay between batches to let browser breathe
+        if (i + BATCH_SIZE < currentMachineIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
-      } finally {
-        setIsLoading(false);
       }
+
+      setApiStatuses(prev => ({ ...prev, ...newStatuses }));
+      setLastUpdated(new Date());
+      setIsLoading(false);
     };
 
     fetchAllStatuses();
@@ -356,7 +388,8 @@ export function useVirtualMetrologyBatch(
     }
 
     return cleanup;
-  }, [machineIds, enabled, pollingInterval, apiAvailable, getMockStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, pollingInterval, apiAvailable]); // Intentionally exclude machineIds - use ref instead
 
   const refresh = useCallback(() => {
     if (!apiAvailable) {

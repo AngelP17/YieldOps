@@ -42,8 +42,7 @@ help:
 install:
 	pip install -r requirements.txt
 	@echo "✓ Dependencies installed"
-	@echo "Enable Jupyter extensions:"
-	jupyter nbextension enable --py widgetsnbextension
+	@echo "Note: ipywidgets work automatically in JupyterLab 3.0+"
 
 # ============================================
 # Jupytext - Notebook Version Control

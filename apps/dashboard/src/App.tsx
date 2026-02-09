@@ -7,6 +7,7 @@ import { OverviewTab } from './components/tabs/OverviewTab';
 import { MachinesTab } from './components/tabs/MachinesTab';
 import { JobsTab } from './components/tabs/JobsTab';
 import { SentinelTab } from './components/tabs/SentinelTab';
+import { NotebooksTab } from './components/tabs/NotebooksTab';
 import {
   IconBuildingFactory2,
   IconChartBar,
@@ -19,7 +20,8 @@ import {
   IconPlayerPlay,
   IconPlayerPause,
   IconLayoutDashboard,
-  IconShield
+  IconShield,
+  IconNotebook
 } from '@tabler/icons-react';
 
 // =====================================================
@@ -217,7 +219,7 @@ function App() {
     realJobIds 
   } = useRealtimeJobs(undefined, simulatedJobs);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs' | 'sentinel'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs' | 'sentinel' | 'notebooks'>('overview');
 
   const hasSupabase = isSupabaseConfigured();
   const hasApi = isApiConfigured();
@@ -390,10 +392,11 @@ function App() {
                   { id: 'machines', label: 'Machines', icon: IconCpu },
                   { id: 'jobs', label: 'Jobs', icon: IconStack },
                   { id: 'sentinel', label: 'Sentinel', icon: IconShield },
+                  { id: 'notebooks', label: 'Notebooks', icon: IconNotebook },
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs' | 'sentinel')}
+                    onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs' | 'sentinel' | 'notebooks')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       activeTab === tab.id
                         ? 'bg-white text-slate-900 shadow-sm'
@@ -467,6 +470,9 @@ function App() {
           {activeTab === 'sentinel' && (
             <SentinelTab />
           )}
+          {activeTab === 'notebooks' && (
+            <NotebooksTab />
+          )}
         </main>
 
         {/* Mobile Bottom Tab Bar */}
@@ -477,10 +483,11 @@ function App() {
               { id: 'machines', label: 'Machines', icon: IconCpu },
               { id: 'jobs', label: 'Jobs', icon: IconStack },
               { id: 'sentinel', label: 'Sentinel', icon: IconShield },
+              { id: 'notebooks', label: 'Notebooks', icon: IconNotebook },
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs' | 'sentinel')}
+                onClick={() => setActiveTab(tab.id as 'overview' | 'machines' | 'jobs' | 'sentinel' | 'notebooks')}
                 className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 min-h-[48px] transition-colors ${
                   activeTab === tab.id
                     ? 'text-blue-600'

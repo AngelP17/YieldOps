@@ -27,10 +27,13 @@ export function MachinesTab({ machines }: MachinesTabProps) {
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'topology'>('grid');
   const apiAvailable = isApiConfigured();
 
+  // Memoize machine IDs to prevent unnecessary re-renders
+  const machineIds = useMemo(() => machines.map(m => m.machine_id), [machines]);
+  
   // VM polling for all machines
   const { statuses: vmStatuses } = useVirtualMetrologyBatch(
-    machines.map(m => m.machine_id),
-    { pollingInterval: 30000, enabled: true }
+    machineIds,
+    { pollingInterval: 30000, enabled: machineIds.length > 0 }
   );
 
   const filtered = useMemo(() => {
