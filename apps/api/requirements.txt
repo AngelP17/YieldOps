@@ -24,3 +24,4 @@ pydantic-settings
 pytest
 pytest-asyncio
 httpx
+# Force rebuild Sun Feb  8 20:54:43 PST 2026
