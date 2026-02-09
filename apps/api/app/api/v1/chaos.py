@@ -63,6 +63,12 @@ async def inject_failure(request: ChaosRequest):
             
             # Create Aegis incident for machine failure
             from datetime import datetime
+            # Ensure agent exists for this machine before creating incident
+            await supabase_service.ensure_aegis_agent_exists(
+                machine_name=machine["name"],
+                machine_type=machine.get("type", "facility"),
+                machine_status=machine.get("status", "IDLE")
+            )
             incident = await supabase_service.create_aegis_incident({
                 "machine_id": machine["name"],
                 "severity": "critical",
@@ -106,6 +112,12 @@ async def inject_failure(request: ChaosRequest):
             
             # Also create an Aegis incident directly
             from datetime import datetime
+            # Ensure agent exists before creating incident
+            await supabase_service.ensure_aegis_agent_exists(
+                machine_name=machine["name"],
+                machine_type=machine.get("type", "facility"),
+                machine_status=machine.get("status", "IDLE")
+            )
             incident = await supabase_service.create_aegis_incident({
                 "machine_id": machine["name"],
                 "severity": "high",

@@ -287,7 +287,58 @@ class SupabaseService:
             .eq("incident_id", incident_id) \
             .execute()
         return response.data[0] if response.data else {}
-
-
-# Singleton instance
-supabase_service = SupabaseService()
+    
+    async def ensure_aegis_agent_exists(self, machine_name: str, machine_type: str = "facility", machine_status: str = "IDLE") -> Dict:
+        """Ensure an Aegis agent exists for the given machine. Creates if missing."""
+        try:
+            # Check if agent exists
+            response = self.client.table("aegis_agents") \
+                .select("*") \
+                .eq("machine_id", machine_name) \
+                .execute()
+            
+            if response.data:
+                return response.data[0]
+            
+            # Agent doesn't exist, create it
+            agent_type = {
+                "lithography": "precision",
+                "etching": "facility", 
+                "deposition": "assembly",
+                "inspection": "precision",
+                "cleaning": "facility"
+            }.get(machine_type, "facility")
+            
+            capabilities = {
+                "lithography": ["z_score_analysis", "rate_of_change", "thermal_drift_cte"],
+                "etching": ["iso_10816_vibration", "particle_count", "cleanroom_monitoring"],
+                "deposition": ["ultrasonic_impedance", "wire_bond_monitoring"],
+                "inspection": ["defect_detection", "cd_measurement"],
+                "cleaning": ["general_monitoring"]
+            }.get(machine_type, ["general_monitoring"])
+            
+            protocol = {
+                "lithography": "SECS/GEM",
+                "etching": "Modbus/BACnet",
+                "deposition": "Modbus/BACnet",
+                "inspection": "MQTT",
+                "cleaning": "MQTT"
+            }.get(machine_type, "MQTT")
+            
+            new_agent = {
+                "agent_type": agent_type,
+                "machine_id": machine_name,
+                "status": "active" if machine_status in ["RUNNING", "IDLE"] else "inactive",
+                "last_heartbeat": "now()",
+                "detections_24h": 0,
+                "capabilities": capabilities,
+                "protocol": protocol
+            }
+            
+            response = self.client.table("aegis_agents").insert(new_agent).execute()
+            return response.data[0] if response.data else {}
+        except Exception as e:
+            # Log error but don't fail - agent may already exist or RLS may block
+            import logging
+            logging.getLogger(__name__).warning(f"Could not ensure agent exists for {machine_name}: {e}")
+            return {}
