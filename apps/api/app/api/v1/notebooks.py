@@ -271,10 +271,14 @@ def find_reports() -> List[ReportInfo]:
     return reports
 
 
-@router.get("/list", response_model=List[NotebookInfo])
+@router.get("/list")
 async def list_notebooks():
     """List all available notebooks"""
-    return find_notebooks()
+    try:
+        return find_notebooks()
+    except Exception as e:
+        logger.error(f"Error listing notebooks: {e}")
+        return []
 
 
 @router.get("/scenarios")

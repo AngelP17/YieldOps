@@ -61,6 +61,7 @@ app.add_middleware(
         "https://yield-ops-dashboard.vercel.app",
         "https://yieldops.vercel.app",
         "https://yieldops-dashboard.vercel.app",
+        "https://yield-ops-dashboard-dvr6y6zrb-aps-projects-791dd75a.vercel.app",
         "http://localhost:5173",  # Vite dev server
         "http://localhost:3000",  # React dev server
     ],
@@ -164,10 +165,19 @@ async def global_exception_handler(request, exc):
     logger.error(f"Unhandled exception: {exc}")
     logger.error(traceback.format_exc())
     
-    return JSONResponse(
+    # Create response with CORS headers
+    response = JSONResponse(
         status_code=500,
         content={"detail": "Internal server error", "error": str(exc)}
     )
+    
+    # Add CORS headers manually to ensure they're present
+    origin = request.headers.get("origin", "")
+    if origin and ("vercel.app" in origin or "localhost" in origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
 
 
 if __name__ == "__main__":
