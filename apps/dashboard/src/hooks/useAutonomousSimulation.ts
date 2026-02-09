@@ -61,11 +61,9 @@ function generateNewJob(index: number): ProductionJob {
 
 export function useAutonomousSimulation(config: SimulationConfig) {
   const { 
-    enabled, 
-    jobProgressionInterval = 5000, 
-    machineEventInterval = 8000, 
-    newJobInterval = 15000,
-    sensorDataInterval = 3000 
+    enabled,
+    machineEventInterval = 15000,
+    sensorDataInterval = 10000 
   } = config;
   
   const { machines, jobs, updateMachine, updateJob, addJob, isUsingMockData } = useAppConfig();
@@ -112,12 +110,17 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     const idleMachines = machines.filter(m => m.status === 'IDLE');
     
     // ==========================================
-    // STEP 1: Complete RUNNING jobs (2% chance)
+    // STEP 1: Complete RUNNING jobs (0.5% chance - MUCH SLOWER)
+    // Jobs now take ~200 cycles on average to complete (~50 minutes at 15s intervals)
+    // This gives plenty of time to run ToC dispatch and see the queue
     // ==========================================
     jobs.forEach(job => {
       if (job.status === 'RUNNING' && job.assigned_machine_id) {
-        // 2% chance to complete per cycle
-        if (Math.random() > 0.98) {
+        // Only 0.5% chance to complete per cycle - jobs stick around much longer
+        // Hot lots complete slightly faster (1% chance)
+        const completionChance = job.is_hot_lot ? 0.99 : 0.995;
+        
+        if (Math.random() > completionChance) {
           updateJob(job.job_id, { 
             status: 'COMPLETED',
             actual_end_time: new Date().toISOString(),
@@ -179,8 +182,9 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     });
     
     // ==========================================
-    // STEP 3: Auto-dispatch PENDING jobs
-    // Prioritize hot lots, then by priority level
+    // STEP 3: Auto-dispatch PENDING jobs (SLOWER)
+    // Only dispatch 1 job per cycle (was 2)
+    // Leaves more jobs for manual ToC dispatch
     // ==========================================
     const pendingJobs = jobs
       .filter(j => j.status === 'PENDING')
@@ -192,15 +196,11 @@ export function useAutonomousSimulation(config: SimulationConfig) {
     // Use available idle machines (accounting for jobs just started)
     const availableMachines = idleMachines.slice(startedCount);
     
-    // Dispatch up to 2 pending jobs per cycle
-    let dispatchedCount = 0;
-    const maxToDispatch = 2;
-    
-    for (const job of pendingJobs) {
-      if (dispatchedCount >= maxToDispatch || availableMachines.length === 0) break;
-      if (dispatchedCount >= availableMachines.length) break;
-      
-      const machine = availableMachines[dispatchedCount];
+    // Only dispatch 1 job per cycle - gives time to manually run ToC dispatch
+    // Also only dispatch if there are plenty of pending jobs ( > 6 )
+    if (pendingJobs.length > 6 && availableMachines.length > 0) {
+      const job = pendingJobs[0];
+      const machine = availableMachines[0];
       
       updateJob(job.job_id, {
         status: 'QUEUED',
@@ -215,8 +215,6 @@ export function useAutonomousSimulation(config: SimulationConfig) {
             : j
         ));
       }
-      
-      dispatchedCount++;
     }
   }, []);
 
@@ -348,38 +346,40 @@ export function useAutonomousSimulation(config: SimulationConfig) {
   }, []);
 
   // CRITICAL FIX: Job generation runs ALWAYS (not just when enabled)
-  // This ensures pending jobs exist even when simulation is "paused"
+  // SLOWER: Generate jobs less frequently so queue doesn't grow too fast
   useEffect(() => {
     // Small delay to ensure initial render is complete
     const initialTimeout = setTimeout(() => {
       ensureMinimumJobs();
     }, 100);
     
-    // Set up interval for job generation regardless of enabled state
-    newJobIntervalRef.current = setInterval(ensureMinimumJobs, newJobInterval);
+    // Set up interval for job generation - SLOWER (20 seconds)
+    // This keeps the queue from growing too fast while still ensuring minimum jobs
+    newJobIntervalRef.current = setInterval(ensureMinimumJobs, 20000);
     
     return () => {
       clearTimeout(initialTimeout);
       if (newJobIntervalRef.current) clearInterval(newJobIntervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newJobInterval]); // Only re-run when interval changes
+  }, []); // Only re-run when interval changes
 
   // Job progression runs ALWAYS for simulated jobs (not just when enabled)
-  // This ensures the system looks alive even when "paused"
+  // SLOWED DOWN: 15s normal, 30s when paused - gives time to manually dispatch
   useEffect(() => {
     // Run immediately
     simulateJobProgression();
     
-    // Start interval - slower when "paused" (10s vs 5s)
-    const interval = enabled ? jobProgressionInterval : jobProgressionInterval * 2;
+    // MUCH slower intervals - gives time to run ToC dispatch manually
+    // Normal: 15 seconds, Paused: 30 seconds
+    const interval = enabled ? 15000 : 30000;
     jobIntervalRef.current = setInterval(simulateJobProgression, interval);
     
     return () => {
       if (jobIntervalRef.current) clearInterval(jobIntervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, jobProgressionInterval]);
+  }, [enabled]);
   
   // Machine events and sensor data only run when enabled AND in mock mode
   useEffect(() => {

@@ -184,10 +184,10 @@ function SimulationManager({ onSimulatedJobs }: { onSimulatedJobs?: (jobs: Produ
   const { simulationEnabled } = useAppConfig();
   const { simulatedJobs } = useAutonomousSimulation({
     enabled: simulationEnabled,
-    jobProgressionInterval: 5000,
-    machineEventInterval: 8000,
-    newJobInterval: 8000,
-    sensorDataInterval: 3000,
+    jobProgressionInterval: 15000,  // 15 seconds - slower progression
+    machineEventInterval: 15000,     // 15 seconds - slower machine events
+    newJobInterval: 20000,           // 20 seconds - slower job generation
+    sensorDataInterval: 10000,       // 10 seconds - slower sensor updates
   });
   
   // Export simulated jobs to parent component
