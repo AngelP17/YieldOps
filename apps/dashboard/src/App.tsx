@@ -221,6 +221,18 @@ function App() {
   
   const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'jobs' | 'sentinel' | 'notebooks'>('overview');
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const hasTrackingDeepLink =
+      Boolean(params.get('trackingId')) ||
+      Boolean(params.get('trackingCode')) ||
+      Boolean(params.get('track'));
+    if (hasTrackingDeepLink) {
+      setActiveTab('jobs');
+    }
+  }, []);
+
   const hasSupabase = isSupabaseConfigured();
   const hasApi = isApiConfigured();
   const isUsingMockData = !hasSupabase;

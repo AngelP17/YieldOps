@@ -6,6 +6,7 @@ import { useToast } from '../ui/Toast';
 import { api, CreateJobPayload, isApiConfigured } from '../../services/apiClient';
 import { useAppConfig } from '../../App';
 import { JobsKnowledgeGraphViz } from '../jobs/JobsKnowledgeGraphViz';
+import { TrackShipmentButton, useIncomingDeepLink } from '../YieldOps_Integration';
 import type { Machine, ProductionJob, JobStatus, KnowledgeGraphData } from '../../types';
 
 interface JobsTabProps {
@@ -26,6 +27,7 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const apiAvailable = isApiConfigured();
+  useIncomingDeepLink(setSearch);
 
   // Knowledge graph state
   const [graphData, setGraphData] = useState<KnowledgeGraphData | null>(null);
@@ -526,6 +528,11 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 ml-2 sm:ml-4 shrink-0">
+                    <TrackShipmentButton
+                      trackingId={`TRK-${job.job_id.substring(0, 8).toUpperCase()}`}
+                      status={job.status}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                    />
                     {(job.status === 'PENDING' || job.status === 'QUEUED') && (
                       <button
                         onClick={() => handleCancelJob(job.job_id, job.job_name)}
@@ -600,6 +607,10 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                   Cancel Job
                 </button>
               )}
+              <TrackShipmentButton
+                trackingId={`TRK-${job.job_id.substring(0, 8).toUpperCase()}`}
+                status={job.status}
+              />
             </div>
           ))}
           {filtered.length === 0 && (
