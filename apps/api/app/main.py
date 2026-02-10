@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import re
 from app.config import settings, get_cors_origins
 
 # Configure logging
@@ -183,7 +184,9 @@ async def global_exception_handler(request, exc):
     
     # Add CORS headers manually to ensure they're present
     origin = request.headers.get("origin", "")
-    if origin and ("vercel.app" in origin or "localhost" in origin):
+    allowed_origins = set(get_cors_origins())
+    origin_matches_regex = bool(re.match(settings.CORS_ALLOW_ORIGIN_REGEX, origin)) if origin else False
+    if origin and (origin in allowed_origins or origin_matches_regex):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
     

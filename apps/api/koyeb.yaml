@@ -18,7 +18,7 @@ service:
     - name: CORS_ALLOW_ORIGINS
       value: "https://yield-ops-dashboard.vercel.app,https://yieldops.vercel.app,https://yieldops-dashboard.vercel.app,https://transvec.vercel.app,http://localhost:5173,http://localhost:5174,http://localhost:3000"
     - name: CORS_ALLOW_ORIGIN_REGEX
-      value: "https://.*(yield[-_]?ops[-_]?dashboard|transvec).*\\.vercel\\.app"
+      value: "^https://([a-z0-9-]+\\.)*vercel\\.app$|^http://localhost(:\\d+)?$|^http://127\\.0\\.0\\.1(:\\d+)?$"
     - name: PORT
       value: "8000"
     - name: AUTO_INIT_MODEL

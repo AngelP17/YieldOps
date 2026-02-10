@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     )
     CORS_ALLOW_ORIGIN_REGEX: str = os.environ.get(
         "CORS_ALLOW_ORIGIN_REGEX",
-        r"https://.*(yield[-_]?ops[-_]?dashboard|transvec).*\.vercel\.app",
+        r"^https://([a-z0-9-]+\.)*vercel\.app$|^http://localhost(:\d+)?$|^http://127\.0\.0\.1(:\d+)?$",
     )
     
     # App
