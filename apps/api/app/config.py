@@ -17,6 +17,21 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str = os.environ.get("SUPABASE_SERVICE_KEY", "")
     SUPABASE_ANON_KEY: str = os.environ.get("SUPABASE_ANON_KEY", "")
     
+    # CORS
+    # Comma-separated origins, e.g. "https://app.vercel.app,http://localhost:5173"
+    CORS_ALLOW_ORIGINS: str = os.environ.get(
+        "CORS_ALLOW_ORIGINS",
+        "https://yield-ops-dashboard.vercel.app,"
+        "https://yieldops.vercel.app,"
+        "https://yieldops-dashboard.vercel.app,"
+        "http://localhost:5173,"
+        "http://localhost:3000",
+    )
+    CORS_ALLOW_ORIGIN_REGEX: str = os.environ.get(
+        "CORS_ALLOW_ORIGIN_REGEX",
+        r"https://.*yield[-_]?ops[-_]?dashboard.*\.vercel\.app",
+    )
+    
     # App
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
@@ -40,3 +55,7 @@ def get_settings() -> Settings:
 
 # Global settings instance
 settings = get_settings()
+
+
+def get_cors_origins() -> list[str]:
+    return [origin.strip() for origin in settings.CORS_ALLOW_ORIGINS.split(",") if origin.strip()]

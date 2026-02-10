@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+from app.config import settings, get_cors_origins
 
 # Configure logging
 logging.basicConfig(
@@ -57,16 +58,9 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://yield-ops-dashboard.vercel.app",
-        "https://yieldops.vercel.app",
-        "https://yieldops-dashboard.vercel.app",
-        "https://yield-ops-dashboard-dvr6y6zrb-aps-projects-791dd75a.vercel.app",
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # React dev server
-    ],
-    # Match any Vercel preview deployment for yield-ops-dashboard
-    allow_origin_regex=r"https://.*yield[-_]?ops[-_]?dashboard.*\.vercel\.app",
+    allow_origins=get_cors_origins(),
+    # Match any Vercel preview deployment for yield-ops-dashboard.
+    allow_origin_regex=settings.CORS_ALLOW_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
