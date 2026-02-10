@@ -21,7 +21,8 @@ import {
   IconPlayerPause,
   IconLayoutDashboard,
   IconShield,
-  IconNotebook
+  IconNotebook,
+  IconExternalLink
 } from '@tabler/icons-react';
 
 // =====================================================
@@ -95,6 +96,12 @@ const MOCK_MACHINES: Machine[] = [
   { machine_id: 'e9f0a1b2-c3d4-5678-efab-1234567890fa', name: 'DEP-11', type: 'deposition', status: 'IDLE', efficiency_rating: 0.87, location_zone: 'ZONE_H', max_temperature: 80, max_vibration: 3.0, current_wafer_count: 0, total_wafers_processed: 21200, last_maintenance: '2024-12-05', created_at: '2024-01-01', updated_at: '2024-12-05' },
   { machine_id: 'f0a1b2c3-d4e5-6789-fabc-2345678901ab', name: 'DEP-12', type: 'deposition', status: 'RUNNING', efficiency_rating: 0.89, location_zone: 'ZONE_H', max_temperature: 80, max_vibration: 3.0, current_wafer_count: 16, total_wafers_processed: 23400, last_maintenance: '2024-12-09', created_at: '2024-01-01', updated_at: '2024-12-09' },
 ];
+
+const DEFAULT_TRANSVEC_BASE_URL = 'https://transvec.vercel.app';
+
+function stripTrailingSlash(url: string) {
+  return url.replace(/\/+$/, '');
+}
 
 // =====================================================
 // REALISTIC PRODUCTION JOBS
@@ -384,6 +391,7 @@ function App() {
     simulationEnabled,
     setSimulationEnabled,
   };
+  const transvecHref = `${stripTrailingSlash(import.meta.env.VITE_TRANSVEC_BASE_URL || DEFAULT_TRANSVEC_BASE_URL)}/?source=yieldops`;
 
   return (
     <AppConfigContext.Provider value={appConfigValue}>
@@ -426,6 +434,16 @@ function App() {
               </nav>
 
               <div className="flex items-center gap-1.5 sm:gap-3">
+                <a
+                  href={transvecHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                  title="Open Transvec logistics interface"
+                >
+                  <IconExternalLink className="w-3.5 h-3.5" />
+                  Transvec
+                </a>
                 {/* Mock Data Badge */}
                 {/* Demo Mode Badge */}
                 {isUsingMockData && (
