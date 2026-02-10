@@ -8,9 +8,12 @@ using Papermill, nbconvert, and Jupytext.
 import os
 import subprocess
 import json
+import sys
+import html
+from importlib.util import find_spec
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 import logging
 
@@ -217,6 +220,98 @@ class ReportInfo(BaseModel):
     format: str
 
 
+def display_path(path: Path) -> str:
+    """Return a stable display path even when working from temp dirs."""
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def module_missing(*modules: str) -> List[str]:
+    return [module for module in modules if find_spec(module) is None]
+
+
+def python_module_cmd(module: str, args: List[str]) -> List[str]:
+    """Use the current interpreter to avoid calling a different python binary."""
+    return [sys.executable, "-m", module, *args]
+
+
+def notebook_to_script(notebook_path: Path, script_path: Path) -> None:
+    """Fallback conversion from .ipynb to .py when jupytext is unavailable."""
+    with open(notebook_path, "r", encoding="utf-8") as f:
+        notebook = json.load(f)
+    lines = [
+        "# Auto-generated from notebook",
+        "",
+    ]
+    for cell in notebook.get("cells", []):
+        if cell.get("cell_type") != "code":
+            continue
+        source = cell.get("source", [])
+        if isinstance(source, list):
+            lines.extend([str(s).rstrip("\n") for s in source])
+        else:
+            lines.append(str(source).rstrip("\n"))
+        lines.append("")
+    script_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(script_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines).rstrip() + "\n")
+
+
+def script_to_notebook(script_path: Path, notebook_path: Path) -> None:
+    """Fallback conversion from .py to one-cell .ipynb."""
+    with open(script_path, "r", encoding="utf-8") as f:
+        code = f.read()
+    notebook = {
+        "cells": [
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": code.splitlines(keepends=True),
+            }
+        ],
+        "metadata": {
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python", "version": "3.11"},
+        },
+        "nbformat": 4,
+        "nbformat_minor": 4,
+    }
+    notebook_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(notebook_path, "w", encoding="utf-8") as f:
+        json.dump(notebook, f, indent=2)
+
+
+def notebook_to_basic_html(notebook_path: Path, html_path: Path) -> None:
+    """Fallback HTML export when nbconvert is unavailable."""
+    with open(notebook_path, "r", encoding="utf-8") as f:
+        notebook = json.load(f)
+
+    parts = [
+        "<!doctype html>",
+        "<html><head><meta charset='utf-8'><title>Notebook Export</title></head><body>",
+        f"<h1>{html.escape(notebook_path.stem)}</h1>",
+    ]
+    for cell in notebook.get("cells", []):
+        source = cell.get("source", [])
+        if isinstance(source, list):
+            text = "".join(source)
+        else:
+            text = str(source)
+        if cell.get("cell_type") == "markdown":
+            parts.append(f"<section><pre>{html.escape(text)}</pre></section>")
+        else:
+            parts.append(f"<section><h3>Code</h3><pre>{html.escape(text)}</pre></section>")
+    parts.append("</body></html>")
+
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(parts))
+
+
 def find_notebooks() -> List[NotebookInfo]:
     """Find all notebooks in the notebooks directory"""
     from datetime import datetime
@@ -228,7 +323,7 @@ def find_notebooks() -> List[NotebookInfo]:
             last_modified_str = datetime.fromtimestamp(stat.st_mtime).isoformat()
             notebooks.append(NotebookInfo(
                 name=notebook_file.stem,
-                path=str(notebook_file.relative_to(PROJECT_ROOT)),
+                path=display_path(notebook_file),
                 description=get_notebook_description(notebook_file),
                 last_modified=last_modified_str
             ))
@@ -263,7 +358,7 @@ def find_reports() -> List[ReportInfo]:
                 created_at_str = datetime.fromtimestamp(stat.st_mtime).isoformat()
                 reports.append(ReportInfo(
                     name=report_file.name,
-                    path=str(report_file.relative_to(PROJECT_ROOT)),
+                    path=display_path(report_file),
                     created_at=created_at_str,
                     size_bytes=stat.st_size,
                     format=report_file.suffix.lstrip('.')
@@ -321,13 +416,20 @@ async def execute_notebook(
     output_path = REPORTS_DIR / f"{output_name}.ipynb"
     
     try:
+        missing = module_missing("papermill")
+        if missing:
+            return NotebookExecutionResponse(
+                success=False,
+                message=f"Notebook execution unavailable on server. Missing Python module(s): {', '.join(missing)}",
+                output_path=None
+            )
+
         # Build papermill command
-        cmd = [
-            "python", "-m", "papermill",
+        cmd = python_module_cmd("papermill", [
             str(notebook_path),
             str(output_path),
             "--parameters_file", "-"
-        ]
+        ])
         
         # Run papermill with parameters
         params_json = json.dumps(params)
@@ -350,19 +452,21 @@ async def execute_notebook(
         
         # Also export to HTML
         html_output = REPORTS_DIR / f"{output_name}.html"
-        export_cmd = [
-            "python", "-m", "jupyter", "nbconvert",
-            "--to", "html",
-            "--output", str(html_output),
-            str(output_path)
-        ]
-        
-        subprocess.run(export_cmd, capture_output=True, timeout=60)
+        if module_missing("jupyter"):
+            notebook_to_basic_html(output_path, html_output)
+        else:
+            export_cmd = python_module_cmd("jupyter", [
+                "nbconvert",
+                "--to", "html",
+                "--output", str(html_output),
+                str(output_path)
+            ])
+            subprocess.run(export_cmd, capture_output=True, timeout=60)
         
         return NotebookExecutionResponse(
             success=True,
             message=f"Notebook executed successfully with {request.scenario} scenario",
-            output_path=str(output_path.relative_to(PROJECT_ROOT)),
+            output_path=display_path(output_path),
             report_url=f"/api/v1/notebooks/reports/{output_name}.html"
         )
         
@@ -406,12 +510,38 @@ async def export_notebook(request: ExportNotebookRequest):
     output_path = REPORTS_DIR / f"{output_name}.{request.format if request.format != 'script' else 'py'}"
     
     try:
-        cmd = [
-            "python", "-m", "jupyter", "nbconvert",
+        if request.format == "script":
+            notebook_to_script(notebook_path, output_path)
+            return NotebookExecutionResponse(
+                success=True,
+                message="Notebook exported to PY",
+                output_path=display_path(output_path),
+                report_url=None
+            )
+
+        if request.format == "html" and module_missing("jupyter"):
+            notebook_to_basic_html(notebook_path, output_path)
+            return NotebookExecutionResponse(
+                success=True,
+                message="Notebook exported to HTML (basic renderer)",
+                output_path=display_path(output_path),
+                report_url=None
+            )
+
+        missing = module_missing("jupyter")
+        if missing:
+            return NotebookExecutionResponse(
+                success=False,
+                message=f"Export unavailable on server for format '{request.format}'. Missing Python module(s): {', '.join(missing)}",
+                output_path=None
+            )
+
+        cmd = python_module_cmd("jupyter", [
+            "nbconvert",
             "--to", request.format,
             "--output", str(output_path),
             str(notebook_path)
-        ]
+        ])
         
         result = subprocess.run(
             cmd,
@@ -431,7 +561,7 @@ async def export_notebook(request: ExportNotebookRequest):
         return NotebookExecutionResponse(
             success=True,
             message=f"Notebook exported to {request.format.upper()}",
-            output_path=str(output_path.relative_to(PROJECT_ROOT)),
+            output_path=display_path(output_path),
             report_url=None
         )
         
@@ -451,29 +581,35 @@ async def sync_notebooks(request: SyncNotebooksRequest):
     Equivalent to: make sync
     """
     try:
+        jupytext_missing = module_missing("jupytext")
+
         if request.direction in ["both", "to_scripts"]:
             # Sync notebooks to scripts
             for notebook_file in NOTEBOOKS_DIR.glob("*.ipynb"):
                 script_path = SCRIPTS_DIR / f"{notebook_file.stem}.py"
-                cmd = [
-                    "python", "-m", "jupytext",
-                    "--to", "py:percent",
-                    "--output", str(script_path),
-                    str(notebook_file)
-                ]
-                subprocess.run(cmd, capture_output=True, timeout=30)
+                if jupytext_missing:
+                    notebook_to_script(notebook_file, script_path)
+                else:
+                    cmd = python_module_cmd("jupytext", [
+                        "--to", "py:percent",
+                        "--output", str(script_path),
+                        str(notebook_file)
+                    ])
+                    subprocess.run(cmd, capture_output=True, timeout=30)
         
         if request.direction in ["both", "to_notebooks"]:
             # Sync scripts to notebooks
             for script_file in SCRIPTS_DIR.glob("*.py"):
                 notebook_path = NOTEBOOKS_DIR / f"{script_file.stem}.ipynb"
-                cmd = [
-                    "python", "-m", "jupytext",
-                    "--to", "notebook",
-                    "--output", str(notebook_path),
-                    str(script_file)
-                ]
-                subprocess.run(cmd, capture_output=True, timeout=30)
+                if jupytext_missing:
+                    script_to_notebook(script_file, notebook_path)
+                else:
+                    cmd = python_module_cmd("jupytext", [
+                        "--to", "notebook",
+                        "--output", str(notebook_path),
+                        str(script_file)
+                    ])
+                    subprocess.run(cmd, capture_output=True, timeout=30)
         
         direction_msg = {
             "both": "Bidirectional sync completed",
@@ -483,8 +619,11 @@ async def sync_notebooks(request: SyncNotebooksRequest):
         
         return NotebookExecutionResponse(
             success=True,
-            message=direction_msg.get(request.direction, "Sync completed"),
-            output_path=str(SCRIPTS_DIR.relative_to(PROJECT_ROOT))
+            message=(
+                f"{direction_msg.get(request.direction, 'Sync completed')} "
+                "(using fallback converter)" if jupytext_missing else direction_msg.get(request.direction, "Sync completed")
+            ),
+            output_path=display_path(SCRIPTS_DIR)
         )
         
     except Exception as e:
@@ -497,12 +636,25 @@ async def sync_notebooks(request: SyncNotebooksRequest):
 
 
 @router.post("/launch-jupyter")
-async def launch_jupyter():
+async def launch_jupyter(request: Request):
     """
     Launch Jupyter Lab.
     Returns the URL where Jupyter is accessible.
     """
     try:
+        if request.url.hostname not in ("localhost", "127.0.0.1"):
+            return {
+                "success": False,
+                "message": "Jupyter Lab launch is only supported in local development. Use execute/export from this tab in production."
+            }
+
+        missing = module_missing("jupyter")
+        if missing:
+            return {
+                "success": False,
+                "message": f"Jupyter Lab is unavailable. Missing Python module(s): {', '.join(missing)}"
+            }
+
         # Check if Jupyter is already running
         cmd = ["pgrep", "-f", "jupyter-lab"]
         result = subprocess.run(cmd, capture_output=True)
@@ -516,14 +668,14 @@ async def launch_jupyter():
         
         # Start Jupyter Lab in background
         subprocess.Popen(
-            [
-                "python", "-m", "jupyter", "lab",
+            python_module_cmd("jupyter", [
+                "lab",
                 f"--notebook-dir={PROJECT_ROOT / 'ml'}",
                 "--no-browser",
                 "--port=8888",
                 "--ip=0.0.0.0",
                 "--allow-root"
-            ],
+            ]),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             cwd=str(PROJECT_ROOT)

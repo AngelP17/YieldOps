@@ -12,14 +12,14 @@ import {
   IconAlertCircle,
   IconLoader2
 } from '@tabler/icons-react';
-import { api } from '../../services/apiClient';
+import { api, toApiUrl } from '../../services/apiClient';
 import { useToast } from '../ui/Toast';
 
 interface Notebook {
   name: string;
   path: string;
   description?: string;
-  last_modified?: number;
+  last_modified?: string | number;
 }
 
 interface Scenario {
@@ -31,7 +31,7 @@ interface Scenario {
 interface Report {
   name: string;
   path: string;
-  created_at: number;
+  created_at: string | number;
   size_bytes: number;
   format: string;
 }
@@ -144,7 +144,8 @@ export function NotebooksTab() {
         toast(result.message, 'error');
       }
     } catch (err) {
-      toast('Execution failed', 'error');
+      const message = err instanceof Error ? err.message : 'Execution failed';
+      toast(message, 'error');
     } finally {
       setExecuting(false);
     }
@@ -171,7 +172,8 @@ export function NotebooksTab() {
         toast(result.message, 'error');
       }
     } catch (err) {
-      toast('Export failed', 'error');
+      const message = err instanceof Error ? err.message : 'Export failed';
+      toast(message, 'error');
     } finally {
       setExporting(false);
     }
@@ -189,7 +191,8 @@ export function NotebooksTab() {
         toast(result.message, 'error');
       }
     } catch (err) {
-      toast('Sync failed', 'error');
+      const message = err instanceof Error ? err.message : 'Sync failed';
+      toast(message, 'error');
     } finally {
       setSyncing(false);
     }
@@ -203,13 +206,19 @@ export function NotebooksTab() {
       if (result.success) {
         toast(result.message, 'success');
         if (result.url) {
+          const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (!isLocalHost && result.url.includes('localhost')) {
+            toast('Jupyter URL is local-only and is not reachable from this deployed app', 'error');
+            return;
+          }
           window.open(result.url, '_blank');
         }
       } else {
         toast(result.message, 'error');
       }
     } catch (err) {
-      toast('Failed to launch Jupyter', 'error');
+      const message = err instanceof Error ? err.message : 'Failed to launch Jupyter';
+      toast(message, 'error');
     } finally {
       setLaunchingJupyter(false);
     }
@@ -223,8 +232,15 @@ export function NotebooksTab() {
   };
 
   // Format date
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleString();
+  const formatDate = (value: string | number) => {
+    if (typeof value === 'number') {
+      return new Date(value * 1000).toLocaleString();
+    }
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) {
+      return new Date(parsed).toLocaleString();
+    }
+    return String(value);
   };
 
   return (
@@ -556,7 +572,7 @@ export function NotebooksTab() {
                     </div>
                   </div>
                   <a
-                    href={`/api/v1/notebooks/reports/${encodeURIComponent(report.name)}`}
+                    href={toApiUrl(`/api/v1/notebooks/reports/${encodeURIComponent(report.name)}`)}
                     download
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                   >

@@ -1,6 +1,8 @@
 import type { VMPredictionRecord, RecipeAdjustment, AegisIncident, AegisAgent, SafetyCircuitStatus, SentinelSummary, KnowledgeGraphData } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export const toApiUrl = (path: string): string => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
 // Check if API is properly configured (not using placeholder values)
 export const isApiConfigured = (): boolean => {
@@ -319,7 +321,7 @@ export const api = {
 
   // Notebooks
   getNotebooks: () =>
-    request<Array<{ name: string; path: string; description?: string; last_modified?: number }>>(
+    request<Array<{ name: string; path: string; description?: string; last_modified?: string | number }>>(
       `/api/v1/notebooks/list`
     ),
 
@@ -353,7 +355,7 @@ export const api = {
     ),
 
   getNotebookReports: () =>
-    request<Array<{ name: string; path: string; created_at: number; size_bytes: number; format: string }>>(
+    request<Array<{ name: string; path: string; created_at: string | number; size_bytes: number; format: string }>>(
       `/api/v1/notebooks/reports`
     ),
 };

@@ -12,6 +12,12 @@ scikit-learn
 numpy
 pandas
 scipy
+papermill
+jupyter
+nbconvert
+jupytext
+nbformat
+nbclient
 
 # Knowledge Graph
 networkx
