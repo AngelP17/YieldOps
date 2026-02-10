@@ -11,19 +11,36 @@ function normalizeStatus(status?: string) {
   return status.toUpperCase().replace(/\s+/g, '_');
 }
 
+function normalizeAssetId(value?: string | null) {
+  if (!value) return '';
+  return value.trim().replace(/^YO[-_]/i, '');
+}
+
 export function useIncomingDeepLink(setSearchQuery: (value: string) => void) {
   useEffect(() => {
     const apply = () => {
       const params = new URLSearchParams(window.location.search);
-      const query =
-        params.get('jobId') ||
-        params.get('linkedJobId') ||
-        params.get('q') ||
-        params.get('search') ||
+      const trackingQuery =
         params.get('trackingId') ||
         params.get('trackingCode') ||
         params.get('track') ||
         '';
+      const jobQueryRaw =
+        params.get('jobId') ||
+        params.get('linkedJobId') ||
+        '';
+      const jobQuery = normalizeAssetId(jobQueryRaw);
+      const source = params.get('source') || '';
+      const genericQuery =
+        params.get('q') ||
+        params.get('search') ||
+        '';
+
+      // Transvec deep links should resolve by tracking first; legacy YO-* job ids are normalized.
+      const query = source === 'transvec'
+        ? (trackingQuery || jobQuery || genericQuery)
+        : (trackingQuery || jobQuery || genericQuery);
+
       if (!query) return;
       setSearchQuery(query);
     };

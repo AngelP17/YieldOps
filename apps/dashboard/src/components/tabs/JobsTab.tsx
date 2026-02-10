@@ -16,6 +16,10 @@ interface JobsTabProps {
 
 const RECIPE_TYPES = ['ADVANCED_LOGIC', '5NM_FINFE', 'STANDARD_LOGIC', 'MEMORY_DRAM', 'IO_CONTROLLER', 'POWER_MANAGEMENT', 'ANALOG_MIXER', 'TEST_CHIPS'];
 
+function normalizeSearchToken(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export function JobsTab({ jobs, machines }: JobsTabProps) {
   const { toast } = useToast();
   const { isUsingMockData, addJob, updateJob } = useAppConfig();
@@ -60,6 +64,9 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
     if (hotLotOnly) result = result.filter((j) => j.is_hot_lot);
     if (search) {
       const query = search.toLowerCase();
+      const normalizedQuery = normalizeSearchToken(query);
+      const normalizedWithoutYoPrefix = normalizedQuery.replace(/^yo/, '');
+
       result = result.filter((j) => {
         const haystack = [
           j.job_id,
@@ -72,7 +79,21 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
-        return haystack.includes(query);
+
+        if (haystack.includes(query)) {
+          return true;
+        }
+
+        const normalizedHaystack = normalizeSearchToken(haystack);
+        if (normalizedHaystack.includes(normalizedQuery)) {
+          return true;
+        }
+
+        if (normalizedWithoutYoPrefix && normalizedHaystack.includes(normalizedWithoutYoPrefix)) {
+          return true;
+        }
+
+        return false;
       });
     }
 
