@@ -58,10 +58,23 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
 
     if (statusFilter !== 'ALL') result = result.filter((j) => j.status === statusFilter);
     if (hotLotOnly) result = result.filter((j) => j.is_hot_lot);
-    if (search) result = result.filter((j) =>
-      j.job_name.toLowerCase().includes(search.toLowerCase()) ||
-      (j.customer_tag || '').toLowerCase().includes(search.toLowerCase())
-    );
+    if (search) {
+      const query = search.toLowerCase();
+      result = result.filter((j) => {
+        const haystack = [
+          j.job_id,
+          j.job_name,
+          j.customer_tag,
+          j.recipe_type,
+          j.status,
+          j.assigned_machine_id,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+    }
 
     result.sort((a, b) => {
       if (sortBy === 'priority') {
@@ -529,9 +542,10 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                   {/* Actions */}
                   <div className="flex items-center gap-2 ml-2 sm:ml-4 shrink-0">
                     <TrackShipmentButton
-                      trackingId={`TRK-${job.job_id.substring(0, 8).toUpperCase()}`}
+                      jobId={job.job_id}
+                      query={job.customer_tag || job.job_name}
                       status={job.status}
-                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
                     />
                     {(job.status === 'PENDING' || job.status === 'QUEUED') && (
                       <button
@@ -608,7 +622,8 @@ export function JobsTab({ jobs, machines }: JobsTabProps) {
                 </button>
               )}
               <TrackShipmentButton
-                trackingId={`TRK-${job.job_id.substring(0, 8).toUpperCase()}`}
+                jobId={job.job_id}
+                query={job.customer_tag || job.job_name}
                 status={job.status}
               />
             </div>

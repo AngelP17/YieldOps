@@ -15,15 +15,17 @@ export function useIncomingDeepLink(setSearchQuery: (value: string) => void) {
   useEffect(() => {
     const apply = () => {
       const params = new URLSearchParams(window.location.search);
-      const trackingId =
+      const query =
+        params.get('jobId') ||
+        params.get('linkedJobId') ||
+        params.get('q') ||
+        params.get('search') ||
         params.get('trackingId') ||
         params.get('trackingCode') ||
         params.get('track') ||
-        params.get('q') ||
-        params.get('search') ||
         '';
-      if (!trackingId) return;
-      setSearchQuery(trackingId);
+      if (!query) return;
+      setSearchQuery(query);
     };
 
     apply();
@@ -34,19 +36,24 @@ export function useIncomingDeepLink(setSearchQuery: (value: string) => void) {
 
 export function TrackShipmentButton({
   trackingId,
+  jobId,
+  query,
   status,
   className = '',
 }: {
-  trackingId: string;
+  trackingId?: string;
+  jobId?: string;
+  query?: string;
   status?: string;
   className?: string;
 }) {
   const baseUrl = stripTrailingSlash(import.meta.env.VITE_TRANSVEC_BASE_URL || DEFAULT_TRANSVEC_BASE_URL);
-  const href = `${baseUrl}/?${new URLSearchParams({
-    trackingId,
-    status: normalizeStatus(status),
-    source: 'yieldops',
-  }).toString()}`;
+  const params = new URLSearchParams({ source: 'yieldops' });
+  if (trackingId) params.set('trackingId', trackingId);
+  if (jobId) params.set('jobId', jobId);
+  if (query) params.set('q', query);
+  if (status) params.set('status', normalizeStatus(status));
+  const href = `${baseUrl}/?${params.toString()}`;
 
   return (
     <button
@@ -58,4 +65,3 @@ export function TrackShipmentButton({
     </button>
   );
 }
-

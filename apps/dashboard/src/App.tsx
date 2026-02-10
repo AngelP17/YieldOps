@@ -225,6 +225,10 @@ function App() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const hasTrackingDeepLink =
+      Boolean(params.get('jobId')) ||
+      Boolean(params.get('linkedJobId')) ||
+      Boolean(params.get('q')) ||
+      Boolean(params.get('search')) ||
       Boolean(params.get('trackingId')) ||
       Boolean(params.get('trackingCode')) ||
       Boolean(params.get('track'));
