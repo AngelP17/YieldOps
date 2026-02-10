@@ -40,7 +40,7 @@ def _age_seconds(ts: str | None) -> int | None:
     return int((datetime.now(timezone.utc) - parsed).total_seconds())
 
 
-def _table_probe(table: str, ts_col: str) -> dict[str, Any]:
+def _table_probe(table: str, pk_col: str, ts_col: str) -> dict[str, Any]:
     client = supabase_service.client
     result: dict[str, Any] = {
         "table": table,
@@ -51,14 +51,14 @@ def _table_probe(table: str, ts_col: str) -> dict[str, Any]:
         "error": None,
     }
     try:
-        count_res = client.table(table).select("id", count="exact", head=True).limit(1).execute()
+        count_res = client.table(table).select(pk_col, count="exact", head=True).limit(1).execute()
         result["reachable"] = True
         result["row_count"] = int(getattr(count_res, "count", 0) or 0)
 
         latest_res = client.table(table).select(ts_col).order(ts_col, desc=True).limit(1).execute()
-        latest_ts = (latest_res.data or [{}])[0].get(ts_col) if latest_res.data else None
-        result["latest_timestamp"] = latest_ts
-        result["latest_age_seconds"] = _age_seconds(latest_ts)
+        latest_value = (latest_res.data or [{}])[0].get(ts_col) if latest_res.data else None
+        result["latest_timestamp"] = latest_value
+        result["latest_age_seconds"] = _age_seconds(latest_value)
         return result
     except Exception as exc:
         result["error"] = str(exc)
@@ -71,14 +71,14 @@ async def transvec_pipeline_health():
     Returns runtime readiness of tables/events used by Transvec overlays.
     """
     probes = [
-        _table_probe("transvec_shipments", "updated_at"),
-        _table_probe("transvec_alerts", "created_at"),
-        _table_probe("aegis_incidents", "created_at"),
-        _table_probe("anomaly_alerts", "created_at"),
-        _table_probe("maintenance_logs", "started_at"),
-        _table_probe("dispatch_decisions", "dispatched_at"),
-        _table_probe("transvec_geofences", "id"),
-        _table_probe("geofences", "id"),
+        _table_probe("transvec_shipments", "id", "updated_at"),
+        _table_probe("transvec_alerts", "id", "created_at"),
+        _table_probe("aegis_incidents", "incident_id", "created_at"),
+        _table_probe("anomaly_alerts", "alert_id", "created_at"),
+        _table_probe("maintenance_logs", "log_id", "started_at"),
+        _table_probe("dispatch_decisions", "decision_id", "dispatched_at"),
+        _table_probe("transvec_geofences", "id", "created_at"),
+        _table_probe("geofences", "id", "created_at"),
     ]
 
     by_table = {item["table"]: item for item in probes}
