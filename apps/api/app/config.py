@@ -24,12 +24,14 @@ class Settings(BaseSettings):
         "https://yield-ops-dashboard.vercel.app,"
         "https://yieldops.vercel.app,"
         "https://yieldops-dashboard.vercel.app,"
+        "https://transvec.vercel.app,"
         "http://localhost:5173,"
+        "http://localhost:5174,"
         "http://localhost:3000",
     )
     CORS_ALLOW_ORIGIN_REGEX: str = os.environ.get(
         "CORS_ALLOW_ORIGIN_REGEX",
-        r"https://.*yield[-_]?ops[-_]?dashboard.*\.vercel\.app",
+        r"https://.*(yield[-_]?ops[-_]?dashboard|transvec).*\.vercel\.app",
     )
     
     # App

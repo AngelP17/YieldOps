@@ -15,9 +15,9 @@ service:
     - name: SUPABASE_ANON_KEY
       value: "SET_IN_KOYEB_DASHBOARD"
     - name: CORS_ALLOW_ORIGINS
-      value: "https://yield-ops-dashboard.vercel.app,https://yieldops.vercel.app,https://yieldops-dashboard.vercel.app,http://localhost:5173,http://localhost:3000"
+      value: "https://yield-ops-dashboard.vercel.app,https://yieldops.vercel.app,https://yieldops-dashboard.vercel.app,https://transvec.vercel.app,http://localhost:5173,http://localhost:5174,http://localhost:3000"
     - name: CORS_ALLOW_ORIGIN_REGEX
-      value: "https://.*yield[-_]?ops[-_]?dashboard.*\\.vercel\\.app"
+      value: "https://.*(yield[-_]?ops[-_]?dashboard|transvec).*\\.vercel\\.app"
     - name: PORT
       value: "8000"
     - name: AUTO_INIT_MODEL
