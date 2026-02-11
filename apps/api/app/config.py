@@ -14,8 +14,17 @@ class Settings(BaseSettings):
     
     # Supabase
     SUPABASE_URL: str = "https://vwayvxcvkozxumezwqio.supabase.co"
-    SUPABASE_SERVICE_KEY: str = os.environ.get("SUPABASE_SERVICE_KEY", "")
-    SUPABASE_ANON_KEY: str = os.environ.get("SUPABASE_ANON_KEY", "")
+    SUPABASE_SERVICE_KEY: str = (
+        os.environ.get("SUPABASE_SERVICE_KEY")
+        or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        or os.environ.get("SUPABASE_SECRET_KEY")
+        or ""
+    )
+    SUPABASE_ANON_KEY: str = (
+        os.environ.get("SUPABASE_ANON_KEY")
+        or os.environ.get("SUPABASE_PUBLISHABLE_KEY")
+        or ""
+    )
     
     # CORS
     # Comma-separated origins, e.g. "https://app.vercel.app,http://localhost:5173"

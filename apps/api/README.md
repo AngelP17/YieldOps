@@ -212,7 +212,31 @@ curl -X POST http://localhost:8000/api/v1/aegis/knowledge-graph/generate \
 
 ## Deployment
 
-The API is configured for deployment on Koyeb:
+### Railway (recommended)
+
+This folder includes `railway.toml`, a Dockerfile, and `.env.railway.example`.
+
+1. Create a Railway project/service from this repo.
+2. Set the service root directory to `apps/api`.
+3. Railway will build with Docker and run:
+   `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
+4. In Railway service variables, add values from `.env.railway.example`:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_KEY`
+   - `SUPABASE_ANON_KEY`
+   - `CORS_ALLOW_ORIGINS`
+   - `CORS_ALLOW_ORIGIN_REGEX`
+5. Confirm health check: `GET /health` returns `200`.
+
+After Railway is live, set dashboard env in Vercel:
+
+```bash
+VITE_API_URL=https://<your-railway-service-domain>
+```
+
+Then redeploy the dashboard.
+
+### Koyeb (legacy option)
 
 ```bash
 # Using Koyeb CLI

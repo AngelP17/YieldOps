@@ -1,13 +1,16 @@
 import type { VMPredictionRecord, RecipeAdjustment, AegisIncident, AegisAgent, SafetyCircuitStatus, SentinelSummary, KnowledgeGraphData } from '../types';
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_RETRY_COOLDOWN_MS = 60_000;
+let apiUnavailableUntil = 0;
 
 export const toApiUrl = (path: string): string => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
 // Check if API is properly configured (not using placeholder values)
 export const isApiConfigured = (): boolean => {
   const apiUrl = import.meta.env.VITE_API_URL;
-  return apiUrl !== undefined && apiUrl !== '' && apiUrl !== 'your_api_url';
+  const hasConfiguredUrl = apiUrl !== undefined && apiUrl !== '' && apiUrl !== 'your_api_url';
+  return hasConfiguredUrl && Date.now() >= apiUnavailableUntil;
 };
 
 // Check if Supabase is properly configured
@@ -25,6 +28,10 @@ export const isSupabaseConfigured = (): boolean => {
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  if (Date.now() < apiUnavailableUntil) {
+    throw new Error('API temporarily unavailable. Retrying shortly.');
+  }
+
   const url = `${API_BASE}${path}`;
 
 
@@ -48,9 +55,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       throw new Error(errorDetail);
     }
 
+    apiUnavailableUntil = 0;
     return res.json();
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
+      apiUnavailableUntil = Date.now() + API_RETRY_COOLDOWN_MS;
       // Silently handle network errors in production
       throw new Error('Cannot connect to API server. Please check your connection or start the backend server.');
     }

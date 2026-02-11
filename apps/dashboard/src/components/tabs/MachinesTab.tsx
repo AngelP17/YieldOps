@@ -164,12 +164,14 @@ export function MachinesTab({ machines }: MachinesTabProps) {
     <div className="space-y-6">
       {/* Filter Bar */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
           {/* Search */}
-          <div className="relative flex-1 min-w-0">
+          <div className="relative min-w-0 sm:col-span-2 xl:col-span-2">
             <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
+              name="machineSearch"
+              aria-label="Search machines"
               placeholder="Search machines..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -179,9 +181,11 @@ export function MachinesTab({ machines }: MachinesTabProps) {
 
           {/* Status Filter */}
           <select
+            name="statusFilter"
+            aria-label="Filter machines by status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as MachineStatus | 'ALL')}
-            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
             <option value="ALL">All Status</option>
             <option value="RUNNING">Running</option>
@@ -192,9 +196,11 @@ export function MachinesTab({ machines }: MachinesTabProps) {
 
           {/* Type Filter */}
           <select
+            name="typeFilter"
+            aria-label="Filter machines by type"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as MachineType | 'ALL')}
-            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
             <option value="ALL">All Types</option>
             <option value="lithography">Lithography</option>
@@ -206,9 +212,11 @@ export function MachinesTab({ machines }: MachinesTabProps) {
 
           {/* Sort Dropdown */}
           <select
+            name="sortBy"
+            aria-label="Sort machines"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'name' | 'status' | 'efficiency' | 'type')}
-            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
             <option value="name">Sort: Name</option>
             <option value="status">Sort: Status</option>
@@ -217,7 +225,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
           </select>
 
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 overflow-x-auto">
             <button
               onClick={() => setViewMode('list')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -253,7 +261,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
             </button>
           </div>
 
-          <span className="text-sm text-slate-500 whitespace-nowrap">{filtered.length} machines</span>
+          <span className="text-sm text-slate-500 whitespace-nowrap self-center sm:justify-self-end xl:justify-self-start">{filtered.length} machines</span>
         </div>
       </div>
 
@@ -267,7 +275,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                   <div
                     key={machine.machine_id}
                     onClick={() => setSelectedMachine(machine)}
-                    className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
+                    className={`px-4 py-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between cursor-pointer transition-colors ${
                       selectedMachine?.machine_id === machine.machine_id
                         ? 'bg-blue-50 hover:bg-blue-50'
                         : 'hover:bg-slate-50'
@@ -285,7 +293,7 @@ export function MachinesTab({ machines }: MachinesTabProps) {
                         <p className="text-xs text-slate-500">{machine.type} · {machine.location_zone}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 sm:gap-4">
                       <div className="text-right">
                         <p className="text-sm font-medium text-slate-900">{(machine.efficiency_rating * 100).toFixed(0)}%</p>
                         <p className="text-[10px] text-slate-500">Efficiency</p>

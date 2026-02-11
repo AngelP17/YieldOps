@@ -438,11 +438,11 @@ function App() {
                   href={transvecHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
                   title="Open Transvec logistics interface"
                 >
                   <IconExternalLink className="w-3.5 h-3.5" />
-                  Transvec
+                  <span className="hidden sm:inline">Transvec</span>
                 </a>
                 {/* Mock Data Badge */}
                 {/* Demo Mode Badge */}
@@ -491,7 +491,7 @@ function App() {
           </div>
         </header>
 
-        <main className="px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
+        <main className="px-4 sm:px-6 lg:px-8 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8">
           {activeTab === 'overview' && (
             <OverviewTab machines={machinesWithSensorData} jobs={displayJobs} />
           )}
@@ -510,7 +510,7 @@ function App() {
         </main>
 
         {/* Mobile Bottom Tab Bar */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 md:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)] md:hidden">
           <div className="flex items-center justify-around">
             {[
               { id: 'overview', label: 'Overview', icon: IconLayoutDashboard },
@@ -525,7 +525,7 @@ function App() {
                 className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 min-h-[48px] transition-colors ${
                   activeTab === tab.id
                     ? 'text-blue-600'
-                    : 'text-slate-400'
+                    : 'text-slate-500'
                 }`}
               >
                 <tab.icon className="w-5 h-5" />

@@ -619,10 +619,10 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                 })
                 .slice(0, 5)
                 .map((job, i) => (
-                  <div key={job.job_id} className="px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-slate-400">#{i + 1}</span>
-                      <span className="text-sm font-medium text-slate-900">{job.job_name}</span>
+                  <div key={job.job_id} className="px-6 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-mono text-slate-500">#{i + 1}</span>
+                      <span className="text-sm font-medium text-slate-900 truncate">{job.job_name}</span>
                       {job.is_hot_lot && (
                         <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-semibold rounded">HOT</span>
                       )}
@@ -652,15 +652,15 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             </div>
             <div className="divide-y divide-slate-100">
               {dispatchHistory.slice(0, 8).map((d, i) => (
-                <div key={d.decision_id || i} className="px-6 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div key={d.decision_id || i} className="px-6 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <IconArrowRight className="w-3.5 h-3.5 text-blue-500" />
-                    <div>
-                      <span className="text-sm text-slate-700">{d.production_jobs?.job_name || d.job_id?.slice(0, 8)}</span>
-                      <span className="text-xs text-slate-400 ml-2">{d.machines?.name || ''}</span>
+                    <div className="min-w-0">
+                      <span className="text-sm text-slate-700 truncate block">{d.production_jobs?.job_name || d.job_id?.slice(0, 8)}</span>
+                      <span className="text-xs text-slate-500">{d.machines?.name || ''}</span>
                     </div>
                   </div>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-500 shrink-0">
                     {d.dispatched_at ? new Date(d.dispatched_at).toLocaleTimeString() : ''}
                   </span>
                 </div>
@@ -761,8 +761,8 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
             </div>
             <div className="divide-y divide-slate-100">
               {troubledMachines.map((m) => (
-                <div key={m.machine_id} className="px-6 py-3 flex items-center justify-between">
-                  <div>
+                <div key={m.machine_id} className="px-6 py-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <span className="text-sm font-medium text-slate-900">{m.name}</span>
                     <div className="flex items-center gap-2 mt-0.5">
                       <StatusBadge status={m.status} />
@@ -770,7 +770,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                   </div>
                   <button
                     onClick={() => handleRecover(m.machine_id, m.name)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                    className="w-full sm:w-auto justify-center flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
                   >
                     <IconTool className="w-3 h-3" />
                     Recover
@@ -787,13 +787,13 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
 
       {/* System Topology Knowledge Graph */}
       <div className="border-t border-slate-200 pt-6 mt-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="min-w-0">
             <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
               <IconGraph className="w-4 h-4 text-blue-600" />
               System Topology
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 pr-0 sm:pr-4">
               Interactive visualization of machines, zones, jobs, and their relationships
             </p>
           </div>
@@ -806,7 +806,7 @@ export function OverviewTab({ machines, jobs }: OverviewTabProps) {
                 setShowSystemGraph(false);
               }
             }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+            className="w-full sm:w-auto justify-center sm:justify-start whitespace-nowrap flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
           >
             <IconGraph className="w-4 h-4" />
             {showSystemGraph ? 'Hide Graph' : 'Show Graph'}
