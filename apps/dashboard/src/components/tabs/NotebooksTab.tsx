@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
+import {
   IconBook, 
   IconPlayerPlay, 
   IconDownload, 
@@ -12,7 +12,7 @@ import {
   IconAlertCircle,
   IconLoader2
 } from '@tabler/icons-react';
-import { api, toApiUrl } from '../../services/apiClient';
+import { api, isApiConfigured, toApiUrl } from '../../services/apiClient';
 import { useToast } from '../ui/Toast';
 
 interface Notebook {
@@ -43,8 +43,38 @@ const EXPORT_FORMATS = [
   { id: 'slides', label: 'Slides', icon: IconPresentation, description: 'Reveal.js presentation' },
 ];
 
+const DEMO_NOTEBOOKS: Notebook[] = [
+  { name: 'yield_forecast_30d.ipynb', path: '/demo/yield_forecast_30d.ipynb', description: '30-day demand and yield forecast' },
+  { name: 'capacity_bottleneck_scan.ipynb', path: '/demo/capacity_bottleneck_scan.ipynb', description: 'Bottleneck and throughput simulation' },
+  { name: 'sentinel_incident_review.ipynb', path: '/demo/sentinel_incident_review.ipynb', description: 'Incident trend analysis for sentinel alerts' },
+];
+
+const DEMO_SCENARIOS: Record<string, Scenario> = {
+  base: { name: 'Base Case', description: 'Balanced demand and stable tool health', params: { demand_growth: 1.0, yield_target: 0.9 } },
+  stress: { name: 'Stress', description: 'High volume with constrained dispatch capacity', params: { demand_growth: 1.2, yield_target: 0.86 } },
+  recovery: { name: 'Recovery', description: 'Post-incident ramp with controlled WIP', params: { demand_growth: 0.95, yield_target: 0.92 } },
+};
+
+const DEMO_REPORTS: Report[] = [
+  {
+    name: 'yield-forecast-demo.html',
+    path: '/demo/reports/yield-forecast-demo.html',
+    created_at: Date.now() - 1000 * 60 * 45,
+    size_bytes: 248_120,
+    format: 'html',
+  },
+  {
+    name: 'sentinel-review-demo.pdf',
+    path: '/demo/reports/sentinel-review-demo.pdf',
+    created_at: Date.now() - 1000 * 60 * 90,
+    size_bytes: 982_304,
+    format: 'pdf',
+  },
+];
+
 export function NotebooksTab() {
   const { toast } = useToast();
+  const apiAvailable = isApiConfigured();
   const [activeSection, setActiveSection] = useState<'execute' | 'export' | 'sync' | 'reports'>('execute');
   
   // Notebooks list
@@ -75,6 +105,16 @@ export function NotebooksTab() {
 
   // Load notebooks and scenarios
   const loadData = useCallback(async () => {
+    if (!apiAvailable) {
+      setLoadingNotebooks(false);
+      setNotebooks(DEMO_NOTEBOOKS);
+      setScenarios(DEMO_SCENARIOS);
+      if (!selectedNotebook && DEMO_NOTEBOOKS.length > 0) {
+        setSelectedNotebook(DEMO_NOTEBOOKS[0].name);
+      }
+      return;
+    }
+
     try {
       setLoadingNotebooks(true);
       const [notebooksData, scenariosData] = await Promise.all([
@@ -91,10 +131,16 @@ export function NotebooksTab() {
     } finally {
       setLoadingNotebooks(false);
     }
-  }, [toast, selectedNotebook]);
+  }, [apiAvailable, toast, selectedNotebook]);
 
   // Load reports
   const loadReports = useCallback(async () => {
+    if (!apiAvailable) {
+      setLoadingReports(false);
+      setReports(DEMO_REPORTS);
+      return;
+    }
+
     try {
       setLoadingReports(true);
       const reportsData = await api.getNotebookReports();
@@ -104,7 +150,7 @@ export function NotebooksTab() {
     } finally {
       setLoadingReports(false);
     }
-  }, [toast]);
+  }, [apiAvailable, toast]);
 
   useEffect(() => {
     loadData();
@@ -119,6 +165,21 @@ export function NotebooksTab() {
     }
     
     setExecuting(true);
+
+    if (!apiAvailable) {
+      const demoReport: Report = {
+        name: `${selectedNotebook.replace('.ipynb', '')}-${selectedScenario}-demo.html`,
+        path: `/demo/reports/${selectedNotebook.replace('.ipynb', '')}-${selectedScenario}-demo.html`,
+        created_at: Date.now(),
+        size_bytes: 320_000,
+        format: 'html',
+      };
+      setReports((prev) => [demoReport, ...prev.filter((r) => r.name !== demoReport.name)]);
+      toast('Notebook executed in demo mode (simulated)', 'success');
+      setExecuting(false);
+      return;
+    }
+
     try {
       let params = undefined;
       if (selectedScenario === 'custom' && customParams.trim()) {
@@ -159,6 +220,22 @@ export function NotebooksTab() {
     }
     
     setExporting(true);
+
+    if (!apiAvailable) {
+      const demoExt = selectedExportFormat === 'script' ? 'py' : selectedExportFormat;
+      const demoReport: Report = {
+        name: `${selectedNotebook.replace('.ipynb', '')}-demo.${demoExt}`,
+        path: `/demo/reports/${selectedNotebook.replace('.ipynb', '')}-demo.${demoExt}`,
+        created_at: Date.now(),
+        size_bytes: 180_000,
+        format: demoExt,
+      };
+      setReports((prev) => [demoReport, ...prev.filter((r) => r.name !== demoReport.name)]);
+      toast(`Export simulated in demo mode (${demoExt.toUpperCase()})`, 'success');
+      setExporting(false);
+      return;
+    }
+
     try {
       const result = await api.exportNotebook({
         notebook_name: selectedNotebook,
@@ -182,6 +259,13 @@ export function NotebooksTab() {
   // Sync notebooks
   const handleSync = async () => {
     setSyncing(true);
+
+    if (!apiAvailable) {
+      toast('Sync simulated in demo mode', 'success');
+      setSyncing(false);
+      return;
+    }
+
     try {
       const result = await api.syncNotebooks({ direction: syncDirection });
       if (result.success) {
@@ -201,6 +285,13 @@ export function NotebooksTab() {
   // Launch Jupyter
   const handleLaunchJupyter = async () => {
     setLaunchingJupyter(true);
+
+    if (!apiAvailable) {
+      toast('Jupyter launch is disabled in demo mode (no backend)', 'info');
+      setLaunchingJupyter(false);
+      return;
+    }
+
     try {
       const result = await api.launchJupyter();
       if (result.success) {
@@ -253,7 +344,9 @@ export function NotebooksTab() {
             Notebooks
           </h2>
           <p className="text-sm text-slate-500">
-            Execute, export, and manage Jupyter notebooks with Papermill
+            {apiAvailable
+              ? 'Execute, export, and manage Jupyter notebooks with Papermill'
+              : 'Demo mode: notebook workflows are simulated with seeded sample outputs'}
           </p>
         </div>
         <button
@@ -571,14 +664,20 @@ export function NotebooksTab() {
                       </p>
                     </div>
                   </div>
-                  <a
-                    href={toApiUrl(`/api/v1/notebooks/reports/${encodeURIComponent(report.name)}`)}
-                    download
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    <IconDownload className="w-3 h-3" />
-                    Download
-                  </a>
+                  {apiAvailable ? (
+                    <a
+                      href={toApiUrl(`/api/v1/notebooks/reports/${encodeURIComponent(report.name)}`)}
+                      download
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      <IconDownload className="w-3 h-3" />
+                      Download
+                    </a>
+                  ) : (
+                    <span className="px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-100 rounded-lg">
+                      Demo file
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
