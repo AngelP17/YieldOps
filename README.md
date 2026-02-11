@@ -2,8 +2,8 @@
 
 Intelligent Manufacturing & IIoT Portfolio Project
 
-**Live Demo:** [https://yield-ops-dashboard.vercel.app/](https://yield-ops-dashboard.vercel.app/) *(Frontend)*  
-**API Endpoint:** <https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app/> *(Backend)*
+**Live Demo:** [https://yield-ops-dashboard.vercel.app/](https://yield-ops-dashboard.vercel.app/) *(Frontend, demo mode default)*  
+**Backend API:** Optional for live integrations (not required for demo mode)
 
 ---
 
@@ -49,7 +49,7 @@ flowchart TB
         React --> Tabs
     end
 
-    subgraph Backend["Backend - Koyeb"]
+    subgraph Backend["Backend - Optional (Railway/Fly/Self-host)"]
         FastAPI["FastAPI Controller"]
         ToC["ToC Dispatch Engine"]
         ML["ML Models"]
@@ -68,7 +68,7 @@ flowchart TB
         FastAPI --> Graphs
     end
 
-    subgraph Database["Database - Supabase"]
+    subgraph Database["Database - Optional (Supabase)"]
         PostgreSQL["PostgreSQL + Realtime"]
         Machines[(Machines)]
         SensorData[(Sensor Data)]
@@ -102,9 +102,9 @@ flowchart TB
 | **Icons** | Tabler Icons React | Icon Library | - |
 | **Knowledge Graph** | NetworkX | Graph analytics | - |
 | **Graph Viz** | react-force-graph-2d / Cytoscape | Interactive visualization | - |
-| **Backend** | FastAPI (Python 3.11) | API & ML Services | Koyeb |
-| **Database** | PostgreSQL 15 | Primary Data Store | Supabase |
-| **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
+| **Backend** | FastAPI (Python 3.11) | API & ML Services | Optional |
+| **Database** | PostgreSQL 15 | Primary Data Store | Optional |
+| **Realtime** | Supabase Realtime | WebSocket Events | Optional |
 | **ML** | Scikit-Learn | Anomaly Detection & VM | - |
 | **Rust** | PyO3 + rayon | High-performance compute | - |
 
@@ -129,7 +129,7 @@ YieldOps/
 │   │   │   └── types/         # TypeScript types
 │   │   └── .env               # Environment variables
 │   │
-│   └── api/                # FastAPI Backend (Koyeb)
+│   └── api/                # FastAPI Backend (optional for live mode)
 │       ├── app/
 │       │   ├── api/v1/        # API endpoints
 │       │   │   └── aegis.py         # Aegis Sentinel API routes
@@ -188,7 +188,8 @@ YieldOps/
 
 - Node.js 18+
 - Python 3.11+
-- Supabase account (optional for demo mode)
+- No backend requirements for demo mode
+- Supabase account (optional for live mode)
 
 ### Setup
 
@@ -212,11 +213,16 @@ YieldOps/
    cd apps/api && pip install -r requirements.txt
    ```
 
-3. **Environment Variables** (Optional for demo mode)
+3. **Environment Variables**
 
    Create `.env` files:
 
-   **apps/api/.env:**
+   **Demo mode default (recommended for portfolio/demo hosting):**  
+   No env vars required in Vercel. Leave `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` unset.
+
+   **Optional live mode (backend + Supabase integration):**
+
+   **apps/api/.env**
 
    ```bash
    SUPABASE_URL=your_supabase_url
@@ -225,7 +231,7 @@ YieldOps/
    DEBUG=true
    ```
 
-   **apps/dashboard/.env:**
+   **apps/dashboard/.env**
 
    ```bash
    VITE_SUPABASE_URL=your_supabase_url
@@ -362,7 +368,7 @@ flowchart TD
 
 ---
 
-## Live Mode (Supabase)
+## Live Mode (Optional Supabase Integration)
 
 When connected to Supabase, the system operates in **Live Mode** with real-time data sync:
 
@@ -497,25 +503,17 @@ See [Architecture.md](Architecture.md) for complete documentation.
 
 ## Deployment
 
-### Backend (Koyeb)
-
-```bash
-koyeb app create yieldops-api \
-  --git github.com:AngelP17/YieldOps.git \
-  --git-branch main \
-  --git-build-command "pip install -r requirements.txt" \
-  --git-run-command "uvicorn app.main:app --host 0.0.0.0 --port 8000" \
-  --git-workdir apps/api \
-  --ports 8000:http \
-  --instance-type nano
-```
-
-### Frontend (Vercel)
+### Frontend (Vercel, Demo Mode Default)
 
 1. Connect GitHub repo to Vercel
 2. Set framework preset to "Vite"
 3. Set root directory to `apps/dashboard`
-4. Add environment variables
+4. Keep `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` unset for demo mode
+
+### Optional Backend for Live Integrations
+
+- See `/Users/apinzon/Desktop/Active Projects/YieldOps/apps/api/README.md`
+- See `/Users/apinzon/Desktop/Active Projects/YieldOps/RAILWAY_SETUP.md`
 
 ---
 

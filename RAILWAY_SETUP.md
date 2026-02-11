@@ -1,4 +1,7 @@
-# Railway Two-Service Setup (API + Dashboard)
+# Railway Two-Service Setup (Optional Live Mode)
+
+This setup is only needed if you want live backend/Supabase integrations.  
+For demo mode on Vercel, no backend service is required.
 
 ## 1) API service (`apps/api`)
 
@@ -23,7 +26,7 @@
 - Open `https://<api-service-domain>/health`
 - Must return JSON with `"status": "healthy"`
 
-## 2) Dashboard service (`apps/dashboard`) - optional if you keep Vercel
+## 2) Dashboard service (`apps/dashboard`) - optional
 
 ### Root directory
 `apps/dashboard`
@@ -45,3 +48,10 @@ Set these in Vercel dashboard app env vars:
 - `VITE_SUPABASE_ANON_KEY` = your Supabase anon key
 
 Then redeploy Vercel.
+
+## 4) Demo mode on Vercel (no backend)
+
+Unset these env vars in Vercel and redeploy:
+- `VITE_API_URL`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`

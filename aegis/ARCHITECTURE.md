@@ -345,9 +345,9 @@ docker run -d \
   -e MQTT_BROKER=mqtt.yieldops.com \
   aegis-sentinel
 
-# 2. Configure YieldOps integration
-# Set environment variables in production
-export YIELDOPS_API_URL=https://yieldops-api.koyeb.app
+# 2. Configure YieldOps integration (optional live mode)
+# Set environment variables in production only if live API/Supabase are enabled
+export YIELDOPS_API_URL=https://<your-live-api-domain>
 export YIELDOPS_SUPABASE_URL=your_supabase_url
 ```
 

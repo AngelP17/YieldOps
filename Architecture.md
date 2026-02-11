@@ -2,8 +2,10 @@
 
 Intelligent Manufacturing & IIoT Portfolio Project
 
-**Live Demo:** [https://yield-ops-dashboard.vercel.app/](https://yield-ops-dashboard.vercel.app/) *(Frontend)*  
-**API Endpoint:** <https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app/> *(Backend)*
+**Live Demo:** [https://yield-ops-dashboard.vercel.app/](https://yield-ops-dashboard.vercel.app/) *(Frontend, demo mode default)*  
+**API Endpoint:** Optional for live integrations
+
+> Documentation note: this architecture doc includes historical hosting examples (Koyeb/Supabase). Current default deployment is frontend-only demo mode on Vercel; backend/Supabase are optional.
 
 ---
 
@@ -69,7 +71,7 @@ flowchart TB
         Hooks --> Services
     end
 
-    subgraph Backend["Backend - Koyeb"]
+    subgraph Backend["Backend - Optional"]
         direction TB
         FastAPI["FastAPI Controller"]
         
@@ -202,7 +204,7 @@ flowchart TB
 | **Styling** | Tailwind CSS 3.4 | Utility-first CSS | - |
 | **Charts** | Recharts | Data Visualization | - |
 | **Icons** | Tabler Icons React | Icon Library | - |
-| **Backend** | FastAPI (Python 3.11) | API & ML Services | Koyeb |
+| **Backend** | FastAPI (Python 3.11) | API & ML Services | Optional |
 | **Database** | PostgreSQL 15 | Primary Data Store | Supabase |
 | **Realtime** | Supabase Realtime | WebSocket Events | Supabase |
 | **ML** | Scikit-Learn | Anomaly Detection & VM | - |
@@ -406,7 +408,7 @@ Aegis implements physics-informed detection algorithms based on semiconductor ma
 | Component | Winner | Why It Wins |
 |-----------|--------|-------------|
 | **Database** | **Supabase** | Free Realtime (WebSockets) for live dashboard updates without polling |
-| **Backend** | **Koyeb** | Free tier with no cold starts - stays running for responsive demos |
+| **Backend** | **Optional provider** | Railway/Fly/self-host when live integrations are required |
 | **Frontend** | **Vercel** | Best React support with automatic CI/CD and client-side routing |
 
 ---
@@ -784,7 +786,7 @@ YieldOps/
 │   │   ├── .env               # Environment variables (not in git)
 │   │   └── vercel.json        # Vercel config
 │   │
-│   └── api/                # FastAPI Backend (Koyeb)
+│   └── api/                # FastAPI Backend (optional for live mode)
 │       ├── app/
 │       │   ├── api/v1/        # API endpoints
 │       │   │   ├── machines.py
@@ -812,7 +814,7 @@ YieldOps/
 │       │   └── services/      # Database service
 │       ├── .env               # Environment variables (not in git)
 │       ├── requirements.txt
-│       └── koyeb.yaml         # Koyeb config
+│       └── koyeb.yaml         # Legacy Koyeb config (optional)
 │
 ├── aegis/                  # Aegis Sentinel Platform
 │   ├── aegis-sentinel/     # Rust agent implementation
@@ -1190,7 +1192,7 @@ flowchart TB
 ### Base URL
 
 ```
-Production: https://beneficial-mathilde-yieldops-883cf8bf.koyeb.app
+Production backend URL: Optional / environment-specific
 Local: http://localhost:8000
 ```
 
@@ -1290,9 +1292,10 @@ AUTO_INIT_MODEL=true
 ### apps/dashboard/.env
 
 ```bash
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_API_URL=http://localhost:8000
+# Demo mode default: keep these unset
+# VITE_SUPABASE_URL=
+# VITE_SUPABASE_ANON_KEY=
+# VITE_API_URL=
 ```
 
 ### aegis/aegis-sentinel/.env (Optional)
@@ -1370,18 +1373,9 @@ let result = optimizer.optimize(jobs, machines, 10)?;
 
 ## Deployment
 
-### Backend (Koyeb)
+### Backend (Optional)
 
-```bash
-koyeb app create yieldops-api \
-  --git github.com:AngelP17/YieldOps.git \
-  --git-branch main \
-  --git-build-command "pip install -r requirements.txt" \
-  --git-run-command "uvicorn app.main:app --host 0.0.0.0 --port 8000" \
-  --git-workdir apps/api \
-  --ports 8000:http \
-  --instance-type nano
-```
+Legacy Koyeb snippet retained for historical reference only. Current recommendation is demo mode on Vercel by default, and optional live integrations via Railway/Fly/self-host.
 
 ### Frontend (Vercel)
 
@@ -1449,7 +1443,7 @@ flowchart TD
 
 ---
 
-## Live Mode with Supabase
+## Live Mode with Supabase (Optional)
 
 When connected to Supabase, the system operates in **Live Mode**:
 

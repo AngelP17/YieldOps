@@ -4,7 +4,7 @@ React + Vite + TypeScript frontend for the YieldOps Smart Fab manufacturing syst
 
 ## Features
 
-- **Real-time Machine Monitoring**: Live machine status via Supabase Realtime
+- **Real-time Machine Monitoring**: Optional live machine status via Supabase Realtime
 - **Four Dashboard Tabs**: Overview, Machines, Jobs, Sentinel
 - **Machine Grid**: Visual representation of all fab machines with status indicators
 - **Virtual Metrology**: Film thickness predictions with global cache (no flickering)
@@ -20,7 +20,7 @@ React + Vite + TypeScript frontend for the YieldOps Smart Fab manufacturing syst
 - TypeScript
 - Vite
 - Tailwind CSS 3.4
-- Supabase Realtime
+- Supabase Realtime (optional live mode)
 - Recharts (data visualization)
 - Tabler Icons React
 - date-fns (date formatting)
@@ -75,12 +75,18 @@ npm run preview
 
 ## Environment Variables
 
+### Demo mode (default)
+
+No environment variables are required. If `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` are unset, the app runs in full demo mode with mock data.
+
+### Optional live mode
+
 Create a `.env` file:
 
 ```bash
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_API_URL=http://localhost:8000  # Optional
+VITE_API_URL=http://localhost:8000
 ```
 
 ## Project Structure
@@ -196,7 +202,7 @@ The dashboard includes a **Demo Mode** that provides full functionality without 
 - Virtual Metrology with persistent cache
 - Immediate UI updates with toast notifications
 
-Demo mode is automatically enabled when Supabase credentials are not configured.
+Demo mode is automatically enabled when live-mode environment variables are not configured.
 
 ## Deployment
 
@@ -207,7 +213,9 @@ This app is configured for deployment on Vercel.
 1. Connect GitHub repo to Vercel
 2. Set framework preset to "Vite"
 3. Set root directory to `apps/dashboard`
-4. Add environment variables:
+4. For demo mode, no env vars are required.
+5. For live mode, add:
+   - `VITE_API_URL`
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 

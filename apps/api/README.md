@@ -2,6 +2,8 @@
 
 FastAPI backend for Smart Fab IIoT Manufacturing Execution System.
 
+> Note: This API is optional for portfolio/demo deployments. The frontend dashboard can run fully in demo mode without deploying this backend.
+
 ## Phase 4: Intelligence Layer
 
 This phase implements the ML and analytics capabilities:
@@ -146,7 +148,7 @@ uvicorn app.main:app --reload
 
 ---
 
-## Environment Variables
+## Environment Variables (Optional for Live Integrations)
 
 ```bash
 SUPABASE_URL=your_supabase_url
@@ -212,7 +214,7 @@ curl -X POST http://localhost:8000/api/v1/aegis/knowledge-graph/generate \
 
 ## Deployment
 
-### Railway (recommended)
+### Railway (optional live mode)
 
 This folder includes `railway.toml`, a Dockerfile, and `.env.railway.example`.
 
@@ -238,17 +240,7 @@ Then redeploy the dashboard.
 
 ### Koyeb (legacy option)
 
-```bash
-# Using Koyeb CLI
-koyeb app create yieldops-api \
-  --git github.com:AngelP17/YieldOps.git \
-  --git-branch main \
-  --git-build-command "pip install -r requirements.txt" \
-  --git-run-command "uvicorn app.main:app --host 0.0.0.0 --port 8000" \
-  --git-workdir apps/api \
-  --ports 8000:http \
-  --instance-type nano
-```
+Koyeb instructions are deprecated in this repo. Use Railway/Fly/self-host only if you need live integrations.
 
 ---
 
