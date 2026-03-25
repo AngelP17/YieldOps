@@ -446,6 +446,22 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 
 ---
 
+## Screenshots
+
+### Overview (Landing Page)
+![Overview Dashboard](.snapshots/01-landing-page.png)
+
+### Machines Tab
+![Machines Dashboard](.snapshots/02-machines-page.png)
+
+### Jobs Tab
+![Jobs Dashboard](.snapshots/03-jobs-page.png)
+
+### Sentinel Tab
+![Sentinel Dashboard](.snapshots/04-sentinel-page.png)
+
+---
+
 ## API Endpoints
 
 ### Core Endpoints
