@@ -37,16 +37,20 @@ flowchart TB
         Tailwind["Tailwind CSS"]
         Charts["Recharts"]
         
-        subgraph Tabs["Dashboard Tabs"]
-            Overview["Overview Tab"]
-            Machines["Machines Tab"]
-            Jobs["Jobs Tab"]
-            Sentinel["Sentinel Tab"]
+        subgraph Surfaces["Product Surfaces"]
+            ControlRoom["Control Room"]
+            DispatchLab["Dispatch Lab"]
+            MachineTwin["Machine Twin"]
+            VirtualMetrology["Virtual Metrology"]
+            AegisSentinel["Aegis Sentinel"]
+            KnowledgeGraph["Knowledge Graph"]
+            ChaosLab["Chaos Lab"]
+            CapacityStudio["Capacity Studio"]
         end
         
         React --> Tailwind
         React --> Charts
-        React --> Tabs
+        React --> Surfaces
     end
 
     subgraph Backend["Backend - Optional (Railway/Fly/Self-host)"]
@@ -118,11 +122,12 @@ YieldOps/
 │   ├── dashboard/          # React Frontend (Vercel)
 │   │   ├── src/
 │   │   │   ├── components/    # React components
-│   │   │   │   ├── tabs/         # Overview, Machines, Jobs, Sentinel tabs
+│   │   │   │   ├── tabs/         # Control Room, Dispatch Lab, Machine Twin, Aegis Sentinel tabs
 │   │   │   │   ├── aegis/        # Sentinel, Knowledge Graph, Safety Circuit
 │   │   │   │   ├── jobs/         # Jobs knowledge graph
 │   │   │   │   ├── overview/     # System knowledge graph
 │   │   │   │   └── ui/           # Reusable UI components
+│   │   │   ├── fixtures/      # Mock data (machines, jobs, telemetry, aegis)
 │   │   │   ├── hooks/         # Custom hooks (useRealtime, useVirtualMetrology, useAegisRealtime)
 │   │   │   ├── services/      # API & Supabase clients
 │   │   │   ├── lib/           # Utility libraries
@@ -448,17 +453,29 @@ When connected to Supabase, the system operates in **Live Mode** with real-time 
 
 ## Screenshots
 
-### Overview (Landing Page)
-![Overview Dashboard](.snapshots/01-landing-page.png)
+### Control Room
+![Control Room](.snapshots/01-control-room.png)
 
-### Machines Tab
-![Machines Dashboard](.snapshots/02-machines-page.png)
+### Dispatch Lab
+![Dispatch Lab](.snapshots/02-dispatch-lab.png)
 
-### Jobs Tab
-![Jobs Dashboard](.snapshots/03-jobs-page.png)
+### Machine Twin
+![Machine Twin](.snapshots/03-machine-twin.png)
 
-### Sentinel Tab
-![Sentinel Dashboard](.snapshots/04-sentinel-page.png)
+### Virtual Metrology
+![Virtual Metrology](.snapshots/04-virtual-metrology.png)
+
+### Aegis Sentinel
+![Aegis Sentinel](.snapshots/05-aegis-sentinel.png)
+
+### Knowledge Graph
+![Knowledge Graph](.snapshots/06-knowledge-graph.png)
+
+### Chaos Lab
+![Chaos Lab](.snapshots/07-chaos-lab.png)
+
+### Capacity Studio
+![Capacity Studio](.snapshots/08-capacity-studio.png)
 
 ---
 
