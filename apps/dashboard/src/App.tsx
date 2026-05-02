@@ -7,7 +7,10 @@ import { OverviewTab } from './components/tabs/OverviewTab';
 import { MachinesTab } from './components/tabs/MachinesTab';
 import { JobsTab } from './components/tabs/JobsTab';
 import { SentinelTab } from './components/tabs/SentinelTab';
-import { NotebooksTab } from './components/tabs/NotebooksTab';
+import { VirtualMetrologyTab } from './components/tabs/VirtualMetrologyTab';
+import { KnowledgeGraphTab } from './components/tabs/KnowledgeGraphTab';
+import { ChaosLabTab } from './components/tabs/ChaosLabTab';
+import { CapacityStudioTab } from './components/tabs/CapacityStudioTab';
 import { MOCK_MACHINES } from './fixtures/machines';
 import { MOCK_JOBS } from './fixtures/jobs';
 import {
@@ -387,19 +390,19 @@ function App() {
             <MachinesTab machines={machinesWithSensorData} />
           )}
           {activeTab === 'virtual-metrology' && (
-            <NotebooksTab />
+            <VirtualMetrologyTab />
           )}
           {activeTab === 'aegis-sentinel' && (
             <SentinelTab />
           )}
           {activeTab === 'knowledge-graph' && (
-            <OverviewTab machines={machinesWithSensorData} jobs={displayJobs} />
+            <KnowledgeGraphTab />
           )}
           {activeTab === 'chaos-lab' && (
-            <MachinesTab machines={machinesWithSensorData} />
+            <ChaosLabTab />
           )}
           {activeTab === 'capacity-studio' && (
-            <JobsTab jobs={displayJobs} machines={machinesWithSensorData} />
+            <CapacityStudioTab />
           )}
         </main>
 
